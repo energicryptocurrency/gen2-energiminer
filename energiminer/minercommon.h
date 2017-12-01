@@ -10,6 +10,8 @@
 
 
 #include <jsoncpp/json/json.h>
+#include "egihash/egihash.h"
+
 
 namespace energi
 {
@@ -39,7 +41,7 @@ namespace energi
 
     // Binary string of uint8_t, just like string is of type char
     using bstring8 = std::vector<uint8_t>;
-    template <typename T> void set<T>(const uint8_t* ptr, T value) { *reinterpret_cast<T*>(ptr) = value; }
+    template <typename T> void set(const uint8_t* ptr, T value) { *reinterpret_cast<T*>(const_cast<uint8_t*>(ptr)) = value; }
 
     // 32 byte vector
     using bstring32 = std::vector<uint32_t>;
@@ -54,18 +56,29 @@ namespace energi
 
         bool operator==(const Work& another)
         {
-            return true;
+            return this->target == another.target && this->data == another.data;
         }
 
-        int64_t  target;
-        std::vector<bstring32> data;
+        int64_t             target;
+        bstring32           data;
+        bstring8            coinbase_txn;
+        std::string         txn_data;
 
+        int data_bytes_size() const
+        {
+            return data.size() * sizeof(uint32_t);
+        }
 	};
 
 	struct Solution
 	{
 		uint64_t        nonce;
 		egihash::h256_t hash;
+        std::string     data;
+        Solution()
+        {}
+
+        Solution(const Work &work);
 	};
 
 	// test
@@ -86,8 +99,8 @@ namespace energi
 		{
 		}
 
-		Worker(Worker const&) = delete;
-		Worker& operator=(Worker const&) = delete;
+		Worker(Worker const&) {};
+		Worker& operator=(Worker const&) {};
 		virtual ~Worker();
 
 		/// Starts a new thread;
@@ -116,17 +129,18 @@ namespace energi
 		}
 
 	protected:
-		virtual void kickOff() = 0;
-		virtual void pause() = 0;
+		virtual void kickOff(){};
+		virtual void pause() {};
 	private:
-		virtual void workLoop() = 0;
+		virtual void workLoop(){};
 
 		std::string 					m_name;
-		mutable Mutex 					m_mwork;
+		mutable std::mutex 				m_mwork;
 		Work							m_work;
 
 		std::unique_ptr<std::thread> 	m_tworker;
-		std::atomic<State> 				m_state { State::Starting };
+		//std::atomic<State> 				m_state { State::Starting };
+        State 				            m_state { State::Starting };
 	};
 
 
@@ -135,8 +149,8 @@ namespace energi
 	{
 	public:
 		Miner(std::string const& name, Plant &plant):
-			Worker(name + std::to_string(index)),
-			index(index),
+			Worker(name + std::to_string(0)),
+			m_index(0),
             m_plant(plant)
 		{}
 
@@ -160,8 +174,8 @@ namespace energi
 		static unsigned s_dagCreateDevice;
 		static volatile void* s_dagInHostMemory;*/
 
+		const size_t m_index = 0;
         Plant &m_plant;
-		const size_t index = 0;
 	private:
 		uint64_t m_hashCount = 0;
 		//mutable Mutex x_work;
@@ -179,7 +193,7 @@ namespace energi
 		 * @param _p The solution.
 		 * @return true iff the solution was good (implying that mining should be .
 		 */
-		virtual bool submitProof(Solution const& _p) = 0;
+		//virtual bool submitProof(Solution const& _p) = 0;
 	};
 
 	class Plant : public PlantFace
@@ -202,7 +216,7 @@ namespace energi
             }
 
             m_started = true;
-            for ( auto miner : vMiner)
+            for ( auto &miner : vMiner)
             {
                 m_started &= miner.start();
             }
@@ -434,13 +448,14 @@ namespace energi
 		 * @param _bi The now-valid header.
 		 * @return true if the header was good and that the Plant should pause until more work is submitted.
 		 */
-		void onSolutionFound(SolutionFound const& _handler) { m_onSolutionFound = _handler; }
-		void onMinerRestart(MinerRestart const& _handler) { m_onMinerRestart = _handler; }
+		//void onSolutionFound(SolutionFound const& _handler) { m_onSolutionFound = _handler; }
+		//void onMinerRestart(MinerRestart const& _handler) { m_onMinerRestart = _handler; }
 
         bool m_started = false;
 		Work work() const { std::lock_guard<std::mutex> l(x_minerWork); return m_work; }
         bool hasFoundBlock() const { return m_hasFoundBlock; }
-
+        Solution m_solution;
+        Solution getSolution() const { return m_solution; }
 		/*std::chrono::steady_clock::time_point farmLaunched() {
 			return m_farm_launched;
 		}*/
@@ -468,20 +483,20 @@ namespace energi
 		 * @param _wp The WorkPackage that the Solution is for.
 		 * @return true iff the solution was good (implying that mining should be .
 		 */
-		bool submitProof(Solution const& _s)
+		/*bool submitProof(Solution const& _s)
 		{
             m_hasFoundBlock = true;
 			//assert(m_onSolutionFound);
 			//return m_onSolutionFound(_s);
-		}
+		}*/
 
-		mutable Mutex x_minerWork;
+		mutable std::mutex x_minerWork;
 		std::vector<std::shared_ptr<Miner>> m_miners;
 		Work m_work;
 
 		std::atomic<bool> m_isMining = {false};
 
-		mutable Mutex x_progress;
+		mutable std::mutex x_progress;
 		//mutable WorkingProgress m_progress;
 
 		SolutionFound m_onSolutionFound;
@@ -508,14 +523,15 @@ namespace energi
     {
     public:
         CPUMiner(Plant& _farm);
-        ~CPUMiner();
+        ~CPUMiner()
+        {}
     protected:
-        void kickOff() override;
-        void pause() override;
+        //void kickOff() override;
+        //void pause() override;
     private:
         void workLoop() override;
-        void report(uint64_t _nonce, Work const& _w);
-        bool init(const h256& seed);
+        //void report(uint64_t _nonce, Work const& _w);
+        //bool init(const h256& seed);
     };
 
     class CLMiner: public Miner
@@ -529,7 +545,7 @@ namespace energi
     private:
         void workLoop() override;
         void report(uint64_t _nonce, Work const& _w);
-        bool init(const h256& seed);
+        //bool init(const h256& seed);
     };
 }
 

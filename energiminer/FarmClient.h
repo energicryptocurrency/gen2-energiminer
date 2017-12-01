@@ -65,18 +65,22 @@ class GBTClient : public jsonrpc::Client
                         throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());
                 }
 
-        bool submitWork(const std::string& param1, const std::string& param2, const std::string& param3) throw (jsonrpc::JsonRpcException)
+        bool submitWork(const energi::Solution &solution)//const std::string& param1, const std::string& param2, const std::string& param3) throw (jsonrpc::JsonRpcException)
         {
-            Json::Value p;
-            p.append(param1);
-            p.append(param2);
-            p.append(param3);
-            Json::Value result = this->CallMethod("eth_submitWork",p);
+            /*sprintf(req,
+                        "{\"method\": \"submitblock\", \"params\": [\"%s%s\"], \"id\":4}\r\n",
+                        data_str, work->txs);
+            }*/
+
+            Json::Value p(Json::arrayValue);
+            p.append(solution.data.data());
+            Json::Value result = this->CallMethod("submitblock",p);
             if (result.isBool())
                 return result.asBool();
             else
                 throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());
         }
+
         bool eth_submitHashrate(const std::string& param1, const std::string& param2) throw (jsonrpc::JsonRpcException)
         {
             Json::Value p;

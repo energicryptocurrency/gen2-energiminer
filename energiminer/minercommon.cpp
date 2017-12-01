@@ -17,7 +17,6 @@
 #include <memory>
 #include <mutex>
 #include <atomic>
-#include "egihash/egihash.h"
 
 #include <cassert>
 #include "minercommon.h"
@@ -224,7 +223,7 @@ namespace energi
     }
 
 
-    Work::Work(const Json::Value &value, const std::string &coinbase_addr)
+    Work::Work(const Json::Value &value, const std::string &coinbase_addr) throw(miner_exception)
     {
         if ( !( value.isMember("height") && value.isMember("version") && value.isMember("previousblockhash") ) )
         {
@@ -247,9 +246,11 @@ namespace energi
 
         auto transactions = value["transactions"];
         cout << "transactions " << transactions.size() << " " << value["transactions"].type() << endl;
+        auto transactions_data_len = 0;
         for ( auto txn : transactions )
         {
             auto data = txn["data"].asString();
+            transactions_data_len += data.size() / 2;
             cout << data << endl;
         }
 
@@ -305,7 +306,7 @@ namespace energi
         // Part 8
         bstring8 part8(25, 0);
         // wallet address for coinbase reward
-        auto pk_script_size = address_to_script(part8.data(), part8.size(), "t54535345");
+        auto pk_script_size = address_to_script(part8.data(), part8.size(), "ygZyLqQsPWeczrG4Dm4R3oFKq1Wv9eEMBZ");
         if (!pk_script_size)
         {
             //fprintf(stderr, "invalid address -- '%s'\n", arg);
@@ -321,7 +322,6 @@ namespace energi
         const std::string kCoinbaseSig = "ranjeet miner";
         // TODO coinbaseaux
 
-        bstring8 coinbase_txn;
         for( auto part : std::vector<bstring8 >{std::move(part1)
                 , std::move(part2)
                 , std::move(part3)
@@ -329,19 +329,18 @@ namespace energi
                 , std::move(part5)
                 , std::move(part6)
                 , std::move(part7)
-                , std::move(part8)
+                , std::move(bstring8(part8.begin(), part8.begin() + pk_script_size))
                 , std::move(part9)})
         {
             coinbase_txn.insert(coinbase_txn.end(), part.begin(), part.end());
         }
 
-        auto transactions_data_len = 100;
-        uint8_t* cb_ptr = nullptr;
+        //uint8_t* cb_ptr = nullptr;
         bstring8 txc_vi(9, 0);
         auto n = varint_encode(txc_vi.data(), 1 + transactions.size());
-        std::string txn_data(2 * (n + coinbase_txn.size() + transactions_data_len) + 1, '\0');
+        txn_data.reserve(2 * (n + coinbase_txn.size() + transactions_data_len) + 1);
         bin2hex(const_cast<char*>(txn_data.data()), txc_vi.data(), n);
-        bin2hex(const_cast<char*>(txn_data.data()) + 2 * n, cb_ptr, coinbase_txn.size());
+        bin2hex(const_cast<char*>(txn_data.data()) + 2 * n, coinbase_txn.data(), coinbase_txn.size());
 
         //std::vector<uint256> vtxn;
         //uint256 merkle_root = CalcMerkleHash(height, pos);
@@ -350,7 +349,7 @@ namespace energi
         std::vector<MerkleTreeElement> merkle_tree( ( 1 + transactions.size() + 1 ) & 0xFFFFFFFF, MerkleTreeElement{});
         sha256d(merkle_tree[0].data(), coinbase_txn.data(), coinbase_txn.size());
 
-        for (int i = 0; i < transactions.size(); ++i)
+        for (int i = 0; i < int(transactions.size()); ++i)
         {
             auto tx_hex = transactions[i]["data"].asString();
             const int tx_size = tx_hex.size() ? (int) (tx_hex.size() / 2) : 0;
@@ -420,40 +419,102 @@ namespace energi
         block_header_part7[12] = 0x00000280;
 
         // Target
-
-
-
-
         bstring32 block_header_part8(8, 0);
-        counter = 0;
+        int counter = 0;
 
+        auto target_hex = value["target"].asString();
         for (auto iter = block_header_part8.rbegin(); iter != block_header_part8.rend(); ++iter, ++counter)
-            *iter = target[counter];
+            *iter = target_hex[counter];
+
+
+        for( auto part : std::vector<bstring32>{std::move(block_header_part1)
+                , std::move(block_header_part2)
+                , std::move(block_header_part3)
+                , std::move(block_header_part4)
+                , std::move(block_header_part5)
+                , std::move(block_header_part6)
+                , std::move(block_header_part7)
+        })
+        {
+            data.insert(data.end(), part.begin(), part.end());
+        }
     }
+
+    Solution::Solution(const Work &work)
+    {
+        if (work.coinbase_txn.size())
+        {
+            /* gbt */
+            //char data_hex[2 * work.data_bytes_size() + 1];
+            for(int i = 0; i < int(work.data.size()); i++)
+                be32enc(const_cast<uint32_t*>(work.data.data() + i), work.data[i]);
+
+            ///bin2hex(data_hex, const_cast<uint8_t*>(reinterpret_cast<uint8_t*>(work.data.data())), 84);
+            std::string req(128 + 2 * 84 + work.txn_data.size(), '\0');
+
+            /*sprintf(req,
+                        "{\"method\": \"submitblock\", \"params\": [\"%s%s\"], \"id\":4}\r\n",
+                        data_str, work->txs);
+            }*/
+
+            //applog(LOG_DEBUG, "DEBUG: submitblock  %s \n", req);
+            /*val = json_rpc_call(curl, rpc_url, rpc_userpass, req, NULL, 0);
+
+            free(req);
+            if (unlikely(!val)) {
+                applog(LOG_ERR, "submit_upstream_work json_rpc_call failed");
+                goto out;
+            }
+
+            res = json_object_get(val, "result");
+            if (json_is_object(res)) {
+                char *res_str;
+                bool sumres = false;
+                void *iter = json_object_iter(res);
+                while (iter) {
+                    if (json_is_null(json_object_iter_value(iter))) {
+                        sumres = true;
+                        break;
+                    }
+                    iter = json_object_iter_next(res, iter);
+                }
+                res_str = json_dumps(res, 0);
+                share_result(sumres, work, res_str);
+                free(res_str);
+            } else
+                share_result(json_is_null(res), work, json_string_value(res));
+
+            json_decref(val);*/
+
+        }
+    }
+
 
     bool Worker::start()
 	{
 		cout << "start working" << m_name;
 		std::lock_guard<std::mutex> lock(m_mwork);
 
-		if (m_work)
+		if (m_tworker)
 		{
-			auto ex = State::Stopped;
-			m_state.compare_exchange_strong(ex, State::Starting);
+			//auto ex = State::Stopped;
+			//m_state.compare_exchange_strong(ex, State::Starting);
+            m_state = State::Starting;
 		}
 		else
 		{
 			m_state = State::Starting;
-			m_work.reset(new thread([&]()
+            m_tworker.reset(new thread([&]()
 			{
 				//setThreadName(m_name.c_str());
 				cout << "Worker Thread begins";
 				while (m_state != State::Killing)
 				{
 					auto ex = State::Starting;
-					bool ok = m_state.compare_exchange_strong(ex, State::Started);
-					cout << "Trying to set Started: Thread was" << (unsigned)ex << "; " << ok;
-					(void)ok;
+					//bool ok = m_state.compare_exchange_strong(ex, State::Started);
+					m_state = State::Started;
+                    cout << "Trying to set Started: Thread was" << (unsigned)ex << "; ";// << ok;
+					//(void)ok;
 
 					try
 					{
@@ -461,14 +522,14 @@ namespace energi
 					}
 					catch (std::exception const& _e)
 					{
-						clog(WarnChannel) << "Exception thrown in Worker thread: " << _e.what();
+						//clog(WarnChannel) << "Exception thrown in Worker thread: " << _e.what();
 					}
 
-					ex = m_state.exchange(WorkerState::Stopped);
+					//ex = m_state.exchange(State::Stopped);
 					cout << "State: Stopped: Thread was" << (unsigned)ex;
 					if (ex == State::Killing || ex == State::Starting)
 					{
-						m_state.exchange(ex);
+						//m_state.exchange(ex);
 					}
 
 					while (m_state == State::Stopped)
@@ -480,7 +541,7 @@ namespace energi
 	//		cnote << "Spawning" << m_name;
 		}
 
-		while (m_state == WorkerState::Starting)
+		while (m_state == State::Starting)
 		{
 			this_thread::sleep_for(chrono::microseconds(20));
 		}
@@ -491,10 +552,10 @@ namespace energi
 	bool Worker::stop()
 	{
 		std::lock_guard<std::mutex> lock(m_mwork);
-		if (m_work)
+		if (m_tworker)
 		{
-			auto ex = State::Started;
-			m_state.compare_exchange_strong(ex, State::Stopping);
+			//auto ex = State::Started;
+			//m_state.compare_exchange_strong(ex, State::Stopping);
 
 			while (m_state != State::Stopped)
 			{
@@ -508,11 +569,11 @@ namespace energi
 	Worker::~Worker()
 	{
 		std::lock_guard<std::mutex> lock(m_mwork);
-		if (m_work)
+		if (m_tworker)
 		{
-			m_state.exchange(State::Killing);
-			m_work->join();
-			m_work.reset();
+			//m_state.exchange(State::Killing);
+            m_tworker->join();
+            m_tworker.reset();
 		}
 	}
 
@@ -521,17 +582,20 @@ namespace energi
     CPUMiner::CPUMiner(Plant &plant)
     :Miner("cpu-", plant)
     {
-        try
+        /*try
         {
             while(true)
             {
                 auto const workNow = work();
             }
         }
-        catch
+        catch(...)
         {
             //cwarn << "OpenCL Error:" << _e.what() << _e.err();
-        }
+        }*/
     }
+
+    void CPUMiner::workLoop()
+    {
     }
 }

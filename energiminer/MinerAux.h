@@ -97,10 +97,10 @@ std::unique_ptr<egihash::dag_t> const & ActiveDAG(std::unique_ptr<egihash::dag_t
 
 std::string GetHex(const uint8_t* data, unsigned int size)
 {
-    char psz[size * 2 + 1];
+    std::string psz(size * 2 + 1, '\0');
     for (unsigned int i = 0; i < size; i++)
-        sprintf(psz + i * 2, "%02x", data[size - i - 1]);
-    return std::string(psz, psz + size * 2);
+        sprintf(const_cast<char*>(psz.data()) + i * 2, "%02x", data[size - i - 1]);
+    return std::string(const_cast<char*>(psz.data()), const_cast<char*>(psz.data()) + size * 2);
 }
 
 
@@ -575,8 +575,10 @@ public:
 //			doBenchmark(m_minerType, m_benchmarkWarmup, m_benchmarkTrial, m_benchmarkTrials);
 		if (mode == OperationMode::GBT)
 			doGBT2(m_activeFarmURL, m_farmRecheckPeriod);
-		else if (mode == OperationMode::Simulation)
-			;//doSimulation(m_minerType);
+		else if (mode == OperationMode::Simulation) {
+
+        }
+        //doSimulation(m_minerType);
 	}
 
 	static void streamHelp(ostream& _out)
@@ -980,7 +982,7 @@ private:
 		jsonrpc::HttpClient client(m_farmURL);
 		GBTClient rpc(client);
         energi::Plant plant;
-        std::vector<energi::Miner> vMiners = { energi::CPUMiner(plant), energi::CLMiner(plant) };
+        std::vector<energi::Miner> vMiners = { energi::CPUMiner(plant) };//, energi::CLMiner(plant) };
         plant.start(vMiners); // start plant full of miners
 
         // Coinbase address for payment
@@ -992,6 +994,7 @@ private:
 			try
 			{
                 auto workProgress = energi::WorkProgress::Started;
+                energi::Solution solution;
                 while(workProgress != energi::WorkProgress::Done)
                 {
                     auto gbt = rpc.getBlockTemplate();
@@ -1001,6 +1004,7 @@ private:
                     {
                         this_thread::sleep_for(chrono::milliseconds(5000));
                         workProgress = plant.hasFoundBlock() ? energi::WorkProgress::Done : workProgress;
+                        solution = plant.getSolution();
                         continue;
                     }
 
@@ -1015,10 +1019,11 @@ private:
                     //mine();
                     this_thread::sleep_for(chrono::milliseconds(5000));
                     workProgress = plant.hasFoundBlock() ? energi::WorkProgress::Done : workProgress;
+                    solution = plant.getSolution();
                 }
 
                 // Since solution was found, submit now
-                //rpc.submitWork();
+                rpc.submitWork(solution);
 				break;
 			}
 			catch (jsonrpc::JsonRpcException& je)
