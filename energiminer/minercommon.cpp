@@ -22,9 +22,354 @@
 #include "minercommon.h"
 #include <condition_variable>
 
+#include "egihash/egihash.h"
+
+#include <boost/thread/locks.hpp>
+#include <boost/thread/mutex.hpp>
+#include <memory>
+#include <sstream>
+#include <iomanip>
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/fstream.hpp>
+
+
+
+using namespace std;
+
 extern "C" void sha256_init(uint32_t *state);
 extern "C" void sha256_transform(uint32_t *state, const uint32_t *block, int swap);
 extern "C" void sha256d(unsigned char *hash, const unsigned char *data, int len);
+
+
+
+#define _ALIGN(x) __attribute__ ((aligned(x)))
+
+bool fulltest(const uint32_t *hash, const uint32_t *target)
+{
+	int i;
+	bool rc = true;
+
+	for (i = 7; i >= 0; i--) {
+		if (hash[i] > target[i]) {
+			rc = false;
+			break;
+		}
+		if (hash[i] < target[i]) {
+			rc = true;
+			break;
+		}
+	}
+
+	/*if (opt_debug) {
+		uint32_t hash_be[8], target_be[8];
+		char hash_str[65], target_str[65];
+
+		for (i = 0; i < 8; i++) {
+			be32enc(hash_be + i, hash[7 - i]);
+			be32enc(target_be + i, target[7 - i]);
+		}
+		bin2hex(hash_str, (unsigned char *)hash_be, 32);
+		bin2hex(target_str, (unsigned char *)target_be, 32);
+
+		applog(LOG_DEBUG, "DEBUG: %s\nHash:   %s\nTarget: %s",
+			rc ? "hash <= target"
+			   : "hash > target (false positive)",
+			hash_str,
+			target_str);
+	}
+*/
+	return rc;
+}
+
+static inline bool is_windows(void) {
+#ifdef WIN32
+	return 1;
+#else
+	return 0;
+#endif
+}
+
+#if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
+#define WANT_BUILTIN_BSWAP
+#else
+#define bswap_32(x) ((((x) << 24) & 0xff000000u) | (((x) << 8) & 0x00ff0000u) \
+                   | (((x) >> 8) & 0x0000ff00u) | (((x) >> 24) & 0x000000ffu))
+#endif
+
+static inline uint32_t swab32(uint32_t v)
+{
+#ifdef WANT_BUILTIN_BSWAP
+	return __builtin_bswap32(v);
+#else
+	return bswap_32(v);
+#endif
+}
+
+#ifdef HAVE_SYS_ENDIAN_H
+#include <sys/endian.h>
+#endif
+
+typedef unsigned char uchar;
+
+#if !HAVE_DECL_BE32DEC
+static inline uint32_t be32dec(const void *pp)
+{
+	const uint8_t *p = (uint8_t const *)pp;
+	return ((uint32_t)(p[3]) + ((uint32_t)(p[2]) << 8) +
+	    ((uint32_t)(p[1]) << 16) + ((uint32_t)(p[0]) << 24));
+}
+#endif
+
+#if !HAVE_DECL_LE32DEC
+static inline uint32_t le32dec(const void *pp)
+{
+	const uint8_t *p = (uint8_t const *)pp;
+	return ((uint32_t)(p[0]) + ((uint32_t)(p[1]) << 8) +
+	    ((uint32_t)(p[2]) << 16) + ((uint32_t)(p[3]) << 24));
+}
+#endif
+
+#if !HAVE_DECL_BE32ENC
+static inline void be32enc(void *pp, uint32_t x)
+{
+	uint8_t *p = (uint8_t *)pp;
+	p[3] = x & 0xff;
+	p[2] = (x >> 8) & 0xff;
+	p[1] = (x >> 16) & 0xff;
+	p[0] = (x >> 24) & 0xff;
+}
+#endif
+
+#if !HAVE_DECL_LE32ENC
+static inline void le32enc(void *pp, uint32_t x)
+{
+	uint8_t *p = (uint8_t *)pp;
+	p[0] = x & 0xff;
+	p[1] = (x >> 8) & 0xff;
+	p[2] = (x >> 16) & 0xff;
+	p[3] = (x >> 24) & 0xff;
+}
+#endif
+
+#if !HAVE_DECL_LE16DEC
+static inline uint16_t le16dec(const void *pp)
+{
+	const uint8_t *p = (uint8_t const *)pp;
+	return ((uint16_t)(p[0]) + ((uint16_t)(p[1]) << 8));
+}
+#endif
+
+#if !HAVE_DECL_LE16ENC
+static inline void le16enc(void *pp, uint16_t x)
+{
+	uint8_t *p = (uint8_t *)pp;
+	p[0] = x & 0xff;
+	p[1] = (x >> 8) & 0xff;
+}
+#endif
+
+
+
+
+
+
+std::unique_ptr<egihash::dag_t> const & ActiveDAG(std::unique_ptr<egihash::dag_t> next_dag  = std::unique_ptr<egihash::dag_t>())
+{
+    using namespace std;
+
+    static boost::mutex m;
+    boost::lock_guard<boost::mutex> lock(m);
+    static unique_ptr<egihash::dag_t> active; // only keep one DAG in memory at once
+
+    // if we have a next_dag swap it
+    if (next_dag)
+    {
+        active.swap(next_dag);
+    }
+
+    // unload the previous dag
+    if (next_dag)
+    {
+        next_dag->unload();
+        next_dag.reset();
+    }
+
+    return active;
+}
+
+
+std::string GetHex(const uint8_t* data, unsigned int size)
+{
+    std::string psz(size * 2 + 1, '\0');
+    for (unsigned int i = 0; i < size; i++)
+        sprintf(const_cast<char*>(psz.data()) + i * 2, "%02x", data[size - i - 1]);
+    return std::string(const_cast<char*>(psz.data()), const_cast<char*>(psz.data()) + size * 2);
+}
+
+
+#pragma pack(push, 1)
+
+//*
+//*   The Keccak-256 hash of this structure is used as input for egihash
+//*   It is a truncated block header with a deterministic encoding
+//*   All integer values are little endian
+//*   Hashes are the nul-terminated hex encoded representation as if ToString() was called
+
+struct CBlockHeaderTruncatedLE
+{
+	int32_t nVersion;
+	char hashPrevBlock[65];
+	char hashMerkleRoot[65];
+	uint32_t nTime;
+	uint32_t nBits;
+	uint32_t nHeight;
+
+	CBlockHeaderTruncatedLE(const void* data)
+	: nVersion(htole32(*reinterpret_cast<const int32_t*>(reinterpret_cast<const uint8_t*>(data) + 0)))
+	, hashPrevBlock{0}
+	, hashMerkleRoot{0}
+	, nTime(htole32(*reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(data) + 4 + 32 + 32 )))
+	, nBits(htole32(*reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(data) + 4 + 32 + 32 + 4 )))
+	, nHeight(htole32(*reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(data) + 4 + 32 + 32 + 4 + 4 )))
+	{
+		auto inputHashPrevBlock = reinterpret_cast<const uint8_t*>(data) + 4;
+		auto prevHash = GetHex(inputHashPrevBlock, 32);
+		memcpy(hashPrevBlock, prevHash.c_str(), (std::min)(prevHash.size(), sizeof(hashPrevBlock)));
+
+		auto inputMerkleHashPrevBlock = reinterpret_cast<const uint8_t*>(data) + 36;
+		auto merkleRoot = GetHex(inputMerkleHashPrevBlock, 32);
+		memcpy(hashMerkleRoot, merkleRoot.c_str(), (std::min)(merkleRoot.size(), sizeof(hashMerkleRoot)));
+	}
+};
+#pragma pack(pop)
+
+
+
+boost::filesystem::path GetDataDir()
+{
+    namespace fs = boost::filesystem;
+	return fs::path("/home/ranjeet/.energicore/regtest/regtest");
+}
+
+
+
+
+void InitDAG(egihash::progress_callback_type callback)
+{
+	using namespace egihash;
+
+	auto const & dag = ActiveDAG();
+	if (!dag)
+	{
+		auto const height = 0;// TODO (max)(GetHeight(), 0);
+		auto const epoch = height / constants::EPOCH_LENGTH;
+		auto const & seedhash = seedhash_to_filename(get_seedhash(height));
+		stringstream ss;
+		ss << hex << setw(4) << setfill('0') << epoch << "-" << seedhash.substr(0, 12) << ".dag";
+		auto const epoch_file = GetDataDir() / "dag" / ss.str();
+
+		printf("DAG file for epoch %u is \"%s\"", epoch, epoch_file.string().c_str());
+		// try to load the DAG from disk
+		try
+		{
+			unique_ptr<dag_t> new_dag(new dag_t(epoch_file.string(), callback));
+			ActiveDAG(move(new_dag));
+			printf("DAG file \"%s\" loaded successfully.", epoch_file.string().c_str());
+			return;
+		}
+		catch (hash_exception const & e)
+		{
+			printf("DAG file \"%s\" not loaded, will be generated instead. Message: %s", epoch_file.string().c_str(), e.what());
+		}
+
+		// try to generate the DAG
+		try
+		{
+			unique_ptr<dag_t> new_dag(new dag_t(height, callback));
+			boost::filesystem::create_directories(epoch_file.parent_path());
+			new_dag->save(epoch_file.string());
+			ActiveDAG(move(new_dag));
+			printf("DAG generated successfully. Saved to \"%s\".", epoch_file.string().c_str());
+		}
+		catch (hash_exception const & e)
+		{
+			printf("DAG for epoch %u could not be generated: %s", epoch, e.what());
+		}
+	}
+	printf("DAG has been initialized already. Use ActiveDAG() to swap.");
+}
+
+
+bool InitEgiHashDag()
+{
+	// initialize the DAG
+	InitDAG([](::std::size_t step, ::std::size_t max, int phase) -> bool
+	{
+			std::stringstream ss;
+			ss << std::fixed << std::setprecision(2)
+			<< static_cast<double>(step) / static_cast<double>(max) * 100.0 << "%"
+			<< std::setfill(' ') << std::setw(80);
+
+			auto progress_handler = [&](std::string const &msg)
+			{
+				std::cout << "\r" << msg;
+			};
+
+		switch(phase)
+		{
+			case egihash::cache_seeding:
+					progress_handler("Seeding cache ... ");
+				break;
+			case egihash::cache_generation:
+					progress_handler("Generating cache ... ");
+				break;
+			case egihash::cache_saving:
+					progress_handler("Saving cache ... ");
+				break;
+			case egihash::cache_loading:
+					progress_handler("Loading cache ... ");
+				break;
+			case egihash::dag_generation:
+					progress_handler("Generating Dag ... ");
+				break;
+			case egihash::dag_saving:
+					progress_handler("Saving Dag ... ");
+				break;
+			case egihash::dag_loading:
+					progress_handler("Loading Dag ... ");
+				break;
+			default:
+				break;
+		}
+
+		auto progress = ss.str();
+		std::cout << progress << std::flush;
+
+		return true;
+	});
+
+	return true;
+}
+
+egihash::h256_t egihash_calc(uint32_t height, uint32_t nonce, const void *input)
+{
+	CBlockHeaderTruncatedLE truncatedBlockHeader(input);
+	egihash::h256_t headerHash(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
+	egihash::result_t ret;
+	// if we have a DAG loaded, use it
+	auto const & dag = ActiveDAG();
+
+	if (dag && ((height / egihash::constants::EPOCH_LENGTH) == dag->epoch()))
+	{
+		return egihash::full::hash(*dag, headerHash, nonce).value;
+	}
+
+    // otherwise all we can do is generate a light hash
+    // TODO: pre-load caches and seed hashes
+    return egihash::light::hash(egihash::cache_t(height, egihash::get_seedhash(height)), headerHash, nonce).value;
+}
+
+
 
 
 
@@ -33,17 +378,6 @@ using namespace std;
 namespace energi
 {
     static const char b58digits[] = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-
-#if !HAVE_DECL_BE32ENC
-    static inline void be32enc(void *pp, uint32_t x)
-    {
-        uint8_t *p = (uint8_t *)pp;
-        p[3] = x & 0xff;
-        p[2] = (x >> 8) & 0xff;
-        p[1] = (x >> 16) & 0xff;
-        p[0] = (x >> 24) & 0xff;
-    }
-#endif
 
 
     static bool b58dec(unsigned char *bin, size_t binsz, const char *b58)
@@ -259,7 +593,7 @@ namespace energi
         auto coinbasevalue = value["coinbasevalue"].asInt64();
         cout << "coinbasevalue " << coinbasevalue << " " << value["coinbasevalue"].type() << endl;
 
-        this->target = value["target"].asInt64();
+        //this->target = value["target"].asInt64();
         //cout << "target " << target << " " << value["target"].type() << endl;
 
 
@@ -338,9 +672,9 @@ namespace energi
         //uint8_t* cb_ptr = nullptr;
         bstring8 txc_vi(9, 0);
         auto n = varint_encode(txc_vi.data(), 1 + transactions.size());
-        txn_data.reserve(2 * (n + coinbase_txn.size() + transactions_data_len) + 1);
-        bin2hex(const_cast<char*>(txn_data.data()), txc_vi.data(), n);
-        bin2hex(const_cast<char*>(txn_data.data()) + 2 * n, coinbase_txn.data(), coinbase_txn.size());
+        std::unique_ptr<char []> txn_data(new char[2 * (n + coinbase_txn.size() + transactions_data_len) + 1]);
+        bin2hex(txn_data.get(), txc_vi.data(), n);
+        bin2hex(txn_data.get() + 2 * n, coinbase_txn.data(), coinbase_txn.size());
 
         //std::vector<uint256> vtxn;
         //uint256 merkle_root = CalcMerkleHash(height, pos);
@@ -363,8 +697,12 @@ namespace energi
             sha256d(merkle_tree[1 + i].data(), tx.data(), tx_size);
             // TODO
             // if (!submit_coinbase)
-            //    strcat(work->txs, tx_hex);
+            //auto diff = txn_data.end() - txn_data.begin();
+            std::strcat(txn_data.get(), tx_hex.c_str());
         }
+
+        m_txn_data.append(txn_data.get());
+
         n = 1 + transactions.size();
 
         while (n > 1)
@@ -388,30 +726,23 @@ namespace energi
         // Part 2 prev hash
         bstring32 block_header_part2(8, 0);
         std::string prevhash = previousblockhash.asString();
-        if (!hex2bin((uint8_t *) block_header_part2.data(), prevhash.data(), 32)) {
-            throw miner_exception("Invalid hex2bin conversion");
-        }
-/*
-
-        auto counter = 0;
-        for (auto iter = block_header_part2.rbegin(); iter != block_header_part2.rend(); ++iter, ++counter) {
-        }
-*/
+        for (int i = 0; i < 8; i++)
+        	block_header_part2[7 - i] = le32dec(prevhash.data() + i);
 
         // Part 3 merkle hash
         bstring32 block_header_part3(8, 0);
-        if (!hex2bin((uint8_t *) block_header_part3.data(), reinterpret_cast<char*>(merkle_tree[0].data()), 32)) {
-            throw miner_exception("Invalid hex2bin conversion");
-        }
+        for (int i = 0; i < 8; i++)
+        	block_header_part3[i] = be32dec((uint32_t *)merkle_tree[0].data() + i);
 
         // Part 4 current time
-        bstring32 block_header_part4(1, curtime.asInt());
+        bstring32 block_header_part4(1, swab32(curtime.asInt()));
 
         // Part 5 bits
-        bstring32 block_header_part5(1, bits.asInt());
+        auto bits_int = std::stoi(bits.asString());
+        bstring32 block_header_part5(1, le32dec(&bits_int));
 
         // Part 6 height -> egihash specific not in Bitcoin
-        bstring32 block_header_part6(1, height.asInt());
+        bstring32 block_header_part6(1, swab32(height.asInt()));
 
         // Part 7 nonce
         bstring32 block_header_part7(52, 0);
@@ -423,9 +754,14 @@ namespace energi
         int counter = 0;
 
         auto target_hex = value["target"].asString();
-        for (auto iter = block_header_part8.rbegin(); iter != block_header_part8.rend(); ++iter, ++counter)
-            *iter = target_hex[counter];
+        bstring32 target_bin(8, 0);
+        hex2bin((uint8_t*)target_bin.data(), target_hex.data(), target_hex.size());
 
+        for (int i = 0; i < 8; i++)
+        	target_bin[7 - i] = be32dec(target_bin.data() + i);
+
+        this->target = std::move(target_bin);
+        this->height = height.asInt();
 
         for( auto part : std::vector<bstring32>{std::move(block_header_part1)
                 , std::move(block_header_part2)
@@ -434,10 +770,14 @@ namespace energi
                 , std::move(block_header_part5)
                 , std::move(block_header_part6)
                 , std::move(block_header_part7)
+        		, std::move(block_header_part8)
         })
         {
             data.insert(data.end(), part.begin(), part.end());
         }
+
+        auto size = data.size();
+        cout << size << endl;
     }
 
     Solution::Solution(const Work &work)
@@ -450,7 +790,7 @@ namespace energi
                 be32enc(const_cast<uint32_t*>(work.data.data() + i), work.data[i]);
 
             ///bin2hex(data_hex, const_cast<uint8_t*>(reinterpret_cast<uint8_t*>(work.data.data())), 84);
-            std::string req(128 + 2 * 84 + work.txn_data.size(), '\0');
+            std::string req(128 + 2 * 84 + work.m_txn_data.size(), '\0');
 
             /*sprintf(req,
                         "{\"method\": \"submitblock\", \"params\": [\"%s%s\"], \"id\":4}\r\n",
@@ -518,7 +858,9 @@ namespace energi
 
 					try
 					{
-						workLoop();
+						while(1)
+							this_thread::sleep_for(chrono::milliseconds(1000));
+						//workLoop();
 					}
 					catch (std::exception const& _e)
 					{
@@ -597,5 +939,51 @@ namespace energi
 
     void CPUMiner::workLoop()
     {
+    	auto work = Work();
+    	uint32_t max_nonce;
+		uint64_t hashes_done;
+
+    	uint32_t _ALIGN(128) hash[8];
+		uint32_t _ALIGN(128) endiandata[21];
+		uint32_t *pdata = work.data.data();
+		uint32_t *ptarget = work.target.data();
+
+		const uint32_t Htarg = ptarget[7];
+		const uint32_t first_nonce = pdata[20];
+		uint32_t nonce = first_nonce;
+		//volatile uint8_t *restart = &(work_restart[thr_id].restart);
+
+		//if (opt_benchmark)
+	//		ptarget[7] = 0x0cff;
+
+		for (int k=0; k < 20; k++)
+			be32enc(&endiandata[k], pdata[k]);
+
+		do
+		{
+			be32enc(&endiandata[20], nonce);
+			//x11hash(hash, endiandata);
+			auto hash_res = egihash_calc(work.height, nonce, endiandata);
+			memcpy(hash, hash_res.b, sizeof(hash_res.b));
+
+			if (hash[7] <= Htarg && fulltest(hash, ptarget)) {
+				//work_set_target_ratio(work, hash);
+				auto nonceForHash = be32dec(&nonce);
+				pdata[20] = nonceForHash;
+				hashes_done = nonce - first_nonce;
+
+				Solution sol;
+				sol.nonce = nonce;
+				sol.hash = hash_res;
+				sol.data = work.data;
+				setSolution(sol);
+				return;
+			}
+			nonce++;
+
+		} while (nonce < max_nonce);// && !(*restart));
+
+		pdata[20] = be32dec(&nonce);
+		hashes_done = nonce - first_nonce + 1;
     }
 }

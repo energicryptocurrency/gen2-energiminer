@@ -59,10 +59,11 @@ namespace energi
             return this->target == another.target && this->data == another.data;
         }
 
-        int64_t             target;
-        bstring32           data;
-        bstring8            coinbase_txn;
-        std::string         txn_data;
+        int             			height;
+        bstring32           		target;
+        bstring32           		data;
+        bstring8            		coinbase_txn;
+        std::string         		m_txn_data;
 
         int data_bytes_size() const
         {
@@ -455,6 +456,7 @@ namespace energi
 		Work work() const { std::lock_guard<std::mutex> l(x_minerWork); return m_work; }
         bool hasFoundBlock() const { return m_hasFoundBlock; }
         Solution m_solution;
+        void setSolution(const Solution & solution) { m_solution = solution; }
         Solution getSolution() const { return m_solution; }
 		/*std::chrono::steady_clock::time_point farmLaunched() {
 			return m_farm_launched;
