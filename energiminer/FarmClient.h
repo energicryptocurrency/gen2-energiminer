@@ -65,18 +65,23 @@ class GBTClient : public jsonrpc::Client
                         throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());
                 }
 
-        bool submitWork(const energi::Solution &solution)//const std::string& param1, const std::string& param2, const std::string& param3) throw (jsonrpc::JsonRpcException)
+        void submitSolution(const energi::Solution &solution)//const std::string& param1, const std::string& param2, const std::string& param3) throw (jsonrpc::JsonRpcException)
         {
             /*sprintf(req,
                         "{\"method\": \"submitblock\", \"params\": [\"%s%s\"], \"id\":4}\r\n",
                         data_str, work->txs);
             }*/
 
-            Json::Value p(Json::arrayValue);
-            p.append(solution.data.data());
-            Json::Value result = this->CallMethod("submitblock",p);
-            if (result.isBool())
-                return result.asBool();
+            Json::Value params(Json::arrayValue);
+            auto result1 = solution.getSubmitBlockData();
+            cout << "SOLUTION: " << result1 << endl;
+            params.append(result1);
+            Json::Value result = this->CallMethod("submitblock", params);
+            cout << "RAW RESULT: " << result.toStyledString();
+            if (result.isObject())
+            {
+                cout << "Result " << result["result"].toStyledString() << endl;
+            }
             else
                 throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());
         }

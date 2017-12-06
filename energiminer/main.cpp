@@ -54,8 +54,17 @@ void version()
 	exit(0);
 }
 
+// Currently tested for little endian systems
+int is_little_endian() { return 0x1 == *reinterpret_cast<const uint16_t*>("\1\0"); }
+
 int main(int argc, char** argv)
 {
+	if ( !is_little_endian() )
+	{
+		cerr << "Little endian not supported" << endl;
+		exit(-1);
+	}
+
 	// Set env vars controlling GPU driver behavior.
 	setenv("GPU_MAX_HEAP_SIZE", "100");
 	setenv("GPU_MAX_ALLOC_PERCENT", "100");

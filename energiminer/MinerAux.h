@@ -163,7 +163,7 @@ public:
 		}
 		else if ((arg == "--coinbase-addr") && i + 1 < argc)
 		{
-			m_coinbaseAddr = argv[++i];
+			m_coinbase_addr = argv[++i];
 		}
 		else if (arg == "--farm-recheck" && i + 1 < argc)
 			try {
@@ -177,7 +177,7 @@ public:
 			}
 		else if (arg == "--farm-retries" && i + 1 < argc)
 			try {
-				m_maxFarmRetries = stol(argv[++i]);
+				m_max_retries = stol(argv[++i]);
 			}
 			catch (...)
 			{
@@ -419,362 +419,40 @@ public:
 	}
 
 private:
-/*
-	void doBenchmark(MinerType _m, unsigned _warmupDuration = 15, unsigned _trialDuration = 3, unsigned _trials = 5)
-	{
-		BlockHeader genesis;
-		genesis.setNumber(m_benchmarkBlock);
-		genesis.setDifficulty(1 << 18);
-		cdebug << genesis.boundary();
-
-		Farm f;
-		map<string, Farm::SealerDescriptor> sealers;
-		sealers["opencl"] = Farm::SealerDescriptor{&CLMiner::instances, [](FarmFace& _farm, unsigned _index){ return new CLMiner(_farm, _index); }};
-		f.setSealers(sealers);
-		f.onSolutionFound([&](Solution) { return false; });
-
-		string platformInfo = _m == MinerType::CL ? "CL" : "CUDA";
-		cout << "Benchmarking on platform: " << platformInfo << endl;
-
-		cout << "Preparing DAG for block #" << m_benchmarkBlock << endl;
-		//genesis.prep();
-
-		genesis.setDifficulty(u256(1) << 63);
-		if (_m == MinerType::CL)
-			f.start("opencl", false);
-		f.setWork(WorkPackage{genesis});
-
-		map<uint64_t, WorkingProgress> results;
-		uint64_t mean = 0;
-		uint64_t innerMean = 0;
-		for (unsigned i = 0; i <= _trials; ++i)
-		{
-			if (!i)
-				cout << "Warming up..." << endl;
-			else
-				cout << "Trial " << i << "... " << flush;
-			this_thread::sleep_for(chrono::seconds(i ? _trialDuration : _warmupDuration));
-
-			auto mp = f.miningProgress();
-			if (!i)
-				continue;
-			auto rate = mp.rate();
-
-			cout << rate << endl;
-			results[rate] = mp;
-			mean += rate;
-		}
-		f.stop();
-		int j = -1;
-		for (auto const& r: results)
-			if (++j > 0 && j < (int)_trials - 1)
-				innerMean += r.second.rate();
-		innerMean /= (_trials - 2);
-		cout << "min/mean/max: " << results.begin()->second.rate() << "/" << (mean / _trials) << "/" << results.rbegin()->second.rate() << " H/s" << endl;
-		cout << "inner mean: " << innerMean << " H/s" << endl;
-
-		exit(0);
-	}
-
-
-
-	void doSimulation(MinerType _m, int difficulty = 20)
-	{
-*//*
-        consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-        genesis = CreateGenesisBlock(1506586761UL, 0, 0x207fffff, 1, 50 * COIN);
-        consensus.hashGenesisBlock = genesis.GetHash();
-        assert(consensus.hashGenesisBlock == uint256S("0x440cbbe939adba25e9e41b976d3daf8fb46b5f6ac0967b0a9ed06a749e7cf1e2"));
-        assert(genesis.hashMerkleRoot == uint256S("0x6a4855e61ae0da5001564cee6ba8dcd7bc361e9bb12e76b62993390d6db25bca"));
-*//*
-		(void)_m;
-
-		BlockHeader genesis;
-		genesis.setNumber(m_benchmarkBlock);
-		genesis.setDifficulty(0x207fffff);
-		cdebug << "BOUNDARY__" << genesis.boundary();
-
-		Farm f;
-		map<string, Farm::SealerDescriptor> sealers;
-		sealers["opencl"] = Farm::SealerDescriptor{ &CLMiner::instances, [](FarmFace& _farm, unsigned _index){ return new CLMiner(_farm, _index); } };
-		f.setSealers(sealers);
-
-		string platformInfo = "CL";
-		cout << "Running mining simulation on platform: " << platformInfo << endl;
-
-		cout << "Preparing DAG for block #" << m_benchmarkBlock << endl;
-		//genesis.prep();
-
-		genesis.setDifficulty(0x207fffff);
-
-		f.start("opencl", false);
-
-		int time = 0;
-
-		WorkPackage current = WorkPackage(genesis);
-		f.setWork(current);
-		while (true) {
-			bool completed = false;
-			Solution solution;
-			f.onSolutionFound([&](Solution sol)
-			{
-				solution = sol;
-				return completed = true;
-			});
-			for (unsigned i = 0; !completed; ++i)
-			{
-				auto mp = f.miningProgress();
-
-				cnote << "Mining on difficulty " << difficulty << " " << mp;
-				this_thread::sleep_for(chrono::milliseconds(1000));
-				time++;
-			}
-			cnote << "Difficulty:" << difficulty << "  Nonce:" << solution.nonce;
-			if (EthashAux::eval(current.seed, current.header, solution.nonce).value < current.boundary)
-			{
-				cnote << "SUCCESS: GPU gave correct result!";
-			}
-			else
-				cwarn << "FAILURE: GPU gave incorrect result!";
-
-			if (time < 12)
-				difficulty++;
-			else if (time > 18)
-				difficulty--;
-			time = 0;
-			genesis.setDifficulty(u256(1) << difficulty);
-			genesis.noteDirty();
-
-			current.header = h256::random();
-			current.boundary = genesis.boundary();
-			minelog << "Generated random work package:";
-			minelog << "  Header-hash:" << current.header.hex();
-			minelog << "  Seedhash:" << current.seed.hex();
-			minelog << "  Target: " << h256(current.boundary).hex();
-			f.setWork(current);
-
-		}
-	}*/
-/*
-
-	bool validate_hash(const std::string &previousblockhash)
-	{
-		// TODO
-		char hex_byte[3];
-		char *ep;
-
-		hex_byte[2] = '\0';
-
-		while (*hexstr && len) {
-			if (!hexstr[1]) {
-				applog(LOG_ERR, "hex2bin str truncated");
-				return false;
-			}
-			hex_byte[0] = hexstr[0];
-			hex_byte[1] = hexstr[1];
-			*p = (unsigned char) strtol(hex_byte, &ep, 16);
-			if (*ep) {
-				applog(LOG_ERR, "hex2bin failed on '%s'", hex_byte);
-				return false;
-			}
-			p++;
-			hexstr += 2;
-			len--;
-		}
-
-		return(!len) ? true : false;
-		return (len == 0 && *hexstr == 0) ? true : false;
-
-		return true;
-	}
-
-
-	int varint_encode(unsigned char *p, uint64_t n)
-	{
-		int i;
-		if (n < 0xfd) {
-			p[0] = (uint8_t) n;
-			return 1;
-		}
-		if (n <= 0xffff) {
-			p[0] = 0xfd;
-			p[1] = n & 0xff;
-			p[2] = (uint8_t) (n >> 8);
-			return 3;
-		}
-		if (n <= 0xffffffff) {
-			p[0] = 0xfe;
-			for (i = 1; i < 5; i++) {
-				p[i] = n & 0xff;
-				n >>= 8;
-			}
-			return 5;
-		}
-		p[0] = 0xff;
-		for (i = 1; i < 9; i++) {
-			p[i] = n & 0xff;
-			n >>= 8;
-		}
-		return 9;
-	}
-
-
-	void bin2hex(char *s, const unsigned char *p, size_t len)
-	{
-		for (size_t i = 0; i < len; i++)
-			sprintf(s + (i * 2), "%02x", (unsigned int) p[i]);
-	}
-
-
-
-    * calculate the hash of a node in the merkle tree (at leaf level: the txid's themselves)
-	uint256 CalcMerkleHash(int height, unsigned int pos, const std::vector<uint256> &vTxid) {
-	    if (height == 0) {
-	        // hash at height 0 is the txids themself
-	        return vTxid[pos];
-	    } else {
-	        // calculate left hash
-	        uint256 left = CalcHash(height-1, pos*2, vTxid), right;
-	        // calculate right hash if not beyond the end of the array - copy left hash otherwise1
-	        if (pos*2+1 < CalcTreeWidth(height-1))
-	            right = CalcHash(height-1, pos*2+1, vTxid);
-	        else
-	            right = left;
-	        // combine subhashes
-	        return Hash(BEGIN(left), END(left), BEGIN(right), END(right));
-	    }
-	}
-
-
-
-	bool parse(Json::Value &work, Json::Value &mining_info)
-	{
-		if ( !( value.isMember("height") && value.isMember("version") && value.isMember("previousblockhash") ) )
-		{
-			return false;
-		}
-
-		auto height = value["height"];
-		cout << "Height " << height << " " << value["height"].type() << endl;
-		auto version = value["version"];
-		cout << "Version " << hex << version << dec << " " << value["version"].type() << endl;
-		auto previousblockhash = value["previousblockhash"];
-		cout << "previousblockhash " << previousblockhash.asString() << " " << value["previousblockhash"].type() << endl;
-		validate_hash(previousblockhash.asString());
-
-		auto curtime = value["curtime"];
-		cout << "curtime " << curtime << " " << value["curtime"].type() << endl;
-		auto bits = value["bits"];
-		cout << "bits " << bits << " " << value["bits"].type() << endl;
-
-		auto transactions = value["transactions"];
-		cout << "transactions " << transactions.size() << " " << value["transactions"].type() << endl;
-		for ( auto txn : transactions )
-		{
-			auto data = txn["data"].asString();
-			cout << data << endl;
-		}
-
-
-		auto pk_script_size = 1;//address_to_script(pk_script, sizeof(pk_script), arg);
-		if (!pk_script_size)
-		{
-			//fprintf(stderr, "invalid address -- '%s'\n", arg);
-			return false;
-		}
-
-		auto coinbasevalue = value["coinbasevalue"].asInt64();
-		cout << "coinbasevalue " << coinbasevalue << " " << value["coinbasevalue"].type() << endl;
-
-		auto target = value["target"].asInt64();
-		//cout << "target " << target << " " << value["target"].type() << endl;
-
-
-
-		// TODO
-		//
-		// applog(LOG_ERR, "No payout address provided");
-		//
-
-		using bstring8 = basic_string<uint8_t>;
-		bstring8 part1(41, 0); // version, txncount, prevhash, pretxnindex
-		*reinterpret_cast<uint32_t*>(part1.data()) = 1;
-		*reinterpret_cast<uint32_t*>(part1.data() + 4) = 1;
-		*reinterpret_cast<uint32_t*>(part1.data() + part1.size() - 4) = 0xFFFFFFFF;
-
-		bstring8 part2(2, 0);// 2 bytes for size
-		bstring8 part3; // script
-
-		 BIP 34: height in coinbase
-		for (int n = height; n > 0; n >>= 8)
-		{
-			part3.push_back( static_cast<uint8_t>(n & 0xFF) );
-		}
-
-		part2[0] = part3.size() + 1;
-		part2[1] = part3.size();
-
-		bstring8 part4(4, 0xFF);  sequence
-		bstring8 part5(1, 1); // output count
-		bstring8 part6(8, 0); // value of coinbase
-
-		*reinterpret_cast<uint32_t*>(part6.data()) 		= (uint32_t)coinbasevalue;
-		*reinterpret_cast<uint32_t*>(part6.data() + 4) 	= (uint32_t)( coinbasevalue >> 32);
-
-		bstring8 part7(1, (uint8_t) pk_script_size); // txout script length
-		bstring8 part8(pk_script, part7[0]);
-		bstring8 part9(4, 0);
-
-
-
-		auto coinbase_txn_size = 100;
-		uint8_t* cb_ptr = nullptr;
-		bstring8 txc_vi(9, 0);
-		auto n = varint_encode(txc_vi.data(), 1 + transactions.size());
-		bstring8 txn_data(2 * (n + coinbase_txn_size + transactions.size()) + 1);
-		bin2hex(txn_data.data(), txc_vi, n);
-		bin2hex(txn_data.data() + 2 * n, cb_ptr, coinbase_txn_size);
-
-		//std::vector<uint256> vtxn;
-	    //uint256 merkle_root = CalcMerkleHash(height, pos);
-
-		 assemble block header
-	    bstring32 block_header_part1(1, version);
-	    bstring32 block_header_part2(8, 0);
-	    auto counter = 0;
-	    for (auto iter = block_header_part2.rbegin(); iter != block_header_part2.rend(); ++iter, ++counter)
-	    	*iter = previousblockhash[counter];
-
-	    bstring32 block_header_part3(8, 0);
-	    counter = 0;
-	    for (auto iter = block_header_part3.rbegin(); iter != block_header_part3.rend(); ++iter, ++counter)
-	    	*iter = previousblockhash[counter];//merkle_root[counter];
-
-	    bstring32 block_header_part4(1, curtime);
-	    bstring32 block_header_part5(1, bits.asInt());
-	    bstring32 block_header_part6(1, height.asInt());
-	    bstring32 block_header_part7(52, 0);
-	    block_header_part7[1] = 0x80000000;
-	    block_header_part7[12] = 0x00000280;
-
-
-		if (unlikely(!jobj_binary(val, "target", target, sizeof(target)))) {
-			applog(LOG_ERR, "JSON invalid target");
-			goto out;
-		}
-
-	    bstring32 block_header_part8(8, 0);
-	    counter = 0;
-
-	    for (auto iter = block_header_part8.rbegin(); iter != block_header_part8.rend(); ++iter, ++counter)
-	      *iter = target[counter];
-
-	}*/
 
 	void doGBT(string & /*_remote*/, unsigned /*_recheckPeriod*/)
 	{
-
 	}
+
+
+	/*
+	 doGBT function starts Plant and in farm it starts miners intended to mine e.g. CPUMiner And/or Gpuminer
+	 doGBT runs a loop where,
+	 	 1. it calls getblocktemplate to get the new work
+	 	 2. Prepares a Work object, which essentially contains data to be mined after parsing getblocktemplate.
+	     3. Since there is no queue concept here because of no need of mining old set of transactions to create new block
+	     	Simply reset the Work everytime we get new data
+	     	So doGBT sets work on Plant which internally is meant to forward to all Miners.
+	     4. One way is to let Plant make a call back as soon as data is ready by using proper synchronization techniques e.g. events
+	     5. Other is to make a good guess of a few milliseconds wait to check for next getblocktemplate if is different
+
+	     What goes inside plant
+	     6. Inside Plant
+	     	a. Plant runs the miners which is also called as a worker, and a worker spawns a thread to do its job and listen for new work
+	     	b. As soon as plant gets new Work, it sets the data for all miners and expects miners to restart ASAP on new data.
+	     	   Basically by requesting them to finish ASAP old block being mined as there is no point.
+	     	   Miners drop existing work and take new Work and start mining fresh.
+	     	   As soon as a miner finds a solution, it calls plant onSolutionFind and plant expects it to be picked up on next check in doGBT.
+
+	 	 7. Threading design
+	 	 8. doGBT runs in main thread
+	 	 	- Plant starts miners (miner is a worker)
+			- miner instead spawns a child thread to do the real mine work and also keep ears open to listen for new data.
+			- we need to synchronize plant and miner communication
+
+	 */
+
+
 
 
 	void doGBT2(string & _remote, unsigned _recheckPeriod)
@@ -785,54 +463,86 @@ private:
 
 		jsonrpc::HttpClient client(m_farmURL);
 		GBTClient rpc(client);
-        energi::Plant plant;
-        std::vector<energi::Miner> vMiners = { energi::CPUMiner(plant) };//, energi::CLMiner(plant) };
-        plant.start(vMiners); // start plant full of miners
+
+		// Create plant
+        energi::MinePlant plant;
+        std::mutex mutex_solution;
+
+        // Start plant now with given miners
+        // start plant full of miners
+        bool m_solution_found = false;
+        energi::Solution solution;
+        // Note, this is mostly called from a miner thread, but since solution is consumed in main thread after set
+        // its safe to not lock the access
+        energi::MinePlant::CBSolutionFound cb_solution_finder = [&m_solution_found, &mutex_solution, &solution](const energi::Solution& solution_)->bool {
+        	m_solution_found = true;
+        	std::lock_guard<std::mutex> l(mutex_solution);
+        	solution = solution_;
+
+        	return true;
+        };
+
+        // Check started or not
+        energi::MinePlant::VMiners vminers;
+        vminers.push_back(std::shared_ptr<energi::Miner>(new energi::CPUMiner(plant)));
+        if ( !plant.start( vminers, cb_solution_finder) )
+        {
+        	// TODO add comment
+        	return;
+        }
+
 
         // Coinbase address for payment
-        std::string coinbase_addr = m_coinbaseAddr;
-        energi::Work currentWork;
-        std::mutex x_current;
-        while (is_mining)
+        energi::Work current_work;
+
+        extern bool InitEgiHashDag();
+
+        InitEgiHashDag();
+
+        // Mine till you can, or retries fail after a limit
+        while (m_is_mining)
 		{
 			try
 			{
-                auto workProgress = energi::WorkProgress::Started;
-                energi::Solution solution;
-                while(workProgress != energi::WorkProgress::Done)
+                m_solution_found = false;
+                // Keep checking for new work and mine
+                while(!m_solution_found)
                 {
                     auto gbt = rpc.getBlockTemplate();
-                    energi::Work newWork(gbt, coinbase_addr);
+                    energi::Work new_work(gbt, m_coinbase_addr);
 
-                    if ( newWork == currentWork )
+                    // check if current work is no different, then skip
+                    if ( new_work == current_work )
                     {
-                        this_thread::sleep_for(chrono::milliseconds(5000));
-                        workProgress = plant.hasFoundBlock() ? energi::WorkProgress::Done : workProgress;
-                        solution = plant.getSolution();
+                        this_thread::sleep_for(chrono::milliseconds(500));
                         continue;
                     }
 
                     // 1. Got new work
                     // 2. Abandon current work and take new work
                     // 3. miner starts mining for new work
-                    currentWork = newWork;
-                    plant.setWork(newWork);
+                    current_work = new_work;
+                    plant.setWork(new_work);
 
-                    //auto mining_info = rpc.getMiningInfo();
-                    //parse(work, mining_info);
-                    //mine();
-                    this_thread::sleep_for(chrono::milliseconds(5000));
-                    workProgress = plant.hasFoundBlock() ? energi::WorkProgress::Done : workProgress;
-                    solution = plant.getSolution();
+                    // 4. Work has been assigned to the plant
+                    // 5. Wait and continue for new work
+                    // 6. TODO decide on time to wait for
+                    this_thread::sleep_for(chrono::milliseconds(1000));
                 }
 
-                // Since solution was found, submit now
-                rpc.submitWork(solution);
+                // 7. Since solution was found, submit now
+                std::lock_guard<std::mutex> l(mutex_solution);
+                rpc.submitSolution(solution);
 				break;
 			}
 			catch (jsonrpc::JsonRpcException& je)
 			{
-				if (m_maxFarmRetries > 0)
+				if (m_max_retries > 100)
+				{
+					cerr << "JSON-RPC problem. Couldn't connect, will exit now" << endl;
+					m_is_mining = false;
+				}
+				else if (m_max_retries > 0)
 				{
 					for (auto i = 3; --i; this_thread::sleep_for(chrono::seconds(1)))
 						cerr << je.GetMessage() << endl << je.what() << endl << "JSON-RPC problem. Probably couldn't connect. Retrying in " << i << "... \r";
@@ -855,7 +565,7 @@ private:
 	OperationMode mode;
 
 	/// Mining options
-	bool is_mining = true;
+	bool m_is_mining = true;
 	MinerType m_minerType = MinerType::Mixed;
 	unsigned m_openclPlatform = 0;
 	unsigned m_miningThreads = UINT_MAX;
@@ -878,11 +588,11 @@ private:
 	string m_farmFailOverURL = "";
 	string m_activeFarmURL = m_farmURL;
 	unsigned m_farmRetries = 0;
-	unsigned m_maxFarmRetries = 3;
+	unsigned m_max_retries = 3;
 	unsigned m_farmRecheckPeriod = 500;
 	unsigned m_defaultStratumFarmRecheckPeriod = 2000;
 	bool m_farmRecheckSet = false;
 	int m_worktimeout = 180;
 	string m_fport = "";
-	string m_coinbaseAddr;
+	string m_coinbase_addr;
 };

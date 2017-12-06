@@ -41,7 +41,6 @@ extern "C" void sha256_transform(uint32_t *state, const uint32_t *block, int swa
 extern "C" void sha256d(unsigned char *hash, const unsigned char *data, int len);
 
 
-
 #define _ALIGN(x) __attribute__ ((aligned(x)))
 
 bool fulltest(const uint32_t *hash, const uint32_t *target)
@@ -248,7 +247,7 @@ struct CBlockHeaderTruncatedLE
 boost::filesystem::path GetDataDir()
 {
     namespace fs = boost::filesystem;
-	return fs::path("/home/ranjeet/.energicore/regtest/regtest");
+	return fs::path("/home/ranjeet/.energicore/regtest/");
 }
 
 
@@ -370,7 +369,28 @@ egihash::h256_t egihash_calc(uint32_t height, uint32_t nonce, const void *input)
 }
 
 
+struct Print
+{
+	void operator()(const uint8_t* arr, size_t len)
+	{
+		cout << "SIZE: " << len << std::endl;
 
+		for( int i = 0; i < len; ++i )
+			std::cout << std::hex << std::nouppercase << std::setw(2) << std::setfill('0')  << static_cast<uint16_t>(arr[i]);
+		std::cout << std::endl;
+	}
+
+	void operator()(const uint8_t arr[32])
+	{
+		operator()(arr, sizeof(arr) / sizeof(arr[0]));
+	}
+
+
+	void operator()(const std::array<uint8_t, 32> &arr)
+	{
+		operator()(arr.data(), arr.size());
+	}
+};
 
 
 using namespace std;
@@ -556,6 +576,15 @@ namespace energi
 /*	return (len == 0 && *hexstr == 0) ? true : false; */
     }
 
+    void serialize_work(const Work &work)
+     {
+     	std::ofstream f ("/var/tmp/gpu_miner.hex", std::ios_base::out | std::ios_base::binary);
+     	f.write(reinterpret_cast<const char*>(work.data.data()), sizeof(uint32_t) * work.data.size());
+     	f << "hello" << endl;
+     	f.write(reinterpret_cast<const char*>(work.target.data()), sizeof(uint32_t) * work.target.size());
+     	f.write(reinterpret_cast<const char*>(work.m_txn_data.c_str()), work.m_txn_data.size());
+     	f.write(reinterpret_cast<const char*>(&work.height), sizeof(work.height));
+     }
 
     Work::Work(const Json::Value &value, const std::string &coinbase_addr) throw(miner_exception)
     {
@@ -597,7 +626,6 @@ namespace energi
         //cout << "target " << target << " " << value["target"].type() << endl;
 
 
-        (void)coinbase_addr;
 
         // TODO
         //
@@ -640,7 +668,7 @@ namespace energi
         // Part 8
         bstring8 part8(25, 0);
         // wallet address for coinbase reward
-        auto pk_script_size = address_to_script(part8.data(), part8.size(), "ygZyLqQsPWeczrG4Dm4R3oFKq1Wv9eEMBZ");
+        auto pk_script_size = address_to_script(part8.data(), part8.size(), coinbase_addr.c_str());
         if (!pk_script_size)
         {
             //fprintf(stderr, "invalid address -- '%s'\n", arg);
@@ -669,6 +697,8 @@ namespace energi
             coinbase_txn.insert(coinbase_txn.end(), part.begin(), part.end());
         }
 
+        Print()(coinbase_txn.data(), coinbase_txn.size());
+
         //uint8_t* cb_ptr = nullptr;
         bstring8 txc_vi(9, 0);
         auto n = varint_encode(txc_vi.data(), 1 + transactions.size());
@@ -687,8 +717,8 @@ namespace energi
         {
             auto tx_hex = transactions[i]["data"].asString();
             const int tx_size = tx_hex.size() ? (int) (tx_hex.size() / 2) : 0;
-            bstring8 tx(tx_size);
-            if (!hex2bin(tx.data(), tx_hex.data(), tx_size))
+            bstring8 tx(tx_size, 0);
+            if (!hex2bin(tx.data(), tx_hex.c_str(), tx_size))
             {
                 //applog(LOG_ERR, "JSON invalid transactions");
                 throw miner_exception("Invalid hex2 bin conversion");
@@ -721,46 +751,55 @@ namespace energi
 
         // assemble block header
         // Part 1 version
-        bstring32 block_header_part1(1, version.asInt());
+        bstring32 block_header_part1(1, swab32(version.asInt()));
 
         // Part 2 prev hash
-        bstring32 block_header_part2(8, 0);
+        bstring32 block_header_part2(8, 0), prevhash_hex(8, 0);
         std::string prevhash = previousblockhash.asString();
+
+        hex2bin(reinterpret_cast<uchar*>(prevhash_hex.data()), prevhash.data(), sizeof(uint32_t) * prevhash_hex.size());
         for (int i = 0; i < 8; i++)
-        	block_header_part2[7 - i] = le32dec(prevhash.data() + i);
+        	block_header_part2[7 - i] = le32dec(prevhash_hex.data() + i);
 
         // Part 3 merkle hash
         bstring32 block_header_part3(8, 0);
         for (int i = 0; i < 8; i++)
         	block_header_part3[i] = be32dec((uint32_t *)merkle_tree[0].data() + i);
 
+
+        for ( auto mn : merkle_tree )
+        {
+        	Print()(mn);
+        }
+
         // Part 4 current time
         bstring32 block_header_part4(1, swab32(curtime.asInt()));
 
         // Part 5 bits
-        auto bits_int = std::stoi(bits.asString());
-        bstring32 block_header_part5(1, le32dec(&bits_int));
+        //auto bits_int = std::stoi(bits.asString(), 0, 16);
+        uint32_t bits_parsed = 0;
+        hex2bin(reinterpret_cast<uchar*>(&bits_parsed), bits.asString().c_str(), sizeof(bits_parsed));
+        bstring32 block_header_part5(1, le32dec(&bits_parsed));
 
         // Part 6 height -> egihash specific not in Bitcoin
         bstring32 block_header_part6(1, swab32(height.asInt()));
 
         // Part 7 nonce
-        bstring32 block_header_part7(52, 0);
+        bstring32 block_header_part7(13, 0);
         block_header_part7[1] = 0x80000000;
         block_header_part7[12] = 0x00000280;
 
-        // Target
-        bstring32 block_header_part8(8, 0);
-        int counter = 0;
+        // Extra dont know why
+        bstring32 block_header_part8(16, 0);
 
         auto target_hex = value["target"].asString();
+        this->target.resize(8);
         bstring32 target_bin(8, 0);
-        hex2bin((uint8_t*)target_bin.data(), target_hex.data(), target_hex.size());
+        hex2bin((uint8_t*)target_bin.data(), target_hex.data(), sizeof(target_bin) * target_bin.size());
 
         for (int i = 0; i < 8; i++)
-        	target_bin[7 - i] = be32dec(target_bin.data() + i);
+        	this->target[7 - i] = be32dec(target_bin.data() + i);
 
-        this->target = std::move(target_bin);
         this->height = height.asInt();
 
         for( auto part : std::vector<bstring32>{std::move(block_header_part1)
@@ -778,67 +817,50 @@ namespace energi
 
         auto size = data.size();
         cout << size << endl;
+
+
+
+
+        serialize_work(*this);
+
     }
 
-    Solution::Solution(const Work &work)
+
+
+    std::string Solution::getSubmitBlockData() const
     {
-        if (work.coinbase_txn.size())
+        if (transaction_hex.size())
         {
-            /* gbt */
-            //char data_hex[2 * work.data_bytes_size() + 1];
-            for(int i = 0; i < int(work.data.size()); i++)
-                be32enc(const_cast<uint32_t*>(work.data.data() + i), work.data[i]);
+			std::string data_str(2 * data.size() * sizeof(uint32_t) + 1, 0);
+			const char* ptr = data_str.c_str();
 
-            ///bin2hex(data_hex, const_cast<uint8_t*>(reinterpret_cast<uint8_t*>(work.data.data())), 84);
-            std::string req(128 + 2 * 84 + work.m_txn_data.size(), '\0');
+			for( auto &v : data)
+				be32enc(const_cast<uint32_t*>(&v), v);
 
-            /*sprintf(req,
-                        "{\"method\": \"submitblock\", \"params\": [\"%s%s\"], \"id\":4}\r\n",
-                        data_str, work->txs);
-            }*/
+			bin2hex(const_cast<char*>(data_str.c_str()), (unsigned char *)data.data(), 84);
+			cout << "TXN: " << transaction_hex << endl;
+			cout << "DATA: " << data_str << endl;
 
-            //applog(LOG_DEBUG, "DEBUG: submitblock  %s \n", req);
-            /*val = json_rpc_call(curl, rpc_url, rpc_userpass, req, NULL, 0);
+			stringstream ss;
+			ss << data_str.c_str() << transaction_hex;
 
-            free(req);
-            if (unlikely(!val)) {
-                applog(LOG_ERR, "submit_upstream_work json_rpc_call failed");
-                goto out;
-            }
 
-            res = json_object_get(val, "result");
-            if (json_is_object(res)) {
-                char *res_str;
-                bool sumres = false;
-                void *iter = json_object_iter(res);
-                while (iter) {
-                    if (json_is_null(json_object_iter_value(iter))) {
-                        sumres = true;
-                        break;
-                    }
-                    iter = json_object_iter_next(res, iter);
-                }
-                res_str = json_dumps(res, 0);
-                share_result(sumres, work, res_str);
-                free(res_str);
-            } else
-                share_result(json_is_null(res), work, json_string_value(res));
-
-            json_decref(val);*/
-
+			cout << "JOIN: " << ss.str() << endl;
+			return ss.str();
         }
+
+        return "";
     }
 
 
     bool Worker::start()
 	{
 		cout << "start working" << m_name;
-		std::lock_guard<std::mutex> lock(m_mwork);
+		std::lock_guard<std::mutex> lock(m_mutex_work);
 
+		// If a valid thread exist then set states
 		if (m_tworker)
 		{
-			//auto ex = State::Stopped;
-			//m_state.compare_exchange_strong(ex, State::Starting);
             m_state = State::Starting;
 		}
 		else
@@ -846,41 +868,26 @@ namespace energi
 			m_state = State::Starting;
             m_tworker.reset(new thread([&]()
 			{
-				//setThreadName(m_name.c_str());
 				cout << "Worker Thread begins";
 				while (m_state != State::Killing)
 				{
-					auto ex = State::Starting;
-					//bool ok = m_state.compare_exchange_strong(ex, State::Started);
 					m_state = State::Started;
-                    cout << "Trying to set Started: Thread was" << (unsigned)ex << "; ";// << ok;
-					//(void)ok;
-
 					try
 					{
-						while(1)
-							this_thread::sleep_for(chrono::milliseconds(1000));
-						//workLoop();
+						trun();
 					}
 					catch (std::exception const& _e)
 					{
 						//clog(WarnChannel) << "Exception thrown in Worker thread: " << _e.what();
 					}
 
-					//ex = m_state.exchange(State::Stopped);
-					cout << "State: Stopped: Thread was" << (unsigned)ex;
-					if (ex == State::Killing || ex == State::Starting)
-					{
-						//m_state.exchange(ex);
-					}
-
 					while (m_state == State::Stopped)
 					{
 						this_thread::sleep_for(chrono::milliseconds(20));
 					}
+					this_thread::sleep_for(chrono::milliseconds(200));
 				}
 			}));
-	//		cnote << "Spawning" << m_name;
 		}
 
 		while (m_state == State::Starting)
@@ -893,24 +900,22 @@ namespace energi
 
 	bool Worker::stop()
 	{
-		std::lock_guard<std::mutex> lock(m_mwork);
-		if (m_tworker)
+		std::lock_guard<std::mutex> lock(m_mutex_work);
+		/*if (m_tworker)
 		{
-			//auto ex = State::Started;
-			//m_state.compare_exchange_strong(ex, State::Stopping);
-
+			m_state = State::Stopping;
 			while (m_state != State::Stopped)
 			{
 				this_thread::sleep_for(chrono::microseconds(20));
 			}
 		}
-
+*/
         return true;
 	}
 
 	Worker::~Worker()
 	{
-		std::lock_guard<std::mutex> lock(m_mwork);
+		std::lock_guard<std::mutex> lock(m_mutex_work);
 		if (m_tworker)
 		{
 			//m_state.exchange(State::Killing);
@@ -921,7 +926,7 @@ namespace energi
 
 
 
-    CPUMiner::CPUMiner(Plant &plant)
+    CPUMiner::CPUMiner(MinePlant &plant)
     :Miner("cpu-", plant)
     {
         /*try
@@ -937,9 +942,23 @@ namespace energi
         }*/
     }
 
-    void CPUMiner::workLoop()
+    void CPUMiner::onSetWork()
     {
-    	auto work = Work();
+    	// Stop current run and start with new work
+    }
+
+    void CPUMiner::trun()
+    {
+		//while(1)
+		//	this_thread::sleep_for(chrono::milliseconds(1000));
+
+    	// Work should be copied
+    	Work work;
+    	this->copyWork(work);
+
+    	if ( work.height <= 0 )
+    		return;
+
     	uint32_t max_nonce;
 		uint64_t hashes_done;
 
@@ -953,8 +972,6 @@ namespace energi
 		uint32_t nonce = first_nonce;
 		//volatile uint8_t *restart = &(work_restart[thr_id].restart);
 
-		//if (opt_benchmark)
-	//		ptarget[7] = 0x0cff;
 
 		for (int k=0; k < 20; k++)
 			be32enc(&endiandata[k], pdata[k]);
@@ -972,16 +989,16 @@ namespace energi
 				pdata[20] = nonceForHash;
 				hashes_done = nonce - first_nonce;
 
-				Solution sol;
-				sol.nonce = nonce;
-				sol.hash = hash_res;
-				sol.data = work.data;
-				setSolution(sol);
+				Solution solution;
+				solution.data = std::move(work.data);
+				solution.transaction_hex = work.m_txn_data;
+
+				m_plant.submit(solution);
 				return;
 			}
 			nonce++;
 
-		} while (nonce < max_nonce);// && !(*restart));
+		} while (nonce < max_nonce || !shouldStop() );// && !(*restart));
 
 		pdata[20] = be32dec(&nonce);
 		hashes_done = nonce - first_nonce + 1;
