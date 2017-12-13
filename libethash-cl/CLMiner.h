@@ -5,9 +5,10 @@
 
 #pragma once
 
-#include <libdevcore/Worker.h>
-#include <libethcore/EthashAux.h>
-#include <libethcore/Miner.h>
+//#include <libdevcore/Worker.h>
+//#include <libethcore/EthashAux.h>
+//#include <libethcore/Miner.h>
+#include <energiminer/minercommon.h>
 
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS true
 #define CL_HPP_ENABLE_EXCEPTIONS true
@@ -31,11 +32,8 @@
 #define OPENCL_PLATFORM_CLOVER  3
 
 
-namespace dev
+namespace energi
 {
-namespace eth
-{
-
 class CLMiner: public Miner
 {
 public:
@@ -45,7 +43,7 @@ public:
 	/// Default value of the global work size as a multiplier of the local work size
 	static const unsigned c_defaultGlobalWorkSizeMultiplier = 8192;
 
-	CLMiner(FarmFace& _farm, unsigned _index);
+	CLMiner(MinePlant& _plant);//, unsigned _index);
 	~CLMiner();
 
 	static unsigned instances() { return s_numInstances > 0 ? s_numInstances : 1; }
@@ -69,15 +67,13 @@ public:
 		}
 	}
 
-protected:
-	void kickOff() override;
-	void pause() override;
 
 private:
-	void workLoop() override;
-	void report(uint64_t _nonce, WorkPackage const& _w);
+	void trun() override;
+	void onSetWork() {};
+	void report(Solution const& solution);
 
-	bool init(const h256& seed);
+	bool init(uint64_t block);
 
 	cl::Context m_context;
 	cl::CommandQueue m_queue;
@@ -99,8 +95,10 @@ private:
 	static unsigned s_workgroupSize;
 	/// The initial global work size for the searches
 	static unsigned s_initialGlobalWorkSize;
+	std::chrono::high_resolution_clock::time_point workSwitchStart;
+	uint64_t m_hashCount = 0;
+	void addHashCount(uint64_t _n) { m_hashCount += _n; }
 
 };
 
-}
 }

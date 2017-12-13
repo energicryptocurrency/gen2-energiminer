@@ -224,8 +224,8 @@ public:
 #define clog(X) if (X::debug) {} else dev::LogOutputStream<X, true>()
 #define cslog(X) if (X::debug) {} else dev::LogOutputStream<X, false>()
 #else
-#define clog(X) dev::LogOutputStream<X, true>()
-#define cslog(X) dev::LogOutputStream<X, false>()
+#define clog(X) LogOutputStream<X, true>()
+#define cslog(X) LogOutputStream<X, false>()
 #endif
 #endif
 

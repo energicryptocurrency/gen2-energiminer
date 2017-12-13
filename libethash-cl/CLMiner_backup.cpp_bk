@@ -4,9 +4,7 @@
 /// @copyright GNU General Public License
 
 #include "CLMiner.h"
-#include <libethash/internal.h>
-#include <libethcore/EthashAux.h>
-#include <libethash/ethash.h>
+//#include <libethash/internal.h>
 #include "CLMiner_kernel.h"
 #include "energiminer/egihash/egihash.h"
 #include <libdevcore/Terminal.h>
@@ -22,16 +20,6 @@ struct CLChannel: public dev::LogChannel
 	static const int verbosity = 2;
 	static const bool debug = false;
 };
-
-
-namespace
-{
-uint64_t randomNonce()
-{
-	static std::mt19937_64 s_gen(std::random_device{}());
-	return std::uniform_int_distribution<uint64_t>{}(s_gen);
-}
-}
 
 
 #define cllog clog(CLChannel)
@@ -160,13 +148,8 @@ void CLMiner::trun()
 			Work work;
 			this->copyWork(work);
 
-
 			if (current.height != work.height)
 			{
-				dev::h256 target_converted(reinterpret_cast<uint8_t*>(work.target.data()), dev::FixedHash<32>::ConstructFromPointer);
-				const uint64_t target = (uint64_t)(u64)((u256) target_converted);
-
-
 				// New work received. Update GPU data.
 				auto localSwitchStart = std::chrono::high_resolution_clock::now();
 
@@ -215,11 +198,9 @@ void CLMiner::trun()
 				////const uint64_t target = work.target;
 				////assert(target > 0);
 
-
-				auto boundary = (h256)(u256)((bigint(1) << 256) / 1000);
-				auto target1 = (uint64_t)(u64)((u256)boundary >> 192);
-				cllog << "Boundary: " << boundary.hex() << " TARGET: " << target1;
-				m_searchKernel.setArg(4, target1);
+				dev::h256 target_converted(reinterpret_cast<uint8_t*>(work.target.data()), dev::FixedHash<32>::ConstructFromPointer);
+				const uint64_t target = (uint64_t)(u64)((u256) target_converted);
+				m_searchKernel.setArg(4, target);
 
 				// Update header constant buffer.
 				m_queue.enqueueWriteBuffer(m_header, CL_FALSE, 0, sizeof(work.m_headerHash), work.m_headerHash.b);
@@ -233,7 +214,7 @@ void CLMiner::trun()
 //					startNonce = w.startNonce | ((uint64_t)index << (64 - 4 - w.exSizeBits)); // This can support up to 16 devices.
 //				else
 //					startNonce = randomNonce();
-				startNonce  = randomNonce();
+				startNonce = 0;
 
 				current = work;
 				auto switchEnd = std::chrono::high_resolution_clock::now();
@@ -246,7 +227,6 @@ void CLMiner::trun()
 			// TODO: could use pinned host pointer instead.
 			uint32_t results[c_maxSearchResults + 1];
 			m_queue.enqueueReadBuffer(m_searchBuffer, CL_TRUE, 0, sizeof(results), &results);
-			cllog << "results[0]: " << results[0] << " [1]: " << results[1];
 
 			uint64_t nonce = 0;
 			if (results[0] > 0)
@@ -269,14 +249,8 @@ void CLMiner::trun()
 			if (nonce != 0)
 			{
 				cllog << "Nonce: " << nonce ;
-				Solution solution;
-				uint32_t *pdata = work.data.data();
-				auto nonceForHash = be32dec(&nonce);
-				pdata[20] = nonceForHash;
-				solution.data = std::move(work.data);
-				solution.transaction_hex = work.m_txn_data;
-				m_plant.submit(solution);
 			}
+			cllog << "Nonce: " << nonce;
 
 			// Report hash count
 			addHashCount(m_globalWorkSize);
@@ -403,28 +377,10 @@ bool CLMiner::configureGPU(
 
 bool CLMiner::init(uint64_t block)
 {
-	auto seedhash = egihash::get_seedhash(block);
-	cllog << "EGI SEED HASH: " << seedhash;
-
-	//auto etseed = ethash_get_seedhash(block);
-	//cllog << "ETH SEED HASH: " << etseed;
-
-
-//	::std::string s(egihash::epoch0_seedhash, size_epoch0_seedhash);
-//			for (size_t i = 0; i < (block_number / constants::EPOCH_LENGTH); i++)
-//			{
-//				s = sha3_256_t::serialize(sha3_256(s));
-//			}
-//			return s;
-
-
-	int index = 0;
-	dev::h256 seedInput(reinterpret_cast<const uint8_t*>(seedhash.c_str()), dev::FixedHash<32>::ConstructFromPointer);
-	//dev::h256 newSeedHash(seedhash);
-	cllog << "SEED Hex " << seedInput.hex();
-	dev::eth::EthashAux::LightType light = dev::eth::EthashAux::light(seedInput);
-
 	// get all platforms
+	const size_t index = 0;
+
+
 	try
 	{
 		vector<cl::Platform> platforms = getPlatforms();
@@ -504,9 +460,9 @@ bool CLMiner::init(uint64_t block)
 		if (m_globalWorkSize % m_workgroupSize != 0)
 			m_globalWorkSize = ((m_globalWorkSize / m_workgroupSize) + 1) * m_workgroupSize;
 
-		uint64_t dagSize = ethash_get_datasize(light->light->block_number);
-		uint32_t dagSize128 = (unsigned)(dagSize / ETHASH_MIX_BYTES);
-		uint32_t lightSize64 = (unsigned)(light->data().size() / sizeof(node));
+		uint64_t dagSize = egihash::dag_t::get_full_size(block);
+		uint32_t dagSize128 = (unsigned)(dagSize / egihash::constants::MIX_BYTES);
+		uint32_t lightSize64 = (unsigned)(egihash::cache_t::get_cache_size(block) / sizeof(egihash::node));
 
 		// patch source code
 		// note: CLMiner_kernel is simply ethash_cl_miner_kernel.cl compiled
@@ -516,7 +472,7 @@ bool CLMiner::init(uint64_t block)
 		addDefinition(code, "GROUP_SIZE", m_workgroupSize);
 		addDefinition(code, "DAG_SIZE", dagSize128);
 		addDefinition(code, "LIGHT_SIZE", lightSize64);
-		addDefinition(code, "ACCESSES", ETHASH_ACCESSES);
+		addDefinition(code, "ACCESSES", egihash::constants::ACCESSES);
 		addDefinition(code, "MAX_OUTPUTS", c_maxSearchResults);
 		addDefinition(code, "PLATFORM", platformId);
 		addDefinition(code, "COMPUTE", computeCapability);
@@ -541,15 +497,22 @@ bool CLMiner::init(uint64_t block)
 		// create buffer for dag
 		try
 		{
-			cllog << "Creating light cache buffer, size" << light->data().size();
-			m_light = cl::Buffer(m_context, CL_MEM_READ_ONLY, light->data().size());
+			cllog << "Creating light cache buffer, size" << egihash::cache_t::get_cache_size(block);
+			m_light = cl::Buffer(m_context, CL_MEM_READ_ONLY, egihash::cache_t::get_cache_size(block));
 			cllog << "Creating DAG buffer, size" << dagSize;
 			m_dag = cl::Buffer(m_context, CL_MEM_READ_ONLY, dagSize);
 			cllog << "Loading kernels";
 			m_searchKernel = cl::Kernel(program, "ethash_search");
 			m_dagKernel = cl::Kernel(program, "ethash_calculate_dag_item");
 			cllog << "Writing light cache buffer";
-			m_queue.enqueueWriteBuffer(m_light, CL_TRUE, 0, light->data().size(), light->data().data());
+			auto result_cache = new egihash::cache_t(block, egihash::get_seedhash(block));
+			cllog << "generated cache successfully";
+			auto result_data = result_cache->data();
+			const void* ptr = result_data.data();
+			auto cache_size = egihash::cache_t::get_cache_size(block);
+			cllog << "light cache buffer size: " << cache_size << " " << ptr;
+			m_queue.enqueueWriteBuffer(m_light, CL_TRUE, 0, cache_size, ptr);
+			cllog << "light cache loaded: ";
 		}
 		catch (cl::Error const& err)
 		{
@@ -570,7 +533,7 @@ bool CLMiner::init(uint64_t block)
 
 		cllog << "Generating DAG";
 
-		uint32_t const work = (uint32_t)(dagSize / sizeof(node));
+		uint32_t const work = (uint32_t)(dagSize / sizeof(egihash::node));
 		uint32_t fullRuns = work / m_globalWorkSize;
 		uint32_t const restWork = work % m_globalWorkSize;
 		if (restWork > 0) fullRuns++;
@@ -584,7 +547,7 @@ bool CLMiner::init(uint64_t block)
 			m_dagKernel.setArg(0, i * m_globalWorkSize);
 			m_queue.enqueueNDRangeKernel(m_dagKernel, cl::NullRange, m_globalWorkSize, m_workgroupSize);
 			m_queue.finish();
-			cllog << "DAG" << int(100.0f * i / fullRuns) << '%';
+			//cllog << "DAG" << int(100.0f * i / fullRuns) << '%' ;
 		}
 
 		cllog << "DAG Loaded" ;

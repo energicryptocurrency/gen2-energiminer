@@ -56,6 +56,8 @@ h256 EthashAux::seedHash(unsigned _number)
 
 uint64_t EthashAux::number(h256 const& _seedHash)
 {
+	return 0;
+
 	EthashAux& ethash = EthashAux::get();
 	Guard l(ethash.x_epochs);
 	unsigned epoch = 0;

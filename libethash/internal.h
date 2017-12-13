@@ -33,7 +33,11 @@ typedef union node {
 
 static inline void ethash_h256_reset(ethash_h256_t* hash)
 {
-	memset(hash, 0, 32);
+	//memset(hash, 0, 32);
+	static char epoch0_seedhash[] = "\xa8\x49\x4b\xb2\x89\x5b\xd7\xed\x18\xbb\x39\xb7\xb2\x8a\xf5\x1d\xec\x51\xf7\xca\xd3\x30\xc1\x68\xf1\xbd\x1c\x90\xe7\x61\x4c\x32";
+	static uint8_t size_epoch0_seedhash = sizeof(epoch0_seedhash) - 1;
+	memcpy(hash, epoch0_seedhash, 32);
+	//static_assert(size_epoch0_seedhash == 32, "Invalid seedhash");
 }
 
 struct ethash_light {

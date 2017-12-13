@@ -63,16 +63,23 @@
 
 
 using namespace std;
-using namespace dev;
-using namespace dev::eth;
+//using namespace dev;
+//using namespace dev::eth;
 using namespace boost::algorithm;
-
+using namespace energi;
+using namespace egihash;
 
 /*
 using bstring8 = basic_string<uint8_t>;
 using bstring32 = basic_string<uint32_t>;
 */
 
+enum class MinerType
+{
+	Mixed,
+	CL,
+	CUDA
+};
 
 
 /*	int scanhash_egihash(int thr_id, struct work *work, uint32_t max_nonce, uint64_t *hashes_done)
@@ -115,11 +122,20 @@ using bstring32 = basic_string<uint32_t>;
 }*/
 
 
+/// Base class for all exceptions.
+struct Exception: virtual std::exception, virtual boost::exception
+{
+	Exception(std::string _message = std::string()): m_message(std::move(_message)) {}
+	const char* what() const noexcept override { return m_message.empty() ? std::exception::what() : m_message.c_str(); }
 
+private:
+	std::string m_message;
+};
 
 class BadArgument: public Exception
 {
 };
+struct LogChannel { static const char* name(); static const int verbosity = 1; static const bool debug = true; };
 
 struct MiningChannel: public LogChannel
 {
@@ -128,15 +144,15 @@ struct MiningChannel: public LogChannel
 	static const bool debug = false;
 };
 
-#define minelog clog(MiningChannel)
+//#define minelog clog(MiningChannel)
 
-inline std::string toJS(unsigned long _n)
-{
-	std::string h = toHex(toCompactBigEndian(_n, 1));
-	// remove first 0, if it is necessary;
-	std::string res = h[0] != '0' ? h : h.substr(1);
-	return "0x" + res;
-}
+//inline std::string toJS(unsigned long _n)
+//{
+//	std::string h = toHex(toCompactBigEndian(_n, 1));
+//	// remove first 0, if it is necessary;
+//	std::string res = h[0] != '0' ? h : h.substr(1);
+//	return "0x" + res;
+//}
 
 class MinerCLI
 {
@@ -242,7 +258,7 @@ public:
 			m_shouldListDevices = true;
 		else if ((arg == "-L" || arg == "--dag-load-mode") && i + 1 < argc)
 		{
-			/*string mode = argv[++i];
+			string mode = argv[++i];
 			if (mode == "parallel") m_dagLoadMode = DAG_LOAD_MODE_PARALLEL;
 			else if (mode == "sequential") m_dagLoadMode = DAG_LOAD_MODE_SEQUENTIAL;
 			else if (mode == "single")
@@ -254,7 +270,7 @@ public:
 			{
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
 				BOOST_THROW_EXCEPTION(BadArgument());
-			}*/
+			}
 		}
 		else if (arg == "--benchmark-warmup" && i + 1 < argc)
 			try {
@@ -352,7 +368,7 @@ public:
 
 	void execute()
 	{
-		/*if (m_shouldListDevices)
+		if (m_shouldListDevices)
 		{
 			if (m_minerType == MinerType::CL || m_minerType == MinerType::Mixed)
 				CLMiner::listDevices();
@@ -377,8 +393,9 @@ public:
 					m_dagCreateDevice
 				))
 				exit(1);
-			CLMiner::setNumInstances(m_miningThreads);
-		}*/
+			//CLMiner::setNumInstances(m_miningThreads);
+		}
+
 //		if (mode == OperationMode::Benchmark)
 //			doBenchmark(m_minerType, m_benchmarkWarmup, m_benchmarkTrial, m_benchmarkTrials);
 		if (mode == OperationMode::GBT)
@@ -457,6 +474,12 @@ private:
 
 	void doGBT2(string & _remote, unsigned _recheckPeriod)
 	{
+
+
+        extern bool InitEgiHashDag();
+
+        //InitEgiHashDag();
+
 		//(void)_m;
 		(void)_remote;
 		(void)_recheckPeriod;
@@ -484,7 +507,8 @@ private:
 
         // Check started or not
         energi::MinePlant::VMiners vminers;
-        vminers.push_back(std::shared_ptr<energi::Miner>(new energi::CPUMiner(plant)));
+        //vminers.push_back(std::shared_ptr<energi::Miner>(new energi::CPUMiner(plant)));
+        vminers.push_back(std::shared_ptr<energi::Miner>(new energi::CLMiner(plant)));
         if ( !plant.start( vminers, cb_solution_finder) )
         {
         	// TODO add comment
@@ -495,9 +519,8 @@ private:
         // Coinbase address for payment
         energi::Work current_work;
 
-        extern bool InitEgiHashDag();
 
-        InitEgiHashDag();
+
 
         // Mine till you can, or retries fail after a limit
         while (m_is_mining)
@@ -527,7 +550,7 @@ private:
                     // 4. Work has been assigned to the plant
                     // 5. Wait and continue for new work
                     // 6. TODO decide on time to wait for
-                    this_thread::sleep_for(chrono::milliseconds(1000));
+                    this_thread::sleep_for(chrono::milliseconds(100));
                 }
 
                 // 7. Since solution was found, submit now
@@ -573,8 +596,8 @@ private:
 	unsigned m_openclDeviceCount = 0;
 	unsigned m_openclDevices[16];
 	unsigned m_openclThreadsPerHash = 8;
-	unsigned m_globalWorkSizeMultiplier = CLMiner::c_defaultGlobalWorkSizeMultiplier;
-	unsigned m_localWorkSize = CLMiner::c_defaultLocalWorkSize;
+	unsigned m_globalWorkSizeMultiplier = energi::CLMiner::c_defaultGlobalWorkSizeMultiplier;
+	unsigned m_localWorkSize = energi::CLMiner::c_defaultLocalWorkSize;
 	unsigned m_dagLoadMode = 0; // parallel
 	unsigned m_dagCreateDevice = 0;
 	/// Benchmarking params
