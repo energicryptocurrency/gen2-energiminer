@@ -121,10 +121,7 @@ include(EthCompilerSettings)
 
 createBuildInfo()
 
-add_subdirectory(libdevcore)
-add_subdirectory(libethash)
-add_subdirectory(libethash-cl)
-add_subdirectory(libethcore)
+add_subdirectory(libegihash-cl)
 add_subdirectory(energiminer)
 
 

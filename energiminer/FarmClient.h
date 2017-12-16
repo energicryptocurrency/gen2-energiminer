@@ -17,18 +17,6 @@ class GBTClient : public jsonrpc::Client
 
         Json::Value getBlockTemplate() throw (jsonrpc::JsonRpcException)
         {
-        	/*static const char *gbt_req =
-        		"{\"method\": \"getblocktemplate\", \"params\": [{\"capabilities\": "
-        		GBT_CAPABILITIES "}], \"id\":0}\r\n";
-        			val = json_rpc_call(curl, rpc_url, rpc_userpass,
-        			                    have_gbt ? gbt_req : getwork_req,
-        			                    &err, have_gbt ? JSON_RPC_QUIET_404 : 0);
-
-        	#define GBT_CAPABILITIES "[\"coinbasetxn\", \"coinbasevalue\", \"longpoll\", \"workid\"]"
-        	*/
-
-            //Json::Value p;
-            //p = Json::nullValue;
             auto params = Json::Value(Json::arrayValue);
             auto object = Json::Value(Json::objectValue);
             object["capabilities"] = Json::Value(Json::arrayValue);
@@ -49,30 +37,22 @@ class GBTClient : public jsonrpc::Client
         }
 
         Json::Value getMiningInfo() throw (jsonrpc::JsonRpcException)
-                {
-                	/*"{\"method\": \"getmininginfo\", \"params\": [], \"id\":8}\r\n";
+        {
+            auto params = Json::Value(Json::arrayValue);
+            cout << params.toStyledString() << endl;
 
-                	*/
-
-                    auto params = Json::Value(Json::arrayValue);
-                    cout << params.toStyledString() << endl;
-
-                    Json::Value result = this->CallMethod("getmininginfo", params);
-                    std::cout << result.toStyledString() << endl;
-                    if (result.isObject() )
-                        return result;
-                    else
-                        throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());
-                }
+            Json::Value result = this->CallMethod("getmininginfo", params);
+            std::cout << result.toStyledString() << endl;
+            if (result.isObject() )
+                return result;
+            else
+                throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());
+        }
 
         void submitSolution(const energi::Solution &solution)//const std::string& param1, const std::string& param2, const std::string& param3) throw (jsonrpc::JsonRpcException)
         {
-            /*sprintf(req,
-                        "{\"method\": \"submitblock\", \"params\": [\"%s%s\"], \"id\":4}\r\n",
-                        data_str, work->txs);
-            }*/
-
-            Json::Value params(Json::arrayValue);
+          (void)solution;
+            /*Json::Value params(Json::arrayValue);
             auto result1 = solution.getSubmitBlockData();
             cout << "SOLUTION: " << result1 << endl;
             params.append(result1);
@@ -83,39 +63,7 @@ class GBTClient : public jsonrpc::Client
                 cout << "Result " << result["result"].toStyledString() << endl;
             }
             else
-                throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());
-        }
-
-        bool eth_submitHashrate(const std::string& param1, const std::string& param2) throw (jsonrpc::JsonRpcException)
-        {
-            Json::Value p;
-            p.append(param1);
-            p.append(param2);
-            Json::Value result = this->CallMethod("eth_submitHashrate",p);
-            if (result.isBool())
-                return result.asBool();
-            else
-                throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());
-        }
-        Json::Value eth_awaitNewWork() throw (jsonrpc::JsonRpcException)
-        {
-            Json::Value p;
-            p = Json::nullValue;
-            Json::Value result = this->CallMethod("eth_awaitNewWork",p);
-            if (result.isArray())
-                return result;
-            else
-                throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());
-        }
-        bool eth_progress() throw (jsonrpc::JsonRpcException)
-        {
-            Json::Value p;
-            p = Json::nullValue;
-            Json::Value result = this->CallMethod("eth_progress",p);
-            if (result.isBool())
-                return result.asBool();
-            else
-                throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());
+                throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());*/
         }
 };
 

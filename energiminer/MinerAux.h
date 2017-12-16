@@ -22,6 +22,19 @@
  * CLI module for mining.
  */
 
+#include <jsonrpccpp/client/connectors/httpclient.h>
+
+#include "egihash/egihash.h"
+#include "energiminer/common.h"
+#include "energiminer/solution.h"
+#include "energiminer/work.h"
+#include "energiminer/mineplant.h"
+#include "FarmClient.h"
+
+
+#include <memory>
+#include <sstream>
+#include <iomanip>
 #include <thread>
 #include <chrono>
 #include <fstream>
@@ -36,123 +49,27 @@
 #include <atomic>
 #include <condition_variable>
 
-#include "minercommon.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/trim_all.hpp>
 #include <boost/optional.hpp>
-
-#include <libethcore/Exceptions.h>
-#include <libdevcore/SHA3.h>
-#include <libethcore/EthashAux.h>
-#include <libethcore/Farm.h>
-#include <libethash-cl/CLMiner.h>
-#include <jsonrpccpp/client/connectors/httpclient.h>
-#include "minercommon.h"
-#include "FarmClient.h"
-#include "egihash/egihash.h"
-
-
-#include <boost/thread/locks.hpp>
-#include <boost/thread/mutex.hpp>
-#include <memory>
-#include <sstream>
-#include <iomanip>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
+#include "libegihash-cl/OpenCLMiner.h"
 
 
 using namespace std;
-//using namespace dev;
-//using namespace dev::eth;
 using namespace boost::algorithm;
 using namespace energi;
 using namespace egihash;
 
-/*
-using bstring8 = basic_string<uint8_t>;
-using bstring32 = basic_string<uint32_t>;
-*/
-
-enum class MinerType
+enum class MinerExecutionMode : unsigned
 {
-	Mixed,
-	CL,
-	CUDA
+  kCPU  = 0x1,
+  kCL   = 0x2,
+  kMixed= 0x3
 };
 
 
-/*	int scanhash_egihash(int thr_id, struct work *work, uint32_t max_nonce, uint64_t *hashes_done)
-{
-	uint32_t _ALIGN(128) hash[8];
-	uint32_t _ALIGN(128) endiandata[21];
-	uint32_t *pdata = work->data;
-	uint32_t *ptarget = work->target;
 
-	const uint32_t Htarg = ptarget[7];
-	const uint32_t first_nonce = pdata[20];
-	uint32_t nonce = first_nonce;
-	volatile uint8_t *restart = &(work_restart[thr_id].restart);
-
-	if (opt_benchmark)
-		ptarget[7] = 0x0cff;
-
-	for (int k=0; k < 20; k++)
-		be32enc(&endiandata[k], pdata[k]);
-
-	do {
-		be32enc(&endiandata[20], nonce);
-		//x11hash(hash, endiandata);
-		egihash_calc(hash, work->height, nonce, endiandata);
-
-		if (hash[7] <= Htarg && fulltest(hash, ptarget)) {
-			work_set_target_ratio(work, hash);
-			auto nonceForHash = be32dec(&nonce);
-			pdata[20] = nonceForHash;
-			*hashes_done = nonce - first_nonce;
-			return 1;
-		}
-		nonce++;
-
-	} while (nonce < max_nonce && !(*restart));
-
-	pdata[20] = be32dec(&nonce);
-	*hashes_done = nonce - first_nonce + 1;
-	return 0;
-}*/
-
-
-/// Base class for all exceptions.
-struct Exception: virtual std::exception, virtual boost::exception
-{
-	Exception(std::string _message = std::string()): m_message(std::move(_message)) {}
-	const char* what() const noexcept override { return m_message.empty() ? std::exception::what() : m_message.c_str(); }
-
-private:
-	std::string m_message;
-};
-
-class BadArgument: public Exception
-{
-};
-struct LogChannel { static const char* name(); static const int verbosity = 1; static const bool debug = true; };
-
-struct MiningChannel: public LogChannel
-{
-	static const char* name() { return EthGreen "  m"; }
-	static const int verbosity = 2;
-	static const bool debug = false;
-};
-
-//#define minelog clog(MiningChannel)
-
-//inline std::string toJS(unsigned long _n)
-//{
-//	std::string h = toHex(toCompactBigEndian(_n, 1));
-//	// remove first 0, if it is necessary;
-//	std::string res = h[0] != '0' ? h : h.substr(1);
-//	return "0x" + res;
-//}
 
 class MinerCLI
 {
@@ -175,11 +92,11 @@ public:
 		{
 			mode = OperationMode::GBT;
 			m_farmURL = argv[++i];
-			m_activeFarmURL = m_farmURL;
+			m_energiURL = m_farmURL;
 		}
 		else if ((arg == "--coinbase-addr") && i + 1 < argc)
 		{
-			m_coinbase_addr = argv[++i];
+			coinbase_addr_ = argv[++i];
 		}
 		else if (arg == "--farm-recheck" && i + 1 < argc)
 			try {
@@ -189,16 +106,16 @@ public:
 			catch (...)
 			{
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
-				BOOST_THROW_EXCEPTION(BadArgument());
+				throw;
 			}
 		else if (arg == "--farm-retries" && i + 1 < argc)
 			try {
-				m_max_retries = stol(argv[++i]);
+				max_retries_ = stol(argv[++i]);
 			}
 			catch (...)
 			{
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
-				BOOST_THROW_EXCEPTION(BadArgument());
+        throw;
 			}
 		else if (arg == "--opencl-platform" && i + 1 < argc)
 			try {
@@ -207,7 +124,7 @@ public:
 			catch (...)
 			{
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
-				BOOST_THROW_EXCEPTION(BadArgument());
+        throw;
 			}
 		else if (arg == "--opencl-devices" || arg == "--opencl-device")
 			while (m_openclDeviceCount < 16 && i + 1 < argc)
@@ -228,12 +145,12 @@ public:
 				m_openclThreadsPerHash = stol(argv[++i]);
 				if(m_openclThreadsPerHash != 1 && m_openclThreadsPerHash != 2 &&
 				   m_openclThreadsPerHash != 4 && m_openclThreadsPerHash != 8) {
-					BOOST_THROW_EXCEPTION(BadArgument());
+	        throw;
 				} 
 			}
 			catch(...) {
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
-				BOOST_THROW_EXCEPTION(BadArgument());
+        throw;
 			}
 		}
 		else if ((arg == "--cl-global-work" || arg == "--cuda-grid-size")  && i + 1 < argc)
@@ -243,7 +160,7 @@ public:
 			catch (...)
 			{
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
-				BOOST_THROW_EXCEPTION(BadArgument());
+        throw;
 			}
 		else if ((arg == "--cl-local-work" || arg == "--cuda-block-size") && i + 1 < argc)
 			try {
@@ -252,26 +169,10 @@ public:
 			catch (...)
 			{
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
-				BOOST_THROW_EXCEPTION(BadArgument());
+				throw;
 			}
 		else if (arg == "--list-devices")
 			m_shouldListDevices = true;
-		else if ((arg == "-L" || arg == "--dag-load-mode") && i + 1 < argc)
-		{
-			string mode = argv[++i];
-			if (mode == "parallel") m_dagLoadMode = DAG_LOAD_MODE_PARALLEL;
-			else if (mode == "sequential") m_dagLoadMode = DAG_LOAD_MODE_SEQUENTIAL;
-			else if (mode == "single")
-			{
-				m_dagLoadMode = DAG_LOAD_MODE_SINGLE;
-				m_dagCreateDevice = stol(argv[++i]);
-			}
-			else
-			{
-				cerr << "Bad " << arg << " option: " << argv[i] << endl;
-				BOOST_THROW_EXCEPTION(BadArgument());
-			}
-		}
 		else if (arg == "--benchmark-warmup" && i + 1 < argc)
 			try {
 				m_benchmarkWarmup = stol(argv[++i]);
@@ -279,7 +180,7 @@ public:
 			catch (...)
 			{
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
-				BOOST_THROW_EXCEPTION(BadArgument());
+				throw;
 			}
 		else if (arg == "--benchmark-trial" && i + 1 < argc)
 			try {
@@ -288,7 +189,7 @@ public:
 			catch (...)
 			{
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
-				BOOST_THROW_EXCEPTION(BadArgument());
+				throw;
 			}
 		else if (arg == "--benchmark-trials" && i + 1 < argc)
 			try
@@ -298,13 +199,13 @@ public:
 			catch (...)
 			{
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
-				BOOST_THROW_EXCEPTION(BadArgument());
+				throw;
 			}
 		/*else if (arg == "-G" || arg == "--opencl")
-			m_minerType = MinerType::CL;
+			m_MinerExecutionMode = MinerExecutionMode::CL;
 		else if (arg == "-X" || arg == "--cuda-opencl")
 		{
-			m_minerType = MinerType::Mixed;
+			m_MinerExecutionMode = MinerExecutionMode::Mixed;
 		}*/
 		else if (arg == "-M" || arg == "--benchmark")
 		{
@@ -323,7 +224,7 @@ public:
 					}
 					else {
 						cerr << "Bad " << arg << " option: " << argv[i] << endl;
-						BOOST_THROW_EXCEPTION(BadArgument());
+						throw;
 					}
 				}
 			}
@@ -344,7 +245,7 @@ public:
 					}
 					else {
 						cerr << "Bad " << arg << " option: " << argv[i] << endl;
-						BOOST_THROW_EXCEPTION(BadArgument());
+						throw;
 					}
 				}
 			}
@@ -358,7 +259,7 @@ public:
 			catch (...)
 			{
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
-				BOOST_THROW_EXCEPTION(BadArgument());
+				throw;
 			}
 		}
 		else
@@ -366,44 +267,59 @@ public:
 		return true;
 	}
 
+
+
+
 	void execute()
 	{
 		if (m_shouldListDevices)
 		{
-			if (m_minerType == MinerType::CL || m_minerType == MinerType::Mixed)
-				CLMiner::listDevices();
-			exit(0);
+			if (m_MinerExecutionMode == MinerExecutionMode::kCL || m_MinerExecutionMode == MinerExecutionMode::kMixed)
+			{
+				OpenCLMiner::listDevices();
+				exit(0);
+			}
 		}
 
-		if (m_minerType == MinerType::CL || m_minerType == MinerType::Mixed)
+		if (m_MinerExecutionMode == MinerExecutionMode::kCL || m_MinerExecutionMode == MinerExecutionMode::kMixed)
 		{
 			if (m_openclDeviceCount > 0)
 			{
-				CLMiner::setDevices(m_openclDevices, m_openclDeviceCount);
+				OpenCLMiner::setDevices(m_openclDevices, m_openclDeviceCount);
 				m_miningThreads = m_openclDeviceCount;
 			}
 			
-			CLMiner::setThreadsPerHash(m_openclThreadsPerHash);
-			if (!CLMiner::configureGPU(
-					m_localWorkSize,
-					m_globalWorkSizeMultiplier,
-					m_openclPlatform,
-					0,
-					m_dagLoadMode,
-					m_dagCreateDevice
-				))
+			OpenCLMiner::setThreadsPerHash(m_openclThreadsPerHash);
+			if (!OpenCLMiner::configureGPU(
+                    m_localWorkSize,
+                    m_globalWorkSizeMultiplier,
+                    m_openclPlatform,
+                    0,
+                    m_dagLoadMode,
+                    m_dagCreateDevice))
+			{
 				exit(1);
-			//CLMiner::setNumInstances(m_miningThreads);
+			}
+
+			OpenCLMiner::setNumInstances(m_miningThreads);
 		}
 
-//		if (mode == OperationMode::Benchmark)
-//			doBenchmark(m_minerType, m_benchmarkWarmup, m_benchmarkTrial, m_benchmarkTrials);
-		if (mode == OperationMode::GBT)
-			doGBT2(m_activeFarmURL, m_farmRecheckPeriod);
-		else if (mode == OperationMode::Simulation) {
-
-        }
-        //doSimulation(m_minerType);
+		switch(mode)
+		{
+		  case OperationMode::Benchmark:
+		    ///doBenchmark(m_MinerExecutionMode, m_benchmarkWarmup, m_benchmarkTrial, m_benchmarkTrials);
+		    break;
+		  case OperationMode::GBT:
+		    doGBT(m_MinerExecutionMode, m_energiURL, m_farmRecheckPeriod);
+        break;
+		  case OperationMode::Simulation:
+		    doSimulation(m_MinerExecutionMode);
+        break;
+		  default:
+		    cerr << "No mining mode selected!" << std::endl;
+        exit(-1);
+		    break;
+		}
 	}
 
 	static void streamHelp(ostream& _out)
@@ -425,22 +341,96 @@ public:
 			<< "    --opencl-devices <0 1 ..n> Select which OpenCL devices to mine on. Default is to use all" << endl
 			<< "    -t, --mining-threads <n> Limit number of CPU/GPU miners to n (default: use everything available on selected platform)" << endl
 			<< "    --list-devices List the detected OpenCL/CUDA devices and exit. Should be combined with -G or -U flag" << endl
-			<< "    -L, --dag-load-mode <mode> DAG generation mode." << endl
-			<< "        parallel    - load DAG on all GPUs at the same time (default)" << endl
-			<< "        sequential  - load DAG on GPUs one after another. Use this when the miner crashes during DAG generation" << endl
-			<< "        single <n>  - generate DAG on device n, then copy to other devices" << endl
-			<< "    --cl-local-work Set the OpenCL local work size. Default is " << CLMiner::c_defaultLocalWorkSize << endl
-			<< "    --cl-global-work Set the OpenCL global work size as a multiple of the local work size. Default is " << CLMiner::c_defaultGlobalWorkSizeMultiplier << " * " << CLMiner::c_defaultLocalWorkSize << endl
+			<< "    --cl-local-work Set the OpenCL local work size. Default is " << OpenCLMiner::c_defaultLocalWorkSize << endl
+			<< "    --cl-global-work Set the OpenCL global work size as a multiple of the local work size. Default is " << OpenCLMiner::c_defaultGlobalWorkSizeMultiplier << " * " << OpenCLMiner::c_defaultLocalWorkSize << endl
 			<< "    --cl-parallel-hash <1 2 ..8> Define how many threads to associate per hash. Default=8" << endl
 			;
 	}
 
 private:
 
-	void doGBT(string & /*_remote*/, unsigned /*_recheckPeriod*/)
-	{
-	}
 
+  std::vector<energi::EnumMinerEngine> getEngineModes(MinerExecutionMode minerExecutionMode)
+  {
+    std::vector<energi::EnumMinerEngine> vEngine;
+    if ( static_cast<unsigned>(minerExecutionMode) & static_cast<unsigned>(MinerExecutionMode::kCL) )
+      vEngine.push_back(energi::EnumMinerEngine::kCL);
+    if ( static_cast<unsigned>(minerExecutionMode) & static_cast<unsigned>(MinerExecutionMode::kCPU) )
+      vEngine.push_back(energi::EnumMinerEngine::kCPU);
+
+    return vEngine;
+  }
+
+	void doSimulation(MinerExecutionMode minerExecutionMode, int difficulty = 20)
+  {
+	  auto vEngineModes = getEngineModes(minerExecutionMode);
+
+	  for( auto mode : vEngineModes )
+	    cdebug << "Starting Miner Engine: " << energi::to_string(mode);
+
+    std::mutex mutex_solution;
+    bool solution_found = false;
+    energi::Solution solution;
+
+    SolutionFoundCallback solution_found_cb = [&solution_found, &mutex_solution, &solution](const energi::Solution& found_solution)
+    {
+      MutexLGuard l(mutex_solution);
+      solution = found_solution;
+      solution_found = true;
+    };
+
+    // Use Test Miner
+    {
+      energi::MinePlant plant(solution_found_cb);
+      if ( !plant.start({energi::EnumMinerEngine::kTest}) )
+      {
+        return;
+      }
+
+      energi::SimulatedWork new_work;
+      plant.setWork(new_work);
+
+      solution_found = false;
+      while(!solution_found)
+      {
+        auto mp = plant.miningProgress();
+        mp.rate();
+
+        this_thread::sleep_for(chrono::milliseconds(1000));
+        cnote << "Mining on difficulty " << difficulty << " " << mp;
+      }
+
+      MutexLGuard l(mutex_solution);
+      std::cout << "Solution found!!" << std::endl;
+    }
+
+    // Use CPU Miner
+    {
+      energi::MinePlant plant(solution_found_cb);
+      if ( !plant.start({energi::EnumMinerEngine::kCPU}) )
+      {
+        return;
+      }
+
+      energi::SimulatedWork new_work;
+      plant.setWork(new_work);
+
+      solution_found = false;
+      while(!solution_found)
+      {
+        auto mp = plant.miningProgress();
+        mp.rate();
+
+        this_thread::sleep_for(chrono::milliseconds(1000));
+        cnote << "Mining on difficulty " << difficulty << " " << mp;
+      }
+
+      MutexLGuard l(mutex_solution);
+      std::cout << "Solution found!!" << std::endl;
+    }
+
+    // Whoever finds first exit
+  }
 
 	/*
 	 doGBT function starts Plant and in farm it starts miners intended to mine e.g. CPUMiner And/or Gpuminer
@@ -470,116 +460,110 @@ private:
 	 */
 
 
-
-
-	void doGBT2(string & _remote, unsigned _recheckPeriod)
+	void doGBT(MinerExecutionMode minerExecutionMode, string & _remote, unsigned _recheckPeriod)
 	{
+    (void)_remote;
+    (void)_recheckPeriod;
+
+    jsonrpc::HttpClient client(m_farmURL);
+    GBTClient rpc(client);
+
+    // Start plant now with given miners
+    // start plant full of miners
+    std::mutex mutex_solution;
+    bool solution_found = false;
+    energi::Solution solution;
+
+    // Note, this is mostly called from a miner thread, but since solution is consumed in main thread after set
+    // its safe to not lock the access
+    SolutionFoundCallback solution_found_cb = [&solution_found, &mutex_solution, &solution](const energi::Solution& found_solution)
+    {
+      MutexLGuard l(mutex_solution);
+      solution = found_solution;
+      solution_found = true;
+    };
+
+    // Create plant
+    energi::MinePlant plant(solution_found_cb);
+    //if ( !plant.start({ { "cpu", 1 }, { "cl", OpenCLMiner::instances() } }) )
+    //if ( !plant.start({ { "cl", OpenCLMiner::instances() } }) )
+    auto vEngineModes = getEngineModes(minerExecutionMode);
+    if ( !plant.start(vEngineModes) )
+    {
+      return;
+    }
 
 
-        extern bool InitEgiHashDag();
-
-        //InitEgiHashDag();
-
-		//(void)_m;
-		(void)_remote;
-		(void)_recheckPeriod;
-
-		jsonrpc::HttpClient client(m_farmURL);
-		GBTClient rpc(client);
-
-		// Create plant
-        energi::MinePlant plant;
-        std::mutex mutex_solution;
-
-        // Start plant now with given miners
-        // start plant full of miners
-        bool m_solution_found = false;
-        energi::Solution solution;
-        // Note, this is mostly called from a miner thread, but since solution is consumed in main thread after set
-        // its safe to not lock the access
-        energi::MinePlant::CBSolutionFound cb_solution_finder = [&m_solution_found, &mutex_solution, &solution](const energi::Solution& solution_)->bool {
-        	m_solution_found = true;
-        	std::lock_guard<std::mutex> l(mutex_solution);
-        	solution = solution_;
-
-        	return true;
-        };
-
-        // Check started or not
-        energi::MinePlant::VMiners vminers;
-        //vminers.push_back(std::shared_ptr<energi::Miner>(new energi::CPUMiner(plant)));
-        vminers.push_back(std::shared_ptr<energi::Miner>(new energi::CLMiner(plant)));
-        if ( !plant.start( vminers, cb_solution_finder) )
-        {
-        	// TODO add comment
-        	return;
-        }
-
-
-        // Coinbase address for payment
-        energi::Work current_work;
-
-
-
-
-        // Mine till you can, or retries fail after a limit
-        while (m_is_mining)
+    energi::Work current_work;
+    // Mine till you can, or retries fail after a limit
+    while (should_mine)
 		{
 			try
 			{
-                m_solution_found = false;
-                // Keep checking for new work and mine
-                while(!m_solution_found)
-                {
-                    auto gbt = rpc.getBlockTemplate();
-                    energi::Work new_work(gbt, m_coinbase_addr);
+			  solution_found = false;
+        // Keep checking for new work and mine
+        while(!solution_found)
+        {
+          // Get Work using GetBlockTemplate
+          auto work_gbt = rpc.getBlockTemplate();
+          energi::Work new_work(work_gbt, coinbase_addr_);
+          // check if current work is no different, then skip
+          if ( new_work != current_work )
+          {
+            // 1. Got new work
+            // 2. Abandon current work and take new work
+            // 3. miner starts mining for new work
 
-                    // check if current work is no different, then skip
-                    if ( new_work == current_work )
-                    {
-                        this_thread::sleep_for(chrono::milliseconds(500));
-                        continue;
-                    }
+            current_work = new_work;
+            plant.setWork(new_work);
 
-                    // 1. Got new work
-                    // 2. Abandon current work and take new work
-                    // 3. miner starts mining for new work
-                    current_work = new_work;
-                    plant.setWork(new_work);
+            // 4. Work has been assigned to the plant
+            // 5. Wait and continue for new work
+            // 6. TODO decide on time to wait for
+          }
 
-                    // 4. Work has been assigned to the plant
-                    // 5. Wait and continue for new work
-                    // 6. TODO decide on time to wait for
-                    this_thread::sleep_for(chrono::milliseconds(100));
-                }
+          this_thread::sleep_for(chrono::milliseconds(100));
+        }
 
-                // 7. Since solution was found, submit now
-                std::lock_guard<std::mutex> l(mutex_solution);
-                rpc.submitSolution(solution);
-				break;
+        // 7. Since solution was found, submit now
+        MutexLGuard l(mutex_solution);
+        rpc.submitSolution(solution);
+			}
+			catch(WorkException &we)
+			{
+        if (max_retries_ == 0)
+        {
+          cerr << "Work decode problem, will exit now" << endl;
+          should_mine = false;
+        }
+        else
+        {
+          for (auto i = 3; --i; this_thread::sleep_for(chrono::seconds(1)))
+            cerr << we.what() << endl << "Work couldn't be decoded, possible json parsing problem." << i << "... \r";
+          cerr << endl;
+        }
+
+        --max_retries_;
 			}
 			catch (jsonrpc::JsonRpcException& je)
 			{
-				if (m_max_retries > 100)
+				if (max_retries_ == 0)
 				{
 					cerr << "JSON-RPC problem. Couldn't connect, will exit now" << endl;
-					m_is_mining = false;
+					should_mine = false;
 				}
-				else if (m_max_retries > 0)
+				else
 				{
 					for (auto i = 3; --i; this_thread::sleep_for(chrono::seconds(1)))
 						cerr << je.GetMessage() << endl << je.what() << endl << "JSON-RPC problem. Probably couldn't connect. Retrying in " << i << "... \r";
 					cerr << endl;
 				}
-				else
-				{
-					cerr << "JSON-RPC problem. Probably couldn't connect." << endl;
-				}
+
+				--max_retries_;
 			}
 		}
 
 		cout << "Hello world: " << m_farmURL << " " << endl;
-		//GBTClient *prpc = &rpc;
 		exit(0);
 	}
 
@@ -588,34 +572,41 @@ private:
 	OperationMode mode;
 
 	/// Mining options
-	bool m_is_mining = true;
-	MinerType m_minerType = MinerType::Mixed;
+	bool should_mine = true;
+	MinerExecutionMode m_MinerExecutionMode = MinerExecutionMode::kMixed;
+
 	unsigned m_openclPlatform = 0;
 	unsigned m_miningThreads = UINT_MAX;
 	bool m_shouldListDevices = false;
+
 	unsigned m_openclDeviceCount = 0;
 	unsigned m_openclDevices[16];
 	unsigned m_openclThreadsPerHash = 8;
-	unsigned m_globalWorkSizeMultiplier = energi::CLMiner::c_defaultGlobalWorkSizeMultiplier;
-	unsigned m_localWorkSize = energi::CLMiner::c_defaultLocalWorkSize;
+
+	unsigned m_globalWorkSizeMultiplier = energi::OpenCLMiner::c_defaultGlobalWorkSizeMultiplier;
+	unsigned m_localWorkSize = energi::OpenCLMiner::c_defaultLocalWorkSize;
 	unsigned m_dagLoadMode = 0; // parallel
 	unsigned m_dagCreateDevice = 0;
+
+
 	/// Benchmarking params
 	unsigned m_benchmarkWarmup = 15;
 	unsigned m_parallelHash    = 4;
 	unsigned m_benchmarkTrial = 3;
 	unsigned m_benchmarkTrials = 5;
 	unsigned m_benchmarkBlock = 0;
+
+
 	/// Farm params
 	string m_farmURL = "http://192.168.0.22:9998";
 	string m_farmFailOverURL = "";
-	string m_activeFarmURL = m_farmURL;
+	string m_energiURL = m_farmURL;
 	unsigned m_farmRetries = 0;
-	unsigned m_max_retries = 3;
+	unsigned max_retries_ = 20;
 	unsigned m_farmRecheckPeriod = 500;
 	unsigned m_defaultStratumFarmRecheckPeriod = 2000;
 	bool m_farmRecheckSet = false;
 	int m_worktimeout = 180;
 	string m_fport = "";
-	string m_coinbase_addr;
+	string coinbase_addr_;
 };

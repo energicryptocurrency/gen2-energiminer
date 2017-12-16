@@ -18,6 +18,7 @@ set(SOURCES
   egihash/keccak-tiny.h
   egihash/keccak-tiny.c
   egihash/secure_memzero.h
+  sha2.c
 )
 
 
@@ -26,9 +27,7 @@ add_executable(${EXECUTABLE} ${SRC_LIST} ${SOURCES} ${HEADERS})
 
 add_dependencies(${EXECUTABLE} BuildInfo.h )
 
-target_link_libraries(${EXECUTABLE} ethcore)
-target_link_libraries(${EXECUTABLE} ethash)
-target_link_libraries(${EXECUTABLE} devcore libjson-rpc-cpp::client)
+target_link_libraries(${EXECUTABLE} libjson-rpc-cpp::client  Boost::boost Threads::Threads Boost::system egihash-cl)
 
 include(GNUInstallDirs)
 install(TARGETS energiminer DESTINATION ${CMAKE_INSTALL_BINDIR})

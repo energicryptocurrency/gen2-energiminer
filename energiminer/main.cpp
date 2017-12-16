@@ -20,17 +20,20 @@
  * Ethereum client.
  */
 
+#include "MinerAux.h"
+#include "BuildInfo.h"
+#include "energiminer/common.h"
+
 #include <thread>
 #include <fstream>
 #include <iostream>
-#include "MinerAux.h"
-#include "BuildInfo.h"
 
 using namespace std;
-using namespace dev;
-using namespace dev::eth;
-using namespace boost::algorithm;
 
+namespace energi
+{
+  extern int g_logVerbosity;
+}
 
 void help()
 {
@@ -49,8 +52,8 @@ void help()
 
 void version()
 {
-	cout << "ethminer version " << ETH_PROJECT_VERSION << endl;
-	cout << "Build: " << ETH_BUILD_PLATFORM << "/" << ETH_BUILD_TYPE << endl;
+	cout << "enegiminer version " << ENERGI_PROJECT_VERSION << endl;
+	cout << "Build: " << ENERGI_BUILD_PLATFORM << "/" << ENERGI_BUILD_TYPE << endl;
 	exit(0);
 }
 
@@ -61,14 +64,14 @@ int main(int argc, char** argv)
 {
 	if ( !is_little_endian() )
 	{
-		cerr << "Little endian not supported" << endl;
+		cerr << "Little endian not tested" << endl;
 		exit(-1);
 	}
 
 	// Set env vars controlling GPU driver behavior.
-	setenv("GPU_MAX_HEAP_SIZE", "100");
-	setenv("GPU_MAX_ALLOC_PERCENT", "100");
-	setenv("GPU_SINGLE_ALLOC_PERCENT", "100");
+	energi::setenv("GPU_MAX_HEAP_SIZE", "100");
+	energi::setenv("GPU_MAX_ALLOC_PERCENT", "100");
+	energi::setenv("GPU_SINGLE_ALLOC_PERCENT", "100");
 
 	MinerCLI m(MinerCLI::OperationMode::GBT);
 
@@ -81,7 +84,7 @@ int main(int argc, char** argv)
 		// Standard options:
 		string arg = argv[i];
 		if ((arg == "-v" || arg == "--verbosity") && i + 1 < argc)
-			g_logVerbosity = atoi(argv[++i]);
+			energi::g_logVerbosity = atoi(argv[++i]);
 		else if (arg == "-h" || arg == "--help")
 			help();
 		else if (arg == "-V" || arg == "--version")
