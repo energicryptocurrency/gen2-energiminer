@@ -21,7 +21,7 @@ namespace energi
     // If a valid thread exist then set state
     if (tworker_)
     {
-      if ( state_ == State::Stopped )
+      if ( state_ == State::Stopped ) // start
       {
         state_ = State::Starting;
       }
@@ -53,7 +53,7 @@ namespace energi
           {
             break;
           }
-          else
+          else if ( state_ == State::Stopping )
           {
             state_ = State::Stopped;
           }

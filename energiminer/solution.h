@@ -22,6 +22,8 @@ namespace energi
     Solution(const Work &work):work_(work)
     {}
 
+    std::string getSubmitBlockData() const;
+
   private:
     Work work_;
   };

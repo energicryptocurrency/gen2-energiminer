@@ -494,6 +494,8 @@ private:
     }
 
 
+    cdebug << "Engines started!";
+
     energi::Work current_work;
     // Mine till you can, or retries fail after a limit
     while (should_mine)
@@ -522,7 +524,12 @@ private:
             // 6. TODO decide on time to wait for
           }
 
-          this_thread::sleep_for(chrono::milliseconds(100));
+          auto mp = plant.miningProgress();
+          mp.rate();
+
+          cnote << "Mining on difficulty " << " " << mp;
+
+          this_thread::sleep_for(chrono::milliseconds(5000));
         }
 
         // 7. Since solution was found, submit now
@@ -573,7 +580,7 @@ private:
 
 	/// Mining options
 	bool should_mine = true;
-	MinerExecutionMode m_MinerExecutionMode = MinerExecutionMode::kMixed;
+	MinerExecutionMode m_MinerExecutionMode = MinerExecutionMode::kCPU;
 
 	unsigned m_openclPlatform = 0;
 	unsigned m_miningThreads = UINT_MAX;

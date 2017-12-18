@@ -82,13 +82,13 @@ namespace energi
       ss << std::hex << std::setw(4) << std::setfill('0') << epoch << "-" << seedhash.substr(0, 12) << ".dag";
       auto const epoch_file = GetDataDir() / "dag" / ss.str();
 
-      printf("DAG file for epoch %u is \"%s\"", epoch, epoch_file.string().c_str());
+      printf("\nDAG file for epoch %u is \"%s\"", epoch, epoch_file.string().c_str());
       // try to load the DAG from disk
       try
       {
         std::unique_ptr<dag_t> new_dag(new dag_t(epoch_file.string(), callback));
         ActiveDAG(move(new_dag));
-        printf("DAG file \"%s\" loaded successfully. \n\n\n", epoch_file.string().c_str());
+        printf("\nDAG file \"%s\" loaded successfully. \n\n\n", epoch_file.string().c_str());
 
 
         egihash::dag_t::data_type data = dag->data();
@@ -101,7 +101,7 @@ namespace energi
       }
       catch (hash_exception const & e)
       {
-        printf("DAG file \"%s\" not loaded, will be generated instead. Message: %s", epoch_file.string().c_str(), e.what());
+        printf("\nDAG file \"%s\" not loaded, will be generated instead. Message: %s\n", epoch_file.string().c_str(), e.what());
       }
 
       // try to generate the DAG
@@ -111,14 +111,14 @@ namespace energi
         boost::filesystem::create_directories(epoch_file.parent_path());
         new_dag->save(epoch_file.string());
         ActiveDAG(move(new_dag));
-        printf("DAG generated successfully. Saved to \"%s\".", epoch_file.string().c_str());
+        printf("\nDAG generated successfully. Saved to \"%s\".\n", epoch_file.string().c_str());
       }
       catch (hash_exception const & e)
       {
-        printf("DAG for epoch %u could not be generated: %s", epoch, e.what());
+        printf("\nDAG for epoch %u could not be generated: %s", epoch, e.what());
       }
     }
-    printf("DAG has been initialized already. Use ActiveDAG() to swap.");
+    printf("\nDAG has been initialized already. Use ActiveDAG() to swap.\n");
 
     /*egihash::dag_t::data_type data = dag->data();
     std::cout << "DAG 0: " << std::hex << data.size() << std::endl;*/
@@ -176,9 +176,16 @@ namespace energi
     return true;
   }
 
+  CpuMiner::CpuMiner(const Plant &plant, int index)
+    :Miner("cpu", plant, index)
+  {
+    // First time init egi hash dag
+    // We got to do for every epoch change below
+    InitEgiHashDag();
+  }
+
   void CpuMiner::trun()
   {
-    Work current_work;
     try
     {
       while (true)
@@ -187,8 +194,8 @@ namespace energi
 
         if ( !work.isValid() )
         {
-          cdebug << "Invalid work received. Pause for 3 s.";
-          std::this_thread::sleep_for(std::chrono::seconds(3));
+          cdebug << "No work received. Pause for 1 s.";
+          std::this_thread::sleep_for(std::chrono::seconds(1));
           continue;
         }
 
@@ -223,9 +230,10 @@ namespace energi
             pdata[20] = nonceForHash;
             //hashes_done = nonce - first_nonce;
 
-            addHashCount(nonce - last_nonce);
+            cdebug << "device:" << index_ << "nonce: " << nonce;
+            addHashCount(nonce + 1 - last_nonce);
 
-            Solution solution(current_work);
+            Solution solution(work);
             plant_.submit(solution);
 
             return;

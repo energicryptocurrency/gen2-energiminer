@@ -232,33 +232,33 @@ namespace energi
     /// Shift arbitrary data to the log. Spaces will be added between items as required.
     template <class T> LogOutputStream& operator<<(T const& _t) { if (Id::verbosity <= g_logVerbosity) { if (_AutoSpacing && m_sstr.str().size() && m_sstr.str().back() != ' ') m_sstr << " "; append(_t); } return *this; }
   };
-
-  // Kill all logs when when NLOG is defined.
-  #if NLOG
-  #define clog(X) nlog(X)
-  #define cslog(X) nslog(X)
-  #else
-  #if NDEBUG
-  #define clog(X) if (X::debug) {} else LogOutputStream<X, true>()
-  #define cslog(X) if (X::debug) {} else LogOutputStream<X, false>()
-  #else
-  #define clog(X) LogOutputStream<X, true>()
-  #define cslog(X) LogOutputStream<X, false>()
-  #endif
-  #endif
-
-  // Simple cout-like stream objects for accessing common log channels.
-  // Dirties the global namespace, but oh so convenient...
-  #define cdebug clog(DebugChannel)
-  #define cnote clog(NoteChannel)
-  #define cwarn clog(WarnChannel)
-
-  // Null stream-like objects.
-  #define ndebug if (true) {} else NullOutputStream()
-  #define nlog(X) if (true) {} else NullOutputStream()
-  #define nslog(X) if (true) {} else NullOutputStream()
-
 }
+
+// Kill all logs when when NLOG is defined.
+#if NLOG
+#define clog(X) nlog(X)
+#define cslog(X) nslog(X)
+#else
+#if NDEBUG
+#define clog(X) if (X::debug) {} else LogOutputStream<X, true>()
+#define cslog(X) if (X::debug) {} else LogOutputStream<X, false>()
+#else
+#define clog(X) LogOutputStream<X, true>()
+#define cslog(X) LogOutputStream<X, false>()
+#endif
+#endif
+
+// Simple cout-like stream objects for accessing common log channels.
+// Dirties the global namespace, but oh so convenient...
+#define cdebug clog(DebugChannel)
+#define cnote clog(NoteChannel)
+#define cwarn clog(WarnChannel)
+
+// Null stream-like objects.
+#define ndebug if (true) {} else NullOutputStream()
+#define nlog(X) if (true) {} else NullOutputStream()
+#define nslog(X) if (true) {} else NullOutputStream()
+
 
 #endif /* ENERGILOG_H_*/
 

@@ -13,6 +13,7 @@
 #include "energiminer/common.h"
 #include "energiminer/CpuMiner.h"
 #include "energiminer/TestMiner.h"
+#include "energiminer/Log.h"
 
 #include <iostream>
 #include <limits>
@@ -46,7 +47,7 @@ namespace energi
     started_ = true;
     for ( auto &minerEngine : vMinerEngine)
     {
-      unsigned int num_threads_for_cpu = std::thread::hardware_concurrency() - 1;
+      unsigned int num_threads_for_cpu = std::thread::hardware_concurrency() - 2;
       auto count = EnumMinerEngine::kCL  == minerEngine ? OpenCLMiner::instances() : ( EnumMinerEngine::kTest  == minerEngine ? 2 : num_threads_for_cpu );
       for ( decltype(count) i = 0; i < count; ++i )
       {
@@ -113,16 +114,21 @@ namespace energi
       return false;
     }
 
+    cdebug << "New Work assigned: Height: " << work.height << " " << work.targetStr;
     work_ = work;
 
     // Propagate to all miners
-    auto minersCount = miners_.size();
+    const auto minersCount = miners_.size();
+    const auto kLimitPerThread = std::numeric_limits<uint32_t>::max() / minersCount;
     uint32_t index = 0;
     for (auto &miner: miners_)
     {
-      auto first  = index * std::numeric_limits<uint32_t>::max() / minersCount;
-      auto end    = ( index + 1 ) * std::numeric_limits<uint32_t>::max() / minersCount;
+      auto first  = index * kLimitPerThread;
+      auto end    = first + kLimitPerThread;
+      cdebug << "first:" << first << "end: " << end;
+
       miner->setWork(work, first, end);
+
       ++index;
     }
 

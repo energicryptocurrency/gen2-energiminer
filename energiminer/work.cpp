@@ -194,6 +194,7 @@ namespace energi
     vuint32 block_header_part8(16, 0);
 
     vuint32 target_bin(8, 0);
+    targetStr = target_hex;
     hex2bin((uint8_t*)target_bin.data(), target_hex.data(), sizeof(target_bin) * target_bin.size());
 
     for (int i = 0; i < 8; i++)

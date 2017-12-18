@@ -26,10 +26,10 @@ class GBTClient : public jsonrpc::Client
             object["capabilities"].append("workid");
             params.append(object);
 
-            cout << params.toStyledString() << endl;
+            //cout << params.toStyledString() << endl;
 
             Json::Value result = this->CallMethod("getblocktemplate", params);
-            std::cout << result.toStyledString() << endl;
+            //std::cout << result.toStyledString() << endl;
             if (result.isObject() )
                 return result;
             else
@@ -43,27 +43,30 @@ class GBTClient : public jsonrpc::Client
 
             Json::Value result = this->CallMethod("getmininginfo", params);
             std::cout << result.toStyledString() << endl;
+/*
             if (result.isObject() )
                 return result;
             else
                 throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());
+*/
         }
 
         void submitSolution(const energi::Solution &solution)//const std::string& param1, const std::string& param2, const std::string& param3) throw (jsonrpc::JsonRpcException)
         {
-          (void)solution;
-            /*Json::Value params(Json::arrayValue);
-            auto result1 = solution.getSubmitBlockData();
-            cout << "SOLUTION: " << result1 << endl;
-            params.append(result1);
-            Json::Value result = this->CallMethod("submitblock", params);
-            cout << "RAW RESULT: " << result.toStyledString();
-            if (result.isObject())
-            {
-                cout << "Result " << result["result"].toStyledString() << endl;
-            }
-            else
-                throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());*/
+          Json::Value params(Json::arrayValue);
+          auto result1 = solution.getSubmitBlockData();
+          //cout << "SOLUTION: " << result1 << endl;
+          params.append(result1);
+          Json::Value result = this->CallMethod("submitblock", params);
+          //cout << "RAW RESULT: " << result.toStyledString();
+/*
+          if (result.isObject())
+          {
+              cout << "Result " << result["result"].toStyledString() << endl;
+          }
+          else
+              throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());
+*/
         }
 };
 

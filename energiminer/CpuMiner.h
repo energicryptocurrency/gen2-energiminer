@@ -20,10 +20,7 @@ namespace energi
   class CpuMiner : public Miner
   {
   public:
-    CpuMiner(const Plant &plant, int index)
-      :Miner("cpu", plant, index)
-    {
-    }
+    CpuMiner(const Plant &plant, int index);
 
     static std::unique_ptr<egihash::dag_t> const & ActiveDAG(std::unique_ptr<egihash::dag_t> next_dag  = std::unique_ptr<egihash::dag_t>());
     static boost::filesystem::path GetDataDir();

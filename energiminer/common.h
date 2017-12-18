@@ -115,14 +115,14 @@ namespace energi
 
   inline std::ostream& operator<<(std::ostream& _out, WorkingProgress _p)
   {
-    float mh = _p.rate() / 1000000.0f;
+    float mh = _p.rate() / 1000.0f;
     _out << "Speed "
        << EthTealBold << std::fixed << std::setw(6) << std::setprecision(2) << mh << EthReset
-       << " Mh/s    ";
+       << " Kh/s    ";
 
     for (size_t i = 0; i < _p.minersHashes.size(); ++i)
     {
-      mh = _p.minerRate(_p.minersHashes[i]) / 1000000.0f;
+      mh = _p.minerRate(_p.minersHashes[i]) / 1000.0f;
       _out << "device/" << i << " " << EthTeal << std::fixed << std::setw(5) << std::setprecision(2) << mh << EthReset << "  ";
     }
 
