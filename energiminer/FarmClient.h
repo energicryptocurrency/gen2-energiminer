@@ -5,6 +5,8 @@
 #ifndef JSONRPC_CPP_STUB_FARMCLIENT_H_
 #define JSONRPC_CPP_STUB_FARMCLIENT_H_
 
+#include "energiminer/Log.h"
+
 #include <jsonrpccpp/client.h>
 
 #include <iostream>
@@ -36,20 +38,20 @@ class GBTClient : public jsonrpc::Client
                 throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());
         }
 
-        Json::Value getMiningInfo() throw (jsonrpc::JsonRpcException)
+        /*Json::Value getMiningInfo() throw (jsonrpc::JsonRpcException)
         {
             auto params = Json::Value(Json::arrayValue);
             cout << params.toStyledString() << endl;
 
             Json::Value result = this->CallMethod("getmininginfo", params);
             std::cout << result.toStyledString() << endl;
-/*
+
             if (result.isObject() )
                 return result;
             else
                 throw jsonrpc::JsonRpcException(jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE, result.toStyledString());
-*/
-        }
+
+        }*/
 
         void submitSolution(const energi::Solution &solution)//const std::string& param1, const std::string& param2, const std::string& param3) throw (jsonrpc::JsonRpcException)
         {
@@ -58,7 +60,7 @@ class GBTClient : public jsonrpc::Client
           //cout << "SOLUTION: " << result1 << endl;
           params.append(result1);
           Json::Value result = this->CallMethod("submitblock", params);
-          //cout << "RAW RESULT: " << result.toStyledString();
+          std::cout << "RAW RESULT: " << result.toStyledString() << std::endl;
 /*
           if (result.isObject())
           {

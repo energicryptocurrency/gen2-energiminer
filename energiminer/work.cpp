@@ -22,7 +22,7 @@ namespace energi
     auto transactions         = gbt["transactions"];
     auto coinbasevalue        = gbt["coinbasevalue"].asInt64();
     auto target_hex           = gbt["target"].asString();
-    auto bits                 = gbt["bits"];
+    bits                      = gbt["bits"].asString();
     auto curtime              = gbt["curtime"];
     auto previousblockhash    = gbt["previousblockhash"];
 
@@ -168,30 +168,29 @@ namespace energi
     for (int i = 0; i < 8; i++)
       block_header_part3[i] = be32dec((uint32_t *)merkle_tree[0].data() + i);
 
-
-    for ( auto mn : merkle_tree )
-    {
-      //Print()(mn);
-    }
-
     // Part 4 current time
     vuint32 block_header_part4(1, swab32(curtime.asInt()));
 
     // Part 5 bits
     uint32_t bits_parsed = 0;
-    hex2bin(reinterpret_cast<uchar*>(&bits_parsed), bits.asString().c_str(), sizeof(bits_parsed));
+    hex2bin(reinterpret_cast<uchar*>(&bits_parsed), bits.c_str(), sizeof(bits_parsed));
     vuint32 block_header_part5(1, le32dec(&bits_parsed));
+    bitsNum = std::stoi(bits.c_str());
 
     // Part 6 height -> egihash specific not in Bitcoin
     vuint32 block_header_part6(1, swab32(height));
 
-    // Part 7 nonce
-    vuint32 block_header_part7(13, 0);
-    block_header_part7[1] = 0x80000000;
-    block_header_part7[12] = 0x00000280;
+    // Part 7 mixHash -> this will be calculated later.
+    vuint32 block_header_part7(8, 0);
+
+    // Part 8 nonce
+    vuint32 block_header_part8(13, 0);
+    block_header_part8[1]   = 0x80000000;
+    block_header_part8[12] = 0x00000280;
+
 
     // Extra dont know why
-    vuint32 block_header_part8(16, 0);
+    vuint32 block_header_part9(16, 0);
 
     vuint32 target_bin(8, 0);
     targetStr = target_hex;
@@ -206,8 +205,9 @@ namespace energi
             , std::move(block_header_part4)
             , std::move(block_header_part5)
             , std::move(block_header_part6)
-            , std::move(block_header_part7)
-        , std::move(block_header_part8)
+            //, std::move(block_header_part7)
+            , std::move(block_header_part8)
+            , std::move(block_header_part9)
     })
     {
       blockHeader.insert(blockHeader.end(), part.begin(), part.end());

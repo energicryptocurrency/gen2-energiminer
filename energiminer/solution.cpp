@@ -29,8 +29,9 @@ namespace energi
     }
 
     bin2hex(const_cast<char*>(blockHeaderStr.c_str()), (unsigned char *)work_.blockHeader.data(), 84);
+    //bin2hex(const_cast<char*>(blockHeaderStr.c_str()), (unsigned char *)work_.blockHeader.data(), 116);
     //cdebug << "TXN: " << work_.rawTransactionData;
-    //cdebug << "DATA: " << blockHeaderStr;
+    cdebug << "DATA: " << blockHeaderStr;
 
     std::stringstream ss;
     ss << blockHeaderStr.c_str() << work_.rawTransactionData;

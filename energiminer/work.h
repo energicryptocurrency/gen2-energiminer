@@ -50,6 +50,8 @@ namespace energi
     }
 
     uint32_t                height  = 0;
+    std::string             bits;
+    uint32_t                bitsNum = 0;
     vuint32                 blockHeader;
     std::string             targetStr;
     target                  targetBin;

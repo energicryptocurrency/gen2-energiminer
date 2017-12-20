@@ -6,7 +6,7 @@ set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/cmake/toolchain.cmake CACHE FILEPAT
 set(CMAKE_CONFIGURATION_TYPES Debug RelWithDebInfo Debug)
 set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type on single-configuration generators")
 
-set(HUNTER_CONFIGURATION_TYPES Release)
+set(HUNTER_CONFIGURATION_TYPES Debug)
 set(HUNTER_CACHE_SERVERS "https://github.com/ethereum/hunter-cache")
 include(HunterGate)
 HunterGate(

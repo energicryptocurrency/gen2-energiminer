@@ -16,7 +16,7 @@
 
 namespace energi
 {
-  egihash::h256_t CpuMiner::egihash_calc(uint32_t height, uint32_t nonce, const void *input)
+  egihash::result_t CpuMiner::GetPOWHash(uint32_t height, uint32_t nonce, const void *input)
   {
     energi::CBlockHeaderTruncatedLE truncatedBlockHeader(input);
     egihash::h256_t headerHash(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
@@ -26,12 +26,32 @@ namespace energi
 
     if (dag && ((height / egihash::constants::EPOCH_LENGTH) == dag->epoch()))
     {
-      return egihash::full::hash(*dag, headerHash, nonce).value;
+      ret = egihash::full::hash(*dag, headerHash, nonce);
     }
-
+    else
+    {
       // otherwise all we can do is generate a light hash
       // TODO: pre-load caches and seed hashes
-      return egihash::light::hash(egihash::cache_t(height, egihash::get_seedhash(height)), headerHash, nonce).value;
+      ret = egihash::light::hash(egihash::cache_t(height, egihash::get_seedhash(height)), headerHash, nonce);
+    }
+
+    auto hashMix = ret.mixhash;
+    if (std::memcmp(hashMix.b, egihash::empty_h256.b, egihash::empty_h256.hash_size) == 0)
+    {
+        throw WorkException("Can not produce a valid mixhash");
+    }
+
+//    // return a Keccak-256 hash of the full block header, including nonce and mixhash
+//    CBlockHeaderFullLE fullBlockHeader(input, nonce, hashMix.b);
+//    egihash::h256_t blockHash(&fullBlockHeader, sizeof(fullBlockHeader));
+    //return std::make_tuple(ret.mixhash, ret.value);
+    return ret;
+  }
+
+  egihash::h256_t CpuMiner::GetHeaderHash(const void *input)
+  {
+    energi::CBlockHeaderTruncatedLE truncatedBlockHeader(input);
+    return egihash::h256_t(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
   }
 
 
@@ -213,23 +233,45 @@ namespace energi
         uint32_t nonce = first_nonce;
         uint32_t last_nonce = first_nonce;
 
-        for (int k=0; k < 20; k++)
+        for (int k=0; k < 20; k++) // we dont use mixHash part to calculate hash but fill it later (below)
         {
           be32enc(&endiandata[k], pdata[k]);
         }
 
         do
         {
-          be32enc(&endiandata[20], nonce);
-          auto hash_res = egihash_calc(work.height, nonce, endiandata);
-          memcpy(hash, hash_res.b, sizeof(hash_res.b));
+          //be32enc(&endiandata[28], nonce);
+          auto hash_res = GetPOWHash(work.height, nonce, endiandata);
+          //auto hashBlock  = std::get<0>(hash_res);
+          //auto hashPOW    = std::get<1>(hash_res);
+          memcpy(hash, hash_res.value.b, sizeof(hash_res.value));
+          uint32_t arr[8] = {0};
+          memcpy(arr, hash_res.mixhash.b, sizeof(hash_res.mixhash));
+//          for (int k = 20; k < 28; ++k)
+//          {
+//            be32enc(&pdata[k], pdata[k]);
+//          }
+
+          /*for (int i = 0; i < 8; i++)
+          {
+            pdata[i + 20] = be32dec(&arr[i]);
+          }*/
 
           if (hash[7] <= Htarg && fulltest(hash, ptarget))
           {
             auto nonceForHash = be32dec(&nonce);
+            //pdata[28] = nonceForHash;
             pdata[20] = nonceForHash;
             //hashes_done = nonce - first_nonce;
 
+            cdebug << "HASH:" << GetHex(hash_res.value.b, 32);
+
+            CBlockHeaderFullLE fullBlockHeader(endiandata, nonce, hash_res.mixhash.b);
+            egihash::h256_t blockHash(&fullBlockHeader, sizeof(fullBlockHeader));
+
+            cdebug << "HASH MIX:" << GetHex(hash_res.mixhash.b, 32);
+            cdebug << "GET FULL HASH:" << GetHex(blockHash.b, 32);
+            //cdebug << "BlockHeader:" << GetHex((uint8_t*)work.blockHeader.data(), work.blockHeader.size() * 4);
             cdebug << "device:" << index_ << "nonce: " << nonce;
             addHashCount(nonce + 1 - last_nonce);
 
@@ -254,10 +296,12 @@ namespace energi
         addHashCount(nonce - last_nonce);
       }
     }
-    catch(...)
+    catch(WorkException &ex)
     {
-
+      cdebug << ex.what();
     }
+    catch(...)
+    {}
   }
 
 } /* namespace energi */

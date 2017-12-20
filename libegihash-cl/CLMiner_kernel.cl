@@ -231,13 +231,13 @@ typedef struct
 
 typedef union {
     ulong   ulongs[64 / sizeof(ulong)];
-    ulong4  ulong4s[64 / sizeof(ulong4)];
+    ulong4  ulong4s[64 / sizeof(ulong4)]; // 32 bytes * 2
  
     uint    uints[64 / sizeof(uint)];
     uint2   uint2s[64 / sizeof(uint2)];
     uint4   uint4s[64 / sizeof(uint4)];
     uint8   uint8s[64 / sizeof(uint8)];
-    uint16  uint16s[1];
+    uint16  uint16s[1]; // 16 * 4 -> 54
 } hash64_t;
  
 typedef union
@@ -271,7 +271,7 @@ __kernel void ethash_search(
     __constant hash32_t const* g_header,
     __global hash128_t const* g_dag,
     ulong start_nonce,
-    ulong target,
+    __constant hash32_t const* g_target,
     uint isolate
     )
 {
@@ -405,11 +405,35 @@ __kernel void ethash_search(
  
     keccak_f1600(state, 1);
 
+/*
     if (as_ulong(as_uchar8(state[0]).s76543210) < target)
     {
         uint slot = min(MAX_OUTPUTS, atomic_inc(&g_output[0]) + 1);
         g_output[slot] = gid;
     }
+*/
+    uint* hash_    = ((uint*)state);
+    __constant uint* target_  = ((__constant uint*)g_target);
+    uint rc = 1;
+    for (uint i = 7; i != 0; --i) 
+    {
+      if (hash_[i] > target_[i]) {
+        rc = 0;
+        break;
+      }
+      if (hash_[i] < target_[i]) 
+      {
+        rc = 1;
+        break;
+      }
+    }
+    
+    if (rc > 0)
+    {
+        uint slot = min(MAX_OUTPUTS, atomic_inc(&g_output[0]) + 1);
+        g_output[slot] = gid;
+    }
+    
 }
 
 __kernel void ethash_calculate_dag_item(uint start, __global hash64_t const* g_light, __global hash64_t * g_dag, uint isolate)

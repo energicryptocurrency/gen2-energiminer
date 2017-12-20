@@ -47,7 +47,7 @@ namespace energi
     started_ = true;
     for ( auto &minerEngine : vMinerEngine)
     {
-      unsigned int num_threads_for_cpu = std::thread::hardware_concurrency() - 2;
+      unsigned int num_threads_for_cpu = std::thread::hardware_concurrency() - 1;
       auto count = EnumMinerEngine::kCL  == minerEngine ? OpenCLMiner::instances() : ( EnumMinerEngine::kTest  == minerEngine ? 2 : num_threads_for_cpu );
       for ( decltype(count) i = 0; i < count; ++i )
       {

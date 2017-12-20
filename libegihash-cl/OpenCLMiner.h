@@ -69,10 +69,7 @@ namespace energi
       unsigned _localWorkSize,
       unsigned _globalWorkSizeMultiplier,
       unsigned _platformId,
-      uint64_t _currentBlock,
-      unsigned _dagLoadMode,
-      unsigned _dagCreateDevice
-    );
+      uint64_t _currentBlock);
 
     static void setNumInstances(unsigned _instances)
     {
@@ -112,6 +109,7 @@ namespace energi
     cl::Buffer              bufferDag_;
     cl::Buffer              bufferLight_;
     cl::Buffer              bufferHeader_;
+    cl::Buffer              bufferTarget_;
     cl::Buffer              bufferSearch_;
 
     unsigned                globalWorkSize_ = 0;
@@ -128,8 +126,6 @@ namespace energi
     static unsigned         s_initialGlobalWorkSize;
 
     std::chrono::high_resolution_clock::time_point workSwitchStart;
-    uint64_t m_hashCount = 0;
-    void addHashCount(uint64_t _n) { m_hashCount += _n; }
   };
 
 } /* namespace energi */

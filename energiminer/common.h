@@ -20,7 +20,7 @@
 
 namespace energi
 {
-  using target    = std::array<uint32_t, 32>;
+  using target    = std::array<uint32_t, 8>;
   using vchar     = std::vector<char>;
   using vbyte     = std::vector<uint8_t>;
   using vuint32   = std::vector<uint32_t>;
@@ -97,6 +97,26 @@ namespace energi
       std::memcpy(hashMerkleRoot, merkleRoot.c_str(), (std::min)(merkleRoot.size(), sizeof(hashMerkleRoot)));
     }
   };
+
+  static_assert(sizeof(CBlockHeaderTruncatedLE) == 146, "CBlockHeaderTruncatedLE has incorrect size");
+
+  struct CBlockHeaderFullLE : public CBlockHeaderTruncatedLE
+  {
+      uint32_t nNonce;
+      char hashMix[65];
+
+      CBlockHeaderFullLE(const void* data, uint32_t nonce, const uint8_t* hashMix_)
+      : CBlockHeaderTruncatedLE(data)
+      , nNonce(nonce)
+      , hashMix{0}
+      {
+          auto mixString = GetHex(hashMix_, 32);
+          /*cdebug << "NONCE:" << nNonce;
+          cdebug << "GET HEX HASH:" << mixString;*/
+          std::memcpy(hashMix, mixString.c_str(), (std::min)(mixString.size(), sizeof(hashMix)));
+      }
+  };
+  static_assert(sizeof(CBlockHeaderFullLE) == 215, "CBlockHeaderFullLE has incorrect size");
   #pragma pack(pop)
 
 

@@ -294,9 +294,7 @@ public:
                     m_localWorkSize,
                     m_globalWorkSizeMultiplier,
                     m_openclPlatform,
-                    0,
-                    m_dagLoadMode,
-                    m_dagCreateDevice))
+                    0))
 			{
 				exit(1);
 			}
@@ -529,7 +527,7 @@ private:
 
           cnote << "Mining on difficulty " << " " << mp;
 
-          this_thread::sleep_for(chrono::milliseconds(5000));
+          this_thread::sleep_for(chrono::milliseconds(100));
         }
 
         // 7. Since solution was found, submit now
@@ -580,7 +578,7 @@ private:
 
 	/// Mining options
 	bool should_mine = true;
-	MinerExecutionMode m_MinerExecutionMode = MinerExecutionMode::kCPU;
+	MinerExecutionMode m_MinerExecutionMode = MinerExecutionMode::kCL;
 
 	unsigned m_openclPlatform = 0;
 	unsigned m_miningThreads = UINT_MAX;

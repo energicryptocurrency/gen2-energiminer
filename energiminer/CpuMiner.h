@@ -11,6 +11,7 @@
 #include "energiminer/miner.h"
 #include "energiminer/egihash/egihash.h"
 
+#include <tuple>
 #include <memory>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
@@ -27,7 +28,8 @@ namespace energi
     static void InitDAG(egihash::progress_callback_type callback);
     static bool InitEgiHashDag();
 
-    static egihash::h256_t egihash_calc(uint32_t height, uint32_t nonce, const void *input);
+    static egihash::h256_t GetHeaderHash(const void *input);
+    static egihash::result_t GetPOWHash(uint32_t height, uint32_t nonce, const void *input);
 
 
     virtual ~CpuMiner()
