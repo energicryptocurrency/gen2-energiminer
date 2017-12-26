@@ -428,7 +428,7 @@ __kernel void ethash_search(
       }
     }
     
-    if (rc > 0)
+    if (hash_[7] <= target_[7] && rc > 0)
     {
         uint slot = min(MAX_OUTPUTS, atomic_inc(&g_output[0]) + 1);
         g_output[slot] = gid;

@@ -13,6 +13,7 @@
 #include <limits>
 #include <cstdint>
 #include <cstring>
+#include <sstream>
 #include <string>
 #include <jsoncpp/json/json.h>
 
@@ -36,12 +37,18 @@ namespace energi
 
     bool operator==(const Work& other) const
     {
-      return std::memcmp(this->targetBin.data(), other.targetBin.data(), sizeof(target) ) == 0 && this->height == other.height;
+      return previousblockhash == other.previousblockhash && this->height == other.height;
     }
 
     bool operator!=(const Work& other) const
     {
         return !operator==(other);
+    }
+
+    void reset()
+    {
+      height = 0;
+      previousblockhash = "";
     }
 
     bool isValid() const
@@ -54,8 +61,20 @@ namespace energi
     uint32_t                bitsNum = 0;
     vuint32                 blockHeader;
     std::string             targetStr;
+    std::string             previousblockhash;
     target                  targetBin;
     std::string             rawTransactionData;
+
+    std::string ToString() const
+    {
+      std::stringstream ss;
+      ss << "Height: " << height << " "
+          << "Bits: " << bits << " "
+          << "Target: " << targetStr << " "
+          << "PrevBlockHash: " << previousblockhash << " ";
+
+      return ss.str();
+    }
   };
 
 

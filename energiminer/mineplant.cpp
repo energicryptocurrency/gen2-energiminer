@@ -114,13 +114,14 @@ namespace energi
       return false;
     }
 
-    cdebug << "New Work assigned: Height: " << work.height << " " << work.targetStr;
+    cnote << "New Work assigned: Height: " << work.height << "Target:" << work.targetStr << "PrevHash:" << work.previousblockhash;
     work_ = work;
 
     // Propagate to all miners
     const auto minersCount = miners_.size();
     const auto kLimitPerThread = std::numeric_limits<uint32_t>::max() / minersCount;
     uint32_t index = 0;
+    solutionFound_ = false;
     for (auto &miner: miners_)
     {
       auto first  = index * kLimitPerThread;
@@ -132,12 +133,40 @@ namespace energi
       ++index;
     }
 
+
     return true;
   }
+
+  void MinePlant::stopAllWork()
+  {
+    MutexLGuard l(mutex_work_);
+    for (auto &miner: miners_)
+    {
+      miner->stopMining();
+    }
+  }
+
+//  bool MinePlant::solutionFound() const
+//  {
+//    cnote << "Submission Found" << solutionFound_.load();
+//    return solutionFound_.load();
+//  }
 
 
   void MinePlant::submit(const Solution &solution) const
   {
+//    // Ask every miner to stop mining now as solution has been found.
+//    MutexLGuard l(mutex_work_);
+//    for (auto &miner: miners_)
+//    {
+//      if ( miner.name() != miner->name() )
+//      {
+//        miner->stopMining();
+//      }
+//    }
+
+    //solutionFound_ = true;
+    //cnote << "Submitted" << solutionFound_.load();
     solution_found_cb_(solution);
   }
 

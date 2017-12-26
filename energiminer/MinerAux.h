@@ -364,7 +364,7 @@ private:
 	  auto vEngineModes = getEngineModes(minerExecutionMode);
 
 	  for( auto mode : vEngineModes )
-	    cdebug << "Starting Miner Engine: " << energi::to_string(mode);
+	    cnote << "Starting Miner Engine: " << energi::to_string(mode);
 
     std::mutex mutex_solution;
     bool solution_found = false;
@@ -492,7 +492,7 @@ private:
     }
 
 
-    cdebug << "Engines started!";
+    cnote << "Engines started!";
 
     energi::Work current_work;
     // Mine till you can, or retries fail after a limit
@@ -510,6 +510,7 @@ private:
           // check if current work is no different, then skip
           if ( new_work != current_work )
           {
+            cnote << "work submitted";
             // 1. Got new work
             // 2. Abandon current work and take new work
             // 3. miner starts mining for new work
@@ -527,12 +528,25 @@ private:
 
           cnote << "Mining on difficulty " << " " << mp;
 
-          this_thread::sleep_for(chrono::milliseconds(100));
+          this_thread::sleep_for(chrono::milliseconds(500));
         }
 
-        // 7. Since solution was found, submit now
+        // 7. Since solution was found, before submit stop all miners
+        plant.stopAllWork();
+
+        // 8. Now submit
         MutexLGuard l(mutex_solution);
-        rpc.submitSolution(solution);
+        if ( rpc.submitSolution(solution) )
+        {
+          // Submitted
+          cnote << "Submit successfully";
+        }
+        else
+        {
+          cnote << "Submit failed";
+        }
+
+        current_work.reset();
 			}
 			catch(WorkException &we)
 			{

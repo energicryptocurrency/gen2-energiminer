@@ -40,11 +40,25 @@ namespace energi
       resetHashCount();
     }
 
-    uint32_t hashCount() const { return hashCount_.load(); }
-    void resetHashCount() { hashCount_ = 0; }
+    void stopMining()
+    {
+      stopAllWork();
+    }
+
+    uint32_t hashCount() const
+    {
+      return hashCount_.load();
+    }
+    void resetHashCount()
+    {
+      hashCount_ = 0;
+    }
 
     protected:
-      void addHashCount(uint32_t _n) { hashCount_ += _n; }
+      void addHashCount(uint32_t _n)
+      {
+        hashCount_ += _n;
+      }
       int index_ = 0;
       const Plant &plant_;
 

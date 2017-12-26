@@ -214,17 +214,28 @@ namespace energi
 
         if ( !work.isValid() )
         {
-          cdebug << "No work received. Pause for 1 s.";
+          cnote << "No work received. Pause for 1 s.";
           std::this_thread::sleep_for(std::chrono::seconds(1));
+
+          if ( this->shouldStop() )
+          {
+            break;
+          }
+
           continue;
         }
+        else
+        {
+          //cnote << "Valid work.";
+        }
+
 
         const uint32_t first_nonce = nonceStart_.load();
         const uint32_t max_nonce = nonceEnd_.load();
         //uint64_t hashes_done;
 
         uint32_t _ALIGN(128) hash[8];
-        uint32_t _ALIGN(128) endiandata[21];
+        uint32_t _ALIGN(128) endiandata[29];
         uint32_t *pdata = work.blockHeader.data();
         uint32_t *ptarget = work.targetBin.data();
 
@@ -247,32 +258,28 @@ namespace energi
           memcpy(hash, hash_res.value.b, sizeof(hash_res.value));
           uint32_t arr[8] = {0};
           memcpy(arr, hash_res.mixhash.b, sizeof(hash_res.mixhash));
-//          for (int k = 20; k < 28; ++k)
-//          {
-//            be32enc(&pdata[k], pdata[k]);
-//          }
 
-          /*for (int i = 0; i < 8; i++)
+          for (int i = 0; i < 8; i++)
           {
             pdata[i + 20] = be32dec(&arr[i]);
-          }*/
+          }
 
           if (hash[7] <= Htarg && fulltest(hash, ptarget))
           {
             auto nonceForHash = be32dec(&nonce);
-            //pdata[28] = nonceForHash;
-            pdata[20] = nonceForHash;
+            pdata[28] = nonceForHash;
+            //pdata[20] = nonceForHash;
             //hashes_done = nonce - first_nonce;
 
-            cdebug << "HASH:" << GetHex(hash_res.value.b, 32);
+            //cnote << "HASH:" << GetHex(hash_res.value.b, 32);
 
-            CBlockHeaderFullLE fullBlockHeader(endiandata, nonce, hash_res.mixhash.b);
-            egihash::h256_t blockHash(&fullBlockHeader, sizeof(fullBlockHeader));
+            /*CBlockHeaderFullLE fullBlockHeader(endiandata, nonce, hash_res.mixhash.b);
+            egihash::h256_t blockHash(&fullBlockHeader, sizeof(fullBlockHeader));*/
 
-            cdebug << "HASH MIX:" << GetHex(hash_res.mixhash.b, 32);
-            cdebug << "GET FULL HASH:" << GetHex(blockHash.b, 32);
-            //cdebug << "BlockHeader:" << GetHex((uint8_t*)work.blockHeader.data(), work.blockHeader.size() * 4);
-            cdebug << "device:" << index_ << "nonce: " << nonce;
+//            cnote << "HASH MIX:" << GetHex(hash_res.mixhash.b, 32);
+//            cnote << "GET FULL HASH:" << GetHex(blockHash.b, 32);
+//            //cnote << "BlockHeader:" << GetHex((uint8_t*)work.blockHeader.data(), work.blockHeader.size() * 4);
+//            cnote << "device:" << index_ << "nonce: " << nonce;
             addHashCount(nonce + 1 - last_nonce);
 
             Solution solution(work);
@@ -289,16 +296,16 @@ namespace energi
             last_nonce = nonce;
           }
 
-        } while (nonce < max_nonce || !isStopped() );
+        } while (nonce < max_nonce || !this->shouldStop() );
 
-        pdata[20] = be32dec(&nonce);
+        pdata[28] = be32dec(&nonce);
         //hashes_done = nonce - first_nonce + 1;
         addHashCount(nonce - last_nonce);
       }
     }
     catch(WorkException &ex)
     {
-      cdebug << ex.what();
+      cnote << ex.what();
     }
     catch(...)
     {}

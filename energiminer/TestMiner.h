@@ -27,6 +27,7 @@ namespace energi
       Worker::setWork(work);
     }
 
+
   protected:
     void trun();
   };

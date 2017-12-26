@@ -53,14 +53,17 @@ class GBTClient : public jsonrpc::Client
 
         }*/
 
-        void submitSolution(const energi::Solution &solution)//const std::string& param1, const std::string& param2, const std::string& param3) throw (jsonrpc::JsonRpcException)
+        bool submitSolution(const energi::Solution &solution)//const std::string& param1, const std::string& param2, const std::string& param3) throw (jsonrpc::JsonRpcException)
         {
           Json::Value params(Json::arrayValue);
           auto result1 = solution.getSubmitBlockData();
           //cout << "SOLUTION: " << result1 << endl;
           params.append(result1);
           Json::Value result = this->CallMethod("submitblock", params);
-          std::cout << "RAW RESULT: " << result.toStyledString() << std::endl;
+          auto resultStr = result.toStyledString();
+          std::cout << "submitSolution result: " << resultStr << std::endl;
+          return resultStr == "null";
+
 /*
           if (result.isObject())
           {

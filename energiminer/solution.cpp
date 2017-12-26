@@ -21,23 +21,22 @@ namespace energi
     }
 
     std::string blockHeaderStr(2 * work_.blockHeader.size() * sizeof(uint32_t) + 1, 0);
-    //const char* ptr = blockHeaderStr.c_str();
-
     for( auto &v : work_.blockHeader)
     {
       be32enc(const_cast<uint32_t*>(&v), v);
     }
 
-    bin2hex(const_cast<char*>(blockHeaderStr.c_str()), (unsigned char *)work_.blockHeader.data(), 84);
-    //bin2hex(const_cast<char*>(blockHeaderStr.c_str()), (unsigned char *)work_.blockHeader.data(), 116);
-    //cdebug << "TXN: " << work_.rawTransactionData;
-    cdebug << "DATA: " << blockHeaderStr;
-
+    bin2hex(const_cast<char*>(blockHeaderStr.c_str()), (unsigned char *)work_.blockHeader.data(), 116);
     std::stringstream ss;
     ss << blockHeaderStr.c_str() << work_.rawTransactionData;
 
 
-    //cdebug << "JOIN: " << ss.str();
+
+    cdebug << "JOIN: " << ss.str();
+
+
+    cnote << work_.ToString();
+
     return ss.str();
   }
 

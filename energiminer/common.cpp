@@ -105,7 +105,8 @@ namespace energi
               out[ 0] = 0x76;  /* OP_DUP */
               out[ 1] = 0xa9;  /* OP_HASH160 */
               out[ 2] = 0x14;  /* push 20 bytes */
-              memcpy(&out[3], &addrbin[1], 20);
+              memset(&out[3], 0, 20);
+              //memcpy(&out[3], &addrbin[1], 20);
               out[23] = 0x88;  /* OP_EQUALVERIFY */
               out[24] = 0xac;  /* OP_CHECKSIG */
               return rv;

@@ -28,6 +28,7 @@ namespace energi
   inline void setBuffer(const uint8_t* ptr, uint32_t value) { *reinterpret_cast<uint32_t*>(const_cast<uint8_t*>(ptr)) = value; }
 
   using MutexLGuard = std::lock_guard<std::mutex>;
+  using MutexRLGuard = std::lock_guard<std::recursive_mutex>;
 
 
   inline bool setenv(const char name[], const char value[], bool override = false)

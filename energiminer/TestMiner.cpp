@@ -39,7 +39,7 @@ namespace energi
           plant_.submit(solution);
         }
 
-        if ( isStopped() )
+        if ( shouldStop() )
         {
           break;
         }

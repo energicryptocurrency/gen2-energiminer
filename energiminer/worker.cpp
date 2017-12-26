@@ -15,47 +15,45 @@ namespace energi
 {
   bool Worker::start()
   {
-    MutexLGuard l(mutex_work_);
-    cdebug << "start working" << name_;
-
-    // If a valid thread exist then set state
+    MutexRLGuard l(mutex_work_);
+    cdebug << "Worker spawning a thread to get its job done" << name_;
     if (tworker_)
     {
-      if ( state_ == State::Stopped ) // start
+      if ( state_ == State::Stopped ) // start only if already stopped else let it continue
       {
         state_ = State::Starting;
       }
     }
-    else // first time launch
+    else // Launch thread first time
     {
       state_ = State::Starting;
       tworker_.reset(new std::thread([&]()
       {
-        while (state_ != State::Killing)
+        while (state_ != State::Killing) // let thread spin till its killed
         {
           if ( state_ == State::Starting )
           {
             state_ = State::Started;
-          }
 
+            try
+            {
+              trun(); // real computational work happens here
+              state_ = State::Stopped;
+              cnote << " Out of trun" << name();
+            }
+            catch (std::exception const& _e)
+            {
+              std::cout << "Worker thread: Exception thrown: " << name_  << _e.what();
+              std::cout.flush();
+            }
 
-          try
-          {
-            trun();
-          }
-          catch (std::exception const& _e)
-          {
-            std::cout << "Worker thread: Exception thrown: " << name_  << _e.what();
-            std::cout.flush();
-          }
+            if ( state_ == State::Killing ) // Pre check: what if we directly kill, we want to break then
+            {
+              break;
+            }
 
-          if ( state_ == State::Killing ) // Pre check: what if we directly kill, we want to break then
-          {
-            break;
-          }
-          else if ( state_ == State::Stopping )
-          {
-            state_ = State::Stopped;
+            cnote << " Last State " << (int)state_ << name();
+
           }
 
           // Its like waiting to be woken up, unless killed
@@ -68,7 +66,7 @@ namespace energi
     }
 
 
-    // Wait for thread to switch to started state
+    // Wait for thread to switch to started state after start
     while (state_ == State::Starting)
     {
       std::this_thread::sleep_for(std::chrono::microseconds(20));
@@ -79,9 +77,10 @@ namespace energi
 
   bool Worker::stop()
   {
-    MutexLGuard l(mutex_work_);
+    MutexRLGuard l(mutex_work_);
     if (tworker_)
     {
+      cnote << " State now" << name_ << (int)state_;
       if ( state_ != State::Stopped )
       {
         state_ = State::Stopping;
@@ -89,7 +88,8 @@ namespace energi
 
       while (state_ != State::Stopped)
       {
-        std::this_thread::sleep_for(std::chrono::microseconds(20));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        cnote << " Waiting here" << name_ << (int)state_;
       }
     }
 
@@ -98,15 +98,23 @@ namespace energi
 
   void Worker::setWork(const Work& work)
   {
-    MutexLGuard l(mutex_work_);
+    MutexRLGuard l(mutex_work_);
     work_ = work;
+    state_ = State::Starting;
 
     onSetWork();
   }
 
+
+  void Worker::stopAllWork()
+  {
+    stop();
+  }
+
+
   Worker::~Worker()
   {
-    MutexLGuard l(mutex_work_);
+    MutexRLGuard l(mutex_work_);
     if (tworker_)
     {
       state_ = State::Killing;

@@ -16,7 +16,7 @@ namespace energi
   {
   public:
     virtual ~Plant(){}
-    virtual void submit(const Solution &) const = 0;
+    virtual void submit(const Solution &m) const = 0;
   };
 }
 

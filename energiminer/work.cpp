@@ -24,7 +24,7 @@ namespace energi
     auto target_hex           = gbt["target"].asString();
     bits                      = gbt["bits"].asString();
     auto curtime              = gbt["curtime"];
-    auto previousblockhash    = gbt["previousblockhash"];
+    previousblockhash         = gbt["previousblockhash"].asString();
 
     auto transactions_data_len = 0;
     for ( auto txn : transactions )
@@ -36,7 +36,7 @@ namespace energi
 
     // Part 1
     // 41 bytes = 4 bytes (version) + 1 bytes ( for one coinbase txncount ) + 32 bytes for txout hash (is null for coinbase) + 4 (index)
-    vbyte part1(41, 0); // version, txncount, prevhash, pretxnindex
+    vbyte part1(41, 0); // version, txncount, previousblockhash, pretxnindex
     setBuffer(part1.data(), 1);
     part1[4] = 1;
     setBuffer(part1.data() + part1.size() - 4, 0xFFFFFFFF);
@@ -60,25 +60,50 @@ namespace energi
     vbyte part4(4, 0xFF);
 
     // Part 5 outputs count ( 1 byte)
-    vbyte part5(1, 1); // output count
+    vbyte part5(1, 2); // output count
 
     // Part 6 coin base gbt 8 bytes -> 64 bit integer
     vbyte part6(8, 0); // gbt of coinbase
-    setBuffer(part6.data(), (uint32_t)coinbasevalue);
-    setBuffer(part6.data() + 4, (uint32_t)( coinbasevalue >> 32 ));
+    auto miner_reward = coinbasevalue * 90 / 100;
+    auto founder_reward = coinbasevalue * 10 / 100;
+    cdebug << "Miner reward" << miner_reward;
+    cdebug << "Founder reward" << founder_reward;
+    setBuffer(part6.data(), (uint32_t)miner_reward);
+    setBuffer(part6.data() + 4, (uint32_t)( miner_reward >> 32 ));
+
+
+    vbyte part6_2(8, 0);
+    setBuffer(part6_2.data(), (uint32_t)founder_reward);
+    setBuffer(part6_2.data() + 4, (uint32_t)( founder_reward >> 32 ));
 
     // Part 8
     vbyte part8(25, 0);
     // wallet address for coinbase reward
     auto pk_script_size = address_to_script(part8.data(), part8.size(), coinbase_addr.c_str());
+
     if (!pk_script_size)
     {
         //fprintf(stderr, "invalid address -- '%s'\n", arg);
-        throw WorkException("Invalid coinbase address");
+        throw WorkException("Invalid coinbase reward address");
+    }
+
+
+    // Part 8.2
+    vbyte part8_2(25, 0);
+    // wallet address for coinbase reward
+    auto pk_script_size2 = address_to_script(part8_2.data(), part8_2.size(), "tFLyidSoz9teKks22hscftwhVHqdewvAzY");
+
+    if (!pk_script_size2)
+    {
+        //fprintf(stderr, "invalid address -- '%s'\n", arg);
+        throw WorkException("Invalid founder address");
     }
 
     // Part 7 tx out script length
     vbyte part7(1, (uint8_t)pk_script_size); // txout script length
+
+    // Part 7 tx out script length
+    vbyte part7_2(1, (uint8_t)pk_script_size2); // txout script length
 
     vbyte part9(4, 0);
 
@@ -95,6 +120,9 @@ namespace energi
                     , std::move(part6)
                     , std::move(part7)
                     , std::move(vbyte(part8.begin(), part8.begin() + pk_script_size))
+                    , std::move(part6_2)
+                    , std::move(part7_2)
+                    , std::move(vbyte(part8_2.begin(), part8_2.begin() + pk_script_size2))
                     , std::move(part9)})
     {
         coinbase_txn.insert(coinbase_txn.end(), part.begin(), part.end());
@@ -157,9 +185,8 @@ namespace energi
 
     // Part 2 prev hash
     vuint32 block_header_part2(8, 0), prevhash_hex(8, 0);
-    std::string prevhash = previousblockhash.asString();
 
-    hex2bin(reinterpret_cast<uchar*>(prevhash_hex.data()), prevhash.data(), sizeof(uint32_t) * prevhash_hex.size());
+    hex2bin(reinterpret_cast<uchar*>(prevhash_hex.data()), previousblockhash.data(), sizeof(uint32_t) * prevhash_hex.size());
     for (int i = 0; i < 8; i++)
       block_header_part2[7 - i] = le32dec(prevhash_hex.data() + i);
 
@@ -205,7 +232,7 @@ namespace energi
             , std::move(block_header_part4)
             , std::move(block_header_part5)
             , std::move(block_header_part6)
-            //, std::move(block_header_part7)
+            , std::move(block_header_part7)
             , std::move(block_header_part8)
             , std::move(block_header_part9)
     })

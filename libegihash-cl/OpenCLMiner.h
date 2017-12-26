@@ -100,6 +100,7 @@ namespace energi
     static std::tuple<bool, cl::Device, int, int, std::string> getDeviceInfo(int index);
     bool init_dag(const std::string &seed, uint32_t height);
 
+    bool                    dagLoaded_ = false;
     int                     index_ = 0;
     cl::Context             context_;
     cl::CommandQueue        queue_;

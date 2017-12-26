@@ -86,8 +86,10 @@ namespace energi
     void stop();
 
     inline bool isStarted(){ return started_; }
+    //bool solutionFound() const override;
 
     bool setWork(const Work& work);
+    void stopAllWork();
     void submit(const Solution &sol) const override;
     WorkingProgress const& miningProgress() const;
 
@@ -95,6 +97,7 @@ namespace energi
     void collectHashRate();
 
     bool                    started_   = false;
+    mutable std::atomic<bool>       solutionFound_;
     SolutionFoundCallback   solution_found_cb_;
     Miners                  miners_;
     Work                    work_;

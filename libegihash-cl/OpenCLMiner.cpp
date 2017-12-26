@@ -191,7 +191,6 @@ namespace energi
     Work current_work; // Here we need current work as to initialize gpu
     try
     {
-      bool dagLoaded = false;
       while (true)
       {
         Work work = this->work(); // This work is a copy of last assigned work the worker was provided by plant
@@ -199,14 +198,22 @@ namespace energi
         {
           cdebug << "No work received. Pause for 1 s.";
           std::this_thread::sleep_for(std::chrono::seconds(1));
+          if ( this->shouldStop() )
+          {
+            break;
+          }
+
           continue;
         }
+        else
+        {
+          cnote << "Valid work.";
+        }
 
+        uint32_t _ALIGN(128) endiandata[29];
         if ( current_work != work )
         {
-          uint32_t _ALIGN(128) endiandata[21];
           uint32_t *pdata     = work.blockHeader.data();
-
           for (int k=0; k < 20; k++) // we dont use mixHash part to calculate hash but fill it later (below)
           {
             be32enc(&endiandata[k], pdata[k]);
@@ -219,10 +226,10 @@ namespace energi
           cllog << "Target Low64:" << hashTarget.GetLow64();
           auto localSwitchStart = std::chrono::high_resolution_clock::now();
 
-          if (!dagLoaded || ( egihash::get_seedhash(current_work.height) != egihash::get_seedhash(work.height) ) )
+          if (!dagLoaded_ || ( egihash::get_seedhash(current_work.height) != egihash::get_seedhash(work.height) ) )
           {
             init_dag(egihash::get_seedhash(work.height), work.height);
-            dagLoaded = true;
+            dagLoaded_ = true;
           }
 
           current_work = work;
@@ -246,10 +253,6 @@ namespace energi
           cllog << "Switch time" << globalSwitchTime << "ms /" << localSwitchTime << "us";
         }
 
-        // Run the kernel.
-        kernelSearch_.setArg(3, startNonce);
-        queue_.enqueueNDRangeKernel(kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
-
         // Read results.
         // TODO: could use pinned host pointer instead.
         uint32_t results[c_maxSearchResults + 1];
@@ -265,6 +268,10 @@ namespace energi
           queue_.enqueueWriteBuffer(bufferSearch_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
         }
 
+        // Run the kernel.
+        kernelSearch_.setArg(3, startNonce);
+        queue_.enqueueNDRangeKernel(kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
+
 
         // Report results while the kernel is running.
         // It takes some time because ethash must be re-evaluated on CPU.
@@ -274,10 +281,24 @@ namespace energi
           cllog << "Global work" << globalWorkSize_;
           cllog << "Nonce: " << nonce ;
           auto nonceForHash = be32dec(&nonce);
-          *(work.blockHeader.data() + 20) = nonceForHash;
+          *(current_work.blockHeader.data() + 28) = nonceForHash;
 
-          Solution solution(work);
+          auto hash_res = CpuMiner::GetPOWHash(current_work.height, nonce, endiandata);
+          cnote << "HASH:" << GetHex(hash_res.value.b, 32);
+
+          uint32_t arr[8] = {0};
+          memcpy(arr, hash_res.mixhash.b, sizeof(hash_res.mixhash));
+          for (int i = 0; i < 8; i++)
+          {
+            current_work.blockHeader.data()[i + 20] = be32dec(&arr[i]);
+          }
+
+          addHashCount(globalWorkSize_);
+
+          Solution solution(current_work);
           plant_.submit(solution);
+          queue_.finish();
+          return;
         }
 
         addHashCount(globalWorkSize_);
@@ -286,7 +307,7 @@ namespace energi
         startNonce += globalWorkSize_;
 
         // Check if we should stop.
-        if (isStopped())
+        if (shouldStop())
         {
           // Make sure the last buffer write has finished --
           // it reads local variable.

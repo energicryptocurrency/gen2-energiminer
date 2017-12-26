@@ -41,10 +41,11 @@ namespace energi
 
     bool start(); // starts a Worker thread
     bool stop();  // stops  a Worker thread
+    void stopAllWork();
 
-    bool isStopped() const
+    bool shouldStop() const
     {
-      return state_ != State::Started;
+      return state_ == State::Stopping || state_ == State::Stopped;
     }
 
     // Since work is assigned to the worked by the plant and Worker is doing the real
@@ -52,8 +53,13 @@ namespace energi
     void setWork(const Work& work);
     Work work()
     {
-      MutexLGuard l(mutex_work_);
+      MutexRLGuard l(mutex_work_);
       return work_;
+    }
+
+    std::string name() const
+    {
+      return name_;
     }
   protected:
 
@@ -69,7 +75,7 @@ namespace energi
     std::string                   name_;
     Work                          work_; // Dont expose this, instead allow it to be copied
     State                         state_ { State::Starting };
-    mutable std::mutex            mutex_work_; // protext work since its actually used in a thread
+    mutable std::recursive_mutex  mutex_work_; // protext work since its actually used in a thread
     std::unique_ptr<std::thread>  tworker_;
   };
 
