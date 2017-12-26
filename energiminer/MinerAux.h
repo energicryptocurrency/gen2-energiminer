@@ -536,16 +536,7 @@ private:
 
         // 8. Now submit
         MutexLGuard l(mutex_solution);
-        if ( rpc.submitSolution(solution) )
-        {
-          // Submitted
-          cnote << "Submit successfully";
-        }
-        else
-        {
-          cnote << "Submit failed";
-        }
-
+        rpc.submitSolution(solution);
         current_work.reset();
 			}
 			catch(WorkException &we)
@@ -592,7 +583,7 @@ private:
 
 	/// Mining options
 	bool should_mine = true;
-	MinerExecutionMode m_MinerExecutionMode = MinerExecutionMode::kCL;
+	MinerExecutionMode m_MinerExecutionMode = MinerExecutionMode::kCPU;
 
 	unsigned m_openclPlatform = 0;
 	unsigned m_miningThreads = UINT_MAX;
