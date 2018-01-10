@@ -15,7 +15,7 @@
 #include <cstring>
 #include <sstream>
 #include <string>
-#include <jsoncpp/json/json.h>
+#include <json/json.h>
 
 
 namespace energi
