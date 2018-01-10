@@ -56,7 +56,7 @@
 #include "libegihash-cl/OpenCLMiner.h"
 
 // Win32 GetMessage macro intereferes with jsonrpc::JsonRpcException::GetMessage() member function
-#ifdef _WIN32 && defined(GetMessage)
+#if defined(_WIN32) && defined(GetMessage)
 #undef GetMessage
 #endif
 
