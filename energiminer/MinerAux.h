@@ -55,6 +55,10 @@
 #include <boost/optional.hpp>
 #include "libegihash-cl/OpenCLMiner.h"
 
+// Win32 GetMessage macro intereferes with jsonrpc::JsonRpcException::GetMessage() member function
+#ifdef _WIN32 && defined(GetMessage)
+#undef GetMessage
+#endif
 
 using namespace std;
 using namespace boost::algorithm;
@@ -146,7 +150,7 @@ public:
 				if(m_openclThreadsPerHash != 1 && m_openclThreadsPerHash != 2 &&
 				   m_openclThreadsPerHash != 4 && m_openclThreadsPerHash != 8) {
 	        throw;
-				} 
+				}
 			}
 			catch(...) {
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
@@ -288,7 +292,7 @@ public:
 				OpenCLMiner::setDevices(m_openclDevices, m_openclDeviceCount);
 				m_miningThreads = m_openclDeviceCount;
 			}
-			
+
 			OpenCLMiner::setThreadsPerHash(m_openclThreadsPerHash);
 			if (!OpenCLMiner::configureGPU(
                     m_localWorkSize,
