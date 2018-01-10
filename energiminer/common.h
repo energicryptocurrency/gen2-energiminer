@@ -9,6 +9,7 @@
 #define ENERGIMINER_COMMON_H_
 
 #include "energiminer/Log.h"
+#include "portable_endian.h"
 
 #include <cstdint>
 #include <cstring>
