@@ -7,6 +7,7 @@
 
 #include "libegihash-cl/OpenCLMiner.h"
 
+#include "../libegihash-cl/CL/cl2.hpp"
 #include "energiminer/egihash/egihash.h"
 #include "CLMiner_kernel.h"
 #include "energiminer/Log.h"
@@ -80,6 +81,34 @@ namespace energi
         throw err;
     }
     return devices;
+  }
+
+  struct OpenCLMiner::clInfo
+  {
+    static std::tuple<bool, cl::Device, int, int, std::string> getDeviceInfo(int index);
+
+    cl::Context             context_;
+    cl::CommandQueue        queue_;
+    cl::Kernel              kernelSearch_;
+    cl::Kernel              kernelDag_;
+
+    cl::Buffer              bufferDag_;
+    cl::Buffer              bufferLight_;
+    cl::Buffer              bufferHeader_;
+    cl::Buffer              bufferTarget_;
+    cl::Buffer              bufferSearch_;
+  };
+
+  OpenCLMiner::OpenCLMiner(const Plant& plant, unsigned index)
+  :Miner("cl", plant, index)
+  ,cl(new clInfo)
+  {
+
+  }
+
+  OpenCLMiner::~OpenCLMiner()
+  {
+    delete cl;
   }
 
   unsigned OpenCLMiner::getNumDevices()
@@ -235,14 +264,14 @@ namespace energi
           current_work = work;
 
           // Update header constant buffer.
-          queue_.enqueueWriteBuffer(bufferHeader_, CL_FALSE, 0, sizeof(hash_header), hash_header.b);
-          queue_.enqueueWriteBuffer(bufferSearch_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
+          cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_FALSE, 0, sizeof(hash_header), hash_header.b);
+          cl->queue_.enqueueWriteBuffer(cl->bufferSearch_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
           cllog << "Target Buffer ..." << sizeof(work.targetBin);
-          queue_.enqueueWriteBuffer(bufferTarget_, CL_FALSE, 0, sizeof(work.targetBin), work.targetBin.data());
+          cl->queue_.enqueueWriteBuffer(cl->bufferTarget_, CL_FALSE, 0, sizeof(work.targetBin), work.targetBin.data());
           cllog << "Loaded";
 
-          kernelSearch_.setArg(0, bufferSearch_);  // Supply output buffer to kernel.
-          kernelSearch_.setArg(4, bufferTarget_);
+          cl->kernelSearch_.setArg(0, cl->bufferSearch_);  // Supply output buffer to kernel.
+          cl->kernelSearch_.setArg(4, cl->bufferTarget_);
 
           startNonce  = nonceStart_.load();
           cllog << "Nonce loaded" << startNonce;
@@ -256,7 +285,7 @@ namespace energi
         // Read results.
         // TODO: could use pinned host pointer instead.
         uint32_t results[c_maxSearchResults + 1];
-        queue_.enqueueReadBuffer(bufferSearch_, CL_TRUE, 0, sizeof(results), &results);
+        cl->queue_.enqueueReadBuffer(cl->bufferSearch_, CL_TRUE, 0, sizeof(results), &results);
         //cllog << "results[0]: " << results[0] << " [1]: " << results[1];
 
         uint64_t nonce = 0;
@@ -265,12 +294,12 @@ namespace energi
           // Ignore results except the first one.
           nonce = startNonce + results[1];
           // Reset search buffer if any solution found.
-          queue_.enqueueWriteBuffer(bufferSearch_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
+          cl->queue_.enqueueWriteBuffer(cl->bufferSearch_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
         }
 
         // Run the kernel.
-        kernelSearch_.setArg(3, startNonce);
-        queue_.enqueueNDRangeKernel(kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
+        cl->kernelSearch_.setArg(3, startNonce);
+        cl->queue_.enqueueNDRangeKernel(cl->kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
 
 
         // Report results while the kernel is running.
@@ -297,7 +326,7 @@ namespace energi
 
           Solution solution(current_work);
           plant_.submit(solution);
-          queue_.finish();
+          cl->queue_.finish();
           return;
         }
 
@@ -311,7 +340,7 @@ namespace energi
         {
           // Make sure the last buffer write has finished --
           // it reads local variable.
-          queue_.finish();
+          cl->queue_.finish();
           break;
         }
       }
@@ -323,7 +352,7 @@ namespace energi
   }
 
 
-  std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::getDeviceInfo(int index)
+  std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::clInfo::getDeviceInfo(int index)
   {
     auto failResult = std::make_tuple(false, cl::Device(), 0, 0, "");
     std::vector<cl::Platform> platforms = getPlatforms();
@@ -411,12 +440,12 @@ namespace energi
     // get all platforms
     try
     {
-      auto deviceResult = getDeviceInfo(index_);
+      auto deviceResult = cl->getDeviceInfo(index_);
 
       // create context
       auto device = std::get<1>(deviceResult);
-      context_  = cl::Context(device);
-      queue_    = cl::CommandQueue(context_, device);
+      cl->context_  = cl::Context(device);
+      cl->queue_    = cl::CommandQueue(cl->context_, device);
 
       // make sure that global work size is evenly divisible by the local workgroup size
       workgroupSize_        = s_workgroupSize;
@@ -448,7 +477,7 @@ namespace energi
 
       // create miner OpenCL program
       cl::Program::Sources sources{{code.data(), code.size()}};
-      cl::Program program(context_, sources);
+      cl::Program program(cl->context_, sources);
       try
       {
         program.build({device}, std::get<4>(deviceResult).c_str());
@@ -474,14 +503,14 @@ namespace energi
 
       try
       {
-        bufferLight_      = cl::Buffer(context_, CL_MEM_READ_ONLY, sizeof(uint32_t) * vData.size());
-        bufferDag_        = cl::Buffer(context_, CL_MEM_READ_ONLY, dagSize);
+        cl->bufferLight_      = cl::Buffer(cl->context_, CL_MEM_READ_ONLY, sizeof(uint32_t) * vData.size());
+        cl->bufferDag_        = cl::Buffer(cl->context_, CL_MEM_READ_ONLY, dagSize);
 
-        kernelSearch_     = cl::Kernel(program, "ethash_search");
-        kernelDag_        = cl::Kernel(program, "ethash_calculate_dag_item");
+        cl->kernelSearch_     = cl::Kernel(program, "ethash_search");
+        cl->kernelDag_        = cl::Kernel(program, "ethash_calculate_dag_item");
 
         ETHCL_LOG("Creating light buffer");
-        queue_.enqueueWriteBuffer(bufferLight_, CL_TRUE, 0, sizeof(uint32_t) * vData.size(), vData.data());
+        cl->queue_.enqueueWriteBuffer(cl->bufferLight_, CL_TRUE, 0, sizeof(uint32_t) * vData.size(), vData.data());
       }
       catch (cl::Error const& err)
       {
@@ -491,16 +520,16 @@ namespace energi
 
       // create buffer for header
       ETHCL_LOG("Creating buffer for header.");
-      bufferHeader_ = cl::Buffer(context_, CL_MEM_READ_ONLY, 32);
+      cl->bufferHeader_ = cl::Buffer(cl->context_, CL_MEM_READ_ONLY, 32);
 
-      kernelSearch_.setArg(1, bufferHeader_);
-      kernelSearch_.setArg(2, bufferDag_);
-      kernelSearch_.setArg(5, ~0u);  // Pass this to stop the compiler unrolling the loops.
+      cl->kernelSearch_.setArg(1, cl->bufferHeader_);
+      cl->kernelSearch_.setArg(2, cl->bufferDag_);
+      cl->kernelSearch_.setArg(5, ~0u);  // Pass this to stop the compiler unrolling the loops.
 
       // create mining buffers
       ETHCL_LOG("Creating mining buffer");
-      bufferSearch_ = cl::Buffer(context_, CL_MEM_WRITE_ONLY, (c_maxSearchResults + 1) * sizeof(uint32_t));
-      bufferTarget_ = cl::Buffer(context_, CL_MEM_READ_ONLY, 32);
+      cl->bufferSearch_ = cl::Buffer(cl->context_, CL_MEM_WRITE_ONLY, (c_maxSearchResults + 1) * sizeof(uint32_t));
+      cl->bufferTarget_ = cl::Buffer(cl->context_, CL_MEM_READ_ONLY, 32);
 
       cllog << "Generating DAG";
 
@@ -509,15 +538,15 @@ namespace energi
       uint32_t const restWork = work % globalWorkSize_;
       if (restWork > 0) fullRuns++;
 
-      kernelDag_.setArg(1, bufferLight_);
-      kernelDag_.setArg(2, bufferDag_);
-      kernelDag_.setArg(3, ~0u);
+      cl->kernelDag_.setArg(1, cl->bufferLight_);
+      cl->kernelDag_.setArg(2, cl->bufferDag_);
+      cl->kernelDag_.setArg(3, ~0u);
 
       for (uint32_t i = 0; i < fullRuns; i++)
       {
-        kernelDag_.setArg(0, i * globalWorkSize_);
-        queue_.enqueueNDRangeKernel(kernelDag_, cl::NullRange, globalWorkSize_, workgroupSize_);
-        queue_.finish();
+        cl->kernelDag_.setArg(0, i * globalWorkSize_);
+        cl->queue_.enqueueNDRangeKernel(cl->kernelDag_, cl::NullRange, globalWorkSize_, workgroupSize_);
+        cl->queue_.finish();
         //cllog << "DAG" << int(100.0f * i / fullRuns) << '%';
       }
 
@@ -526,7 +555,7 @@ namespace energi
 
 //      // Test DAG Read
 //      uint64_t results[8];
-//      queue_.enqueueReadBuffer(bufferDag_, CL_TRUE, 0, sizeof(results), &results);
+//      cl->queue_.enqueueReadBuffer(cl->bufferDag_, CL_TRUE, 0, sizeof(results), &results);
 //      for( int i = 0; i < 8; ++ i)
 //      {
 //        std::cerr<< "DAG  " << i << " " << std::hex << results[i];

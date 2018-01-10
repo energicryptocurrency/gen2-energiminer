@@ -14,7 +14,6 @@
 #define CL_HPP_TARGET_OPENCL_VERSION 120
 #define CL_HPP_MINIMUM_OPENCL_VERSION 120
 
-#include "../libegihash-cl/CL/cl2.hpp"
 #include "energiminer/plant.h"
 #include "energiminer/miner.h"
 
@@ -49,14 +48,9 @@ namespace energi
     static const unsigned c_defaultGlobalWorkSizeMultiplier = 8192;
 
 
-    OpenCLMiner(const Plant& plant, unsigned index)
-    :Miner("cl", plant, index)
-    {}
+    OpenCLMiner(const Plant& plant, unsigned index);
 
-    virtual ~OpenCLMiner()
-    {
-
-    }
+    virtual ~OpenCLMiner();
 
     static unsigned instances()
     {
@@ -91,27 +85,16 @@ namespace energi
 
 
   private:
-
-
     void trun() override;
     void onSetWork()
     {}
 
-    static std::tuple<bool, cl::Device, int, int, std::string> getDeviceInfo(int index);
     bool init_dag(const std::string &seed, uint32_t height);
 
     bool                    dagLoaded_ = false;
     int                     index_ = 0;
-    cl::Context             context_;
-    cl::CommandQueue        queue_;
-    cl::Kernel              kernelSearch_;
-    cl::Kernel              kernelDag_;
-
-    cl::Buffer              bufferDag_;
-    cl::Buffer              bufferLight_;
-    cl::Buffer              bufferHeader_;
-    cl::Buffer              bufferTarget_;
-    cl::Buffer              bufferSearch_;
+    struct clInfo;
+    clInfo * cl;
 
     unsigned                globalWorkSize_ = 0;
     unsigned                workgroupSize_ = 0;
