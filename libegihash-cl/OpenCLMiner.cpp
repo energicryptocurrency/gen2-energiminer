@@ -11,7 +11,6 @@
 #include "energiminer/egihash/egihash.h"
 #include "CLMiner_kernel.h"
 #include "energiminer/Log.h"
-#include "energiminer/arith_uint256.h"
 #include "energiminer/CpuMiner.h"
 
 #include <vector>
@@ -250,9 +249,6 @@ namespace energi
 
           auto hash_header = CpuMiner::GetHeaderHash(endiandata);
           cllog << "Bits:" << work.bitsNum << " " << work.bits;
-          arith_uint256 hashTarget = arith_uint256(work.bits);
-          cllog << "Target Compact:" << hashTarget.GetCompact();
-          cllog << "Target Low64:" << hashTarget.GetLow64();
           auto localSwitchStart = std::chrono::high_resolution_clock::now();
 
           if (!dagLoaded_ || ( egihash::get_seedhash(current_work.height) != egihash::get_seedhash(work.height) ) )
