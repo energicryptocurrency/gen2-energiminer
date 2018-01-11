@@ -81,11 +81,28 @@ namespace energi
   }
 
 
-  boost::filesystem::path CpuMiner::GetDataDir()
-  {
-    namespace fs = boost::filesystem;
-    return fs::path("/home/ranjeet/.energicore/regtest/");
-  }
+    boost::filesystem::path CpuMiner::GetDataDir()
+    {
+        //! TODO remove testnet60 this is hardcoded for debug reason
+        namespace fs = boost::filesystem;
+    #ifdef WIN32
+        return fs::path(getenv("APPDATA") + std::string("/EnergiCore/testnet60"));
+        //return GetSpecialFolderPath(CSIDL_APPDATA) / "EnergiCore/testnet60";
+    #else
+        fs::path result;
+        char* homePath = getenv("HOME");
+        if (homePath == nullptr || strlen(homePath) == 0) {
+            result = fs::path("/testnet60");
+        } else {
+            result = fs::path(homePath);
+        }
+    #ifdef MAC_OSX
+        return result / "Library/Application Support/EnergiCore/testnet60";
+    #else
+        return result /".energicore/testnet60"
+    #endif
+    #endif
+    }
 
 
   void CpuMiner::InitDAG(egihash::progress_callback_type callback)
