@@ -17,14 +17,10 @@ extern "C"
 #include <iomanip>
 #include <limits>
 #include <map>
-//#include <mutex>
+#include <mutex>
 #include <string>
 #include <sstream>
 #include <iostream> // TODO: remove me (debugging)
-#include <boost/thread/condition_variable.hpp>
-#include <boost/thread/locks.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/recursive_mutex.hpp>
 
 namespace
 {
@@ -171,9 +167,10 @@ namespace
 	struct sha3_base
 	{
 		using deserialized_hash_t = ::std::vector<node>;
+		using size_type = ::std::size_t;
 
-		static constexpr size_t hash_size = HashSize;
-		static constexpr size_t data_size = HashSize / sizeof(node);
+		static constexpr size_type hash_size = HashSize;
+		static constexpr size_type data_size = HashSize / sizeof(node);
 		deserialized_hash_t data;
 
 		sha3_base(sha3_base const &) = default;
@@ -194,13 +191,13 @@ namespace
 			compute_hash(input.c_str(), input.size());
 		}
 
-		sha3_base(void const * input, size_t const input_size)
+		sha3_base(void const * input, size_type const input_size)
 		:sha3_base()
 		{
 			compute_hash(input, input_size);
 		}
 
-		inline void compute_hash(void const * input, size_t const input_size)
+		inline void compute_hash(void const * input, size_type const input_size)
 		{
 			if (HashFunction(reinterpret_cast<uint8_t*>(data.data()), hash_size, reinterpret_cast<uint8_t const *>(input), input_size) != 0)
 			{
@@ -240,16 +237,10 @@ namespace
 
 		}
 
-		sha3_256_t(void const * input, size_t const input_size)
+		sha3_256_t(void const * input, size_type const input_size)
 		: sha3_base(input, input_size)
 		{
 
-		}
-
-		sha3_256_t(EGIHASH_NAMESPACE(h256_t) const & h256)
-		: sha3_base()
-		{
-			::std::memcpy(reinterpret_cast<uint8_t*>(data.data()), &h256.b[0], hash_size);
 		}
 	};
 
@@ -261,7 +252,7 @@ namespace
 
 		}
 
-		sha3_512_t(void const * input, size_t const input_size)
+		sha3_512_t(void const * input, size_type const input_size)
 		: sha3_base(input, input_size)
 		{
 
@@ -273,6 +264,12 @@ namespace
 	typename HashType::deserialized_hash_t hash_words(::std::string const & data)
 	{
 		return HashType(data).data;
+	}
+
+	template <typename HashType, typename DataType>
+	typename HashType::deserialized_hash_t hash_words(DataType * data_ptr, typename HashType::size_type data_size)
+	{
+		return HashType(data_ptr, data_size).data;
 	}
 
 	// TODO: unit tests / validation
@@ -310,6 +307,8 @@ namespace
 
 namespace egihash
 {
+	constexpr h256_t::size_type h256_t::hash_size;
+
 	h256_t::h256_t(void const * input_data, size_type input_size)
 	: b{0}
 	{
@@ -319,14 +318,71 @@ namespace egihash
 		}
 	}
 
+	::std::string h256_t::to_hex() const
+	{
+		// TODO: fast hex conversion
+		::std::stringstream ss;
+		ss << ::std::hex << ::std::nouppercase;
+		uint8_t const * iEnd = reinterpret_cast<uint8_t const *>(&b[hash_size]);
+		for (uint8_t const * i = reinterpret_cast<uint8_t const *>(&b[0]); i != iEnd; i++)
+		{
+			ss << ::std::setw(2) << ::std::setfill('0') << static_cast<uint16_t>(*i);
+		}
+		return ss.str();
+	}
+
 	h256_t::operator bool() const
 	{
 		return (::std::memcmp(&b[0], &empty_h256.b[0], sizeof(b)) != 0);
 	}
 
+	bool h256_t::operator==(h256_t const & rhs) const
+	{
+		return (::std::memcmp(&b[0], &rhs.b[0], sizeof(b)) == 0);
+	}
+
+	constexpr h512_t::size_type h512_t::hash_size;
+
+	h512_t::h512_t(void const * input_data, size_type input_size)
+	: b{0}
+	{
+		if (::sha3_512(b, hash_size, reinterpret_cast<uint8_t const *>(input_data), input_size) != 0)
+		{
+			throw hash_exception("Keccak-512 computation failed.");
+		}
+	}
+
+	::std::string h512_t::to_hex() const
+	{
+		// TODO: fast hex conversion
+		::std::stringstream ss;
+		ss << ::std::hex << ::std::nouppercase;
+		uint8_t const * iEnd = reinterpret_cast<uint8_t const *>(&b[hash_size]);
+		for (uint8_t const * i = reinterpret_cast<uint8_t const *>(&b[0]); i != iEnd; i++)
+		{
+			ss << ::std::setw(2) << ::std::setfill('0') << static_cast<uint16_t>(*i);
+		}
+		return ss.str();
+	}
+
+	h512_t::operator bool() const
+	{
+		return (::std::memcmp(&b[0], &empty_h512.b[0], sizeof(b)) != 0);
+	}
+
+	bool h512_t::operator==(h512_t const & rhs) const
+	{
+		return (::std::memcmp(&b[0], &rhs.b[0], sizeof(b)) == 0);
+	}
+
 	result_t::operator bool() const
 	{
 		return bool(value) && bool(mixhash);
+	}
+
+	bool result_t::operator==(result_t const & rhs) const
+	{
+		return ((value == rhs.value) && (mixhash == rhs.mixhash));
 	}
 
 	// TODO: unit tests / validation
@@ -336,11 +392,23 @@ namespace egihash
 		return hash_words<sha3_512_t>(data);
 	}
 
+	template <typename DataPtr>
+	sha3_512_t::deserialized_hash_t sha3_512(DataPtr const * data, sha3_512_t::size_type data_size)
+	{
+		return hash_words<sha3_512_t>(data, data_size);
+	}
+
 	// TODO: unit tests / validation
 	template <typename T>
 	sha3_256_t::deserialized_hash_t sha3_256(T const & data)
 	{
 		return hash_words<sha3_256_t>(data);
+	}
+
+	template <typename DataPtr>
+	sha3_256_t::deserialized_hash_t sha3_256(DataPtr const * data, sha3_256_t::size_type data_size)
+	{
+		return hash_words<sha3_256_t>(data, data_size);
 	}
 
 	// TODO: unit tests / validation
@@ -362,56 +430,36 @@ namespace egihash
 		return serialize_cache(dataset);
 	}
 
-	// TODO: unit tests / validation
-	::std::string get_seedhash(uint64_t const block_number)
-	{
-		::std::string s(epoch0_seedhash, size_epoch0_seedhash);
-		for (size_t i = 0; i < (block_number / constants::EPOCH_LENGTH); i++)
-		{
-			s = sha3_256_t::serialize(sha3_256(s));
-		}
-		return s;
-	}
-
-	std::string seedhash_to_filename(const std::string &seedhash)
-	{
-		std::stringstream ss;
-		ss << std::hex << std::nouppercase;
-		for (auto const i : seedhash)
-		{
-			ss << std::setfill('0') << std::setw(2)  << static_cast<uint16_t>(i);
-		}
-		return ss.str();
-	}
-
-
 	struct cache_t::impl_t
 	{
 		using size_type = cache_t::size_type;
 		using data_type = ::std::vector<std::vector<node>>;
+		using cache_cache_map = ::std::map<uint64_t /* epoch */, ::std::shared_ptr<impl_t>>;
 
-		impl_t(uint64_t const block_number, ::std::string const & seed, progress_callback_type callback)
+		impl_t(uint64_t const block_number, progress_callback_type callback)
 		: epoch(block_number / constants::EPOCH_LENGTH)
+		, seedhash(get_seedhash(block_number))
 		, size(get_cache_size(block_number))
 		, data()
 		{
-			mkcache(seed, callback);
+			mkcache(callback);
 		}
 
 		impl_t(uint64_t epoch, uint64_t size, read_function_type read, progress_callback_type callback)
 		: epoch(epoch)
+		, seedhash(get_seedhash((epoch * constants::EPOCH_LENGTH) + 1))
 		, size(size)
 		, data()
 		{
 			load(read, callback);
 		}
 
-		void mkcache(::std::string const & seed, progress_callback_type callback)
+		void mkcache(progress_callback_type callback)
 		{
 			uint32_t n = size / constants::HASH_BYTES;
 
 			data.reserve(n);
-			data.push_back(sha3_512(seed));
+			data.push_back(sha3_512(&seedhash.b[0], seedhash.hash_size));
 			for (uint32_t i = 1; i < n; i++)
 			{
 				data.push_back(sha3_512(data.back()));
@@ -474,13 +522,84 @@ namespace egihash
 			return cache_size;
 		}
 
+		static h256_t get_seedhash(uint64_t const block_number)
+		{
+			::std::string s(epoch0_seedhash, size_epoch0_seedhash);
+			for (size_t i = 0; i < (block_number / constants::EPOCH_LENGTH); i++)
+			{
+				s = sha3_256_t::serialize(sha3_256(s));
+			}
+			h256_t ret;
+			::std::memcpy(&ret.b[0], s.c_str(), (std::min)(ret.hash_size, s.length()));
+			return ret;
+		}
+
 		uint64_t epoch;
+		h256_t seedhash;
 		size_type size;
 		data_type data;
 	};
 
-	cache_t::cache_t(uint64_t const block_number, ::std::string const & seed, progress_callback_type callback)
-	: impl(new impl_t(block_number, seed, callback))
+	// construct on first use mutex ensures safe static initialization order
+	std::recursive_mutex & get_cache_cache_mutex()
+	{
+		static std::recursive_mutex mutex;
+		return mutex;
+	}
+	// ensures single threaded construction
+	std::recursive_mutex & cache_cache_mutex = get_cache_cache_mutex();
+
+	// construct on first use dag_cache_map ensures safe static initialization order
+	cache_t::impl_t::cache_cache_map & get_cache_cache()
+	{
+		std::lock_guard<std::recursive_mutex> lock(get_cache_cache_mutex());
+		static cache_t::impl_t::cache_cache_map cache_cache;
+		return cache_cache;
+	}
+	// ensures single threaded construction
+	cache_t::impl_t::cache_cache_map & cache_cache = get_cache_cache();
+
+	::std::shared_ptr<cache_t::impl_t> get_cache_from_cache(uint64_t const block_number, progress_callback_type callback)
+	{
+		using namespace std;
+		uint64_t epoch_number = block_number / constants::EPOCH_LENGTH;
+
+		// if we have the correct cache already loaded, return it from the cache cache
+		{
+			lock_guard<recursive_mutex> lock(get_cache_cache_mutex());
+			auto const cache_cache_iterator = get_cache_cache().find(epoch_number);
+			if (cache_cache_iterator != get_cache_cache().end())
+			{
+				return cache_cache_iterator->second;
+			}
+		}
+
+		// otherwise create the cache and add it to the cache cache
+		// this is not locked as it can be a lengthy process and we don't want to block access to the cache cache
+		shared_ptr<cache_t::impl_t> impl(new cache_t::impl_t(block_number, callback));
+
+		lock_guard<recursive_mutex> lock(get_cache_cache_mutex());
+		auto insert_pair = get_cache_cache().insert(make_pair(epoch_number, impl));
+
+		// if insert succeded, return the cache
+		if (insert_pair.second)
+		{
+			return insert_pair.first->second;
+		}
+
+		// if insert failed, it's probably already been inserted
+		auto const cache_cache_iterator = get_cache_cache().find(epoch_number);
+		if (cache_cache_iterator != get_cache_cache().end())
+		{
+			return cache_cache_iterator->second;
+		}
+
+		// we couldn't insert it and it's not in the cache
+		throw hash_exception("Could not get cache");
+	}
+
+	cache_t::cache_t(uint64_t const block_number, progress_callback_type callback)
+	: impl(get_cache_from_cache(block_number, callback))
 	{
 	}
 
@@ -504,6 +623,11 @@ namespace egihash
 		return impl->data;
 	}
 
+	h256_t cache_t::seedhash() const
+	{
+		return impl->seedhash;
+	}
+
 	void cache_t::load(read_function_type read, progress_callback_type callback)
 	{
 		impl->load(read, callback);
@@ -512,6 +636,11 @@ namespace egihash
 	cache_t::size_type cache_t::get_cache_size(uint64_t const block_number) noexcept
 	{
 		return impl_t::get_cache_size(block_number);
+	}
+
+	h256_t cache_t::get_seedhash(uint64_t const block_number)
+	{
+		return impl_t::get_seedhash(block_number);
 	}
 
 	struct dag_t::impl_t
@@ -524,7 +653,7 @@ namespace egihash
 		impl_t(uint64_t block_number, progress_callback_type callback)
 		: epoch(block_number / constants::EPOCH_LENGTH)
 		, size(get_full_size(block_number))
-		, cache(block_number, get_seedhash(block_number), callback)
+		, cache(block_number, callback)
 		, data()
 		{
 			generate(callback);
@@ -669,18 +798,18 @@ namespace egihash
 	};
 
 	// construct on first use mutex ensures safe static initialization order
-	boost::recursive_mutex & get_dag_cache_mutex()
+	std::recursive_mutex & get_dag_cache_mutex()
 	{
-		static boost::recursive_mutex mutex;
+		static std::recursive_mutex mutex;
 		return mutex;
 	}
 	// ensures single threaded construction
-	boost::recursive_mutex & dag_cache_mutex = get_dag_cache_mutex();
+	std::recursive_mutex & dag_cache_mutex = get_dag_cache_mutex();
 
 	// construct on first use dag_cache_map ensures safe static initialization order
 	dag_t::impl_t::dag_cache_map & get_dag_cache()
 	{
-		boost::lock_guard<boost::recursive_mutex> lock(get_dag_cache_mutex());
+		std::lock_guard<std::recursive_mutex> lock(get_dag_cache_mutex());
 		static dag_t::impl_t::dag_cache_map dag_cache;
 		return dag_cache;
 	}
@@ -694,7 +823,7 @@ namespace egihash
 
 		// if we have the correct DAG already loaded, return it from the cache
 		{
-			boost::lock_guard<boost::recursive_mutex> lock(get_dag_cache_mutex());
+			lock_guard<recursive_mutex> lock(get_dag_cache_mutex());
 			auto const dag_cache_iterator = get_dag_cache().find(epoch_number);
 			if (dag_cache_iterator != get_dag_cache().end())
 			{
@@ -706,7 +835,7 @@ namespace egihash
 		// this is not locked as it can be a lengthy process and we don't want to block access to the dag cache
 		shared_ptr<dag_t::impl_t> impl(new dag_t::impl_t(block_number, callback));
 
-		boost::lock_guard<boost::recursive_mutex> lock(get_dag_cache_mutex());
+		lock_guard<recursive_mutex> lock(get_dag_cache_mutex());
 		auto insert_pair = get_dag_cache().insert(make_pair(epoch_number, impl));
 
 		// if insert succeded, return the dag
@@ -762,7 +891,7 @@ namespace egihash
 		}
 
 		// TODO: this func needs to be made endian safe
-		auto read = [&fs, &read_buffer, &buffer_ptr, &buffer_ptr_end, &filesize](void * dst, size_type count)
+		auto read = [&fs, &read_buffer, &buffer_ptr, &buffer_ptr_end](void * dst, size_type count)
 		{
 			// full buffer consumed exactly
 			if ((buffer_ptr_end - buffer_ptr) == 1)
@@ -805,7 +934,7 @@ namespace egihash
 
 		// if we have the correct DAG already loaded, return it from the cache
 		{
-			boost::lock_guard<boost::recursive_mutex> lock(get_dag_cache_mutex());
+			lock_guard<recursive_mutex> lock(get_dag_cache_mutex());
 			auto const dag_cache_iterator = get_dag_cache().find(header.epoch);
 			if (dag_cache_iterator != get_dag_cache().end())
 			{
@@ -817,7 +946,7 @@ namespace egihash
 		// this is not locked as it can be a lengthy process and we don't want to block access to the dag cache
 		shared_ptr<dag_t::impl_t> impl(new dag_t::impl_t(read, header, callback));
 
-		boost::lock_guard<boost::recursive_mutex> lock(get_dag_cache_mutex());
+		lock_guard<recursive_mutex> lock(get_dag_cache_mutex());
 		auto insert_pair = get_dag_cache().insert(make_pair(header.epoch, impl));
 
 		// if insert succeded, return the dag
@@ -1216,184 +1345,4 @@ namespace egihash
 
 		return result;
 	}
-}
-
-extern "C"
-{
-	#if 0 // TODO: FIXME
-	struct EGIHASH_NAMESPACE(light)
-	{
-		unsigned int block_number;
-		::egihash::cache_t cache;
-
-		EGIHASH_NAMESPACE(light)(unsigned int block_number)
-		: block_number(block_number)
-		, cache(block_number, ::egihash::get_seedhash(block_number))
-		{
-
-		}
-
-		EGIHASH_NAMESPACE(result_t) compute(EGIHASH_NAMESPACE(h256_t) header_hash, uint64_t nonce)
-		{
-			// TODO: copy-free version
-			EGIHASH_NAMESPACE(result_t) result;
-			auto ret = ::egihash::hashimoto_light(get_full_size(block_number), cache.data(), sha3_256_t(header_hash).deserialize(), nonce);
-			auto const & val = ret["result"];
-			auto const & mix = ret["mix hash"];
-			::std::memcpy(result.value.b, &(*val)[0], sizeof(result.value.b));
-			::std::memcpy(result.mixhash.b, &(*mix)[0], sizeof(result.mixhash.b));
-			return result;
-		}
-	};
-
-	struct EGIHASH_NAMESPACE(full)
-	{
-		EGIHASH_NAMESPACE(light_t) light;
-		::std::vector<sha3_512_t::deserialized_hash_t> dataset;
-
-		EGIHASH_NAMESPACE(full)(EGIHASH_NAMESPACE(light_t) light, EGIHASH_NAMESPACE(callback) callback)
-		: light(light)
-		, dataset()//TODO::egihash::calc_dataset(light->cache, get_full_size(light->block_number), callback))
-		{
-			(void)callback;//TODO
-		}
-
-		EGIHASH_NAMESPACE(result_t) compute(EGIHASH_NAMESPACE(h256_t) header_hash, uint64_t nonce)
-		{
-			// TODO: copy free version
-			// TODO: validate memset sizes i.e. min(sizeof(dest), sizeof(src))
-			EGIHASH_NAMESPACE(result_t) result;
-			auto ret = ::egihash::hashimoto_full(get_full_size(light->block_number), dataset, sha3_256_t(header_hash).deserialize(), nonce);
-			auto const & val = ret["result"];
-			auto const & mix = ret["mix hash"];
-			::std::memcpy(result.value.b, &(*val)[0], sizeof(result.value.b));
-			::std::memcpy(result.mixhash.b, &(*mix)[0], sizeof(result.mixhash.b));
-			return result;
-		}
-	};
-
-	EGIHASH_NAMESPACE(light_t) EGIHASH_NAMESPACE(light_new)(unsigned int block_number)
-	{
-		try
-		{
-			return new EGIHASH_NAMESPACE(light)(block_number);
-		}
-		catch (...)
-		{
-			return 0; // nullptr return indicates error
-		}
-	}
-
-	EGIHASH_NAMESPACE(result_t) EGIHASH_NAMESPACE(light_compute)(EGIHASH_NAMESPACE(light_t) light, EGIHASH_NAMESPACE(h256_t) header_hash, uint64_t nonce)
-	{
-		try
-		{
-			return light->compute(header_hash, nonce);
-		}
-		catch (...)
-		{
-			return constants::empty_result; // empty result indicates error
-		}
-	}
-
-	void EGIHASH_NAMESPACE(light_delete)(EGIHASH_NAMESPACE(light_t) light)
-	{
-		try
-		{
-			delete light;
-		}
-		catch (...)
-		{
-			// no way to indicate error
-		}
-	}
-
-	EGIHASH_NAMESPACE(full_t) EGIHASH_NAMESPACE(full_new)(EGIHASH_NAMESPACE(light_t) light, EGIHASH_NAMESPACE(callback) callback)
-	{
-		try
-		{
-			return new EGIHASH_NAMESPACE(full)(light, callback);
-		}
-		catch (...)
-		{
-			return 0; // nullptr indicates error
-		}
-	}
-
-	uint64_t EGIHASH_NAMESPACE(full_dag_size)(EGIHASH_NAMESPACE(full_t) full)
-	{
-		try
-		{
-			return get_full_size(full->light->block_number);
-		}
-		catch (...)
-		{
-			return 0; // zero result indicates error
-		}
-	}
-
-	void const * EGIHASH_NAMESPACE(full_dag)(EGIHASH_NAMESPACE(full_t) full)
-	{
-		try
-		{
-			return &full->dataset[0];
-		}
-		catch (...)
-		{
-			return 0; // nullptr indicates error
-		}
-	}
-
-	EGIHASH_NAMESPACE(result_t) EGIHASH_NAMESPACE(full_compute)(EGIHASH_NAMESPACE(full_t) full, EGIHASH_NAMESPACE(h256_t) header_hash, uint64_t nonce)
-	{
-		try
-		{
-			return full->compute(header_hash, nonce);
-		}
-		catch (...)
-		{
-			return constants::empty_result; // empty result indicates error
-		}
-	}
-
-	void EGIHASH_NAMESPACE(full_delete)(EGIHASH_NAMESPACE(full_t) full)
-	{
-		try
-		{
-			delete full;
-		}
-		catch (...)
-		{
-			// no way to indicate error
-		}
-	}
-#endif
-	void egihash_h256_compute(EGIHASH_NAMESPACE(h256_t) * output_hash, void * input_data, uint64_t input_size)
-	{
-		try
-		{
-			sha3_256_t hash(input_data, input_size);
-			::std::memcpy(output_hash->b, reinterpret_cast<const char*>(hash.data.data()), hash.hash_size);
-		}
-		catch (...)
-		{
-			// zero hash data indicates error
-			::std::memset(output_hash->b, 0, 32);
-		}
-	}
-
-	void egihash_h512_compute(EGIHASH_NAMESPACE(h512_t) * output_hash, void * input_data, uint64_t input_size)
-	{
-		try
-		{
-			sha3_512_t hash(input_data, input_size);
-			::std::memcpy(output_hash->b, reinterpret_cast<const char*>(hash.data.data()), hash.hash_size);
-		}
-		catch (...)
-		{
-			// zero hash data indicates error
-			::std::memset(output_hash->b, 0, 64);
-		}
-	}
-
 }

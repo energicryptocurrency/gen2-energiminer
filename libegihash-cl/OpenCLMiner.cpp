@@ -251,9 +251,9 @@ namespace energi
           cllog << "Bits:" << work.bitsNum << " " << work.bits;
           auto localSwitchStart = std::chrono::high_resolution_clock::now();
 
-          if (!dagLoaded_ || ( egihash::get_seedhash(current_work.height) != egihash::get_seedhash(work.height) ) )
+          if (!dagLoaded_ || ( egihash::cache_t::get_seedhash(current_work.height) != egihash::cache_t::get_seedhash(work.height) ) )
           {
-            init_dag(egihash::get_seedhash(work.height), work.height);
+            init_dag(work.height);
             dagLoaded_ = true;
           }
 
@@ -427,12 +427,8 @@ namespace energi
   }
 
 
-  bool OpenCLMiner::init_dag(const std::string &seed, uint32_t height)
+  bool OpenCLMiner::init_dag(uint32_t height)
   {
-    uint8_t seedInput[32];
-    std::memcpy(seedInput, reinterpret_cast<const uint8_t*>(seed.c_str()), sizeof(seedInput));
-
-
     // get all platforms
     try
     {
@@ -457,7 +453,7 @@ namespace energi
       // TODO: Just use C++ raw string literal.
       std::string code(CLMiner_kernel, CLMiner_kernel + sizeof(CLMiner_kernel));
 
-      egihash::cache_t cache = egihash::cache_t(height, seed);
+      egihash::cache_t cache = egihash::cache_t(height);
       uint64_t dagSize = egihash::dag_t::get_full_size(height);
       uint32_t dagSize128 = (unsigned)(dagSize / egihash::constants::MIX_BYTES);
       uint32_t lightSize64 = (unsigned)(cache.data().size());

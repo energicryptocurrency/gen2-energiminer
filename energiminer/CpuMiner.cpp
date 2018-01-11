@@ -31,8 +31,7 @@ namespace energi
     else
     {
       // otherwise all we can do is generate a light hash
-      // TODO: pre-load caches and seed hashes
-      ret = egihash::light::hash(egihash::cache_t(height, egihash::get_seedhash(height)), headerHash, nonce);
+      ret = egihash::light::hash(egihash::cache_t(height), headerHash, nonce);
     }
 
     auto hashMix = ret.mixhash;
@@ -114,7 +113,7 @@ namespace energi
     {
       auto const height = 0;// TODO (max)(GetHeight(), 0);
       auto const epoch = height / constants::EPOCH_LENGTH;
-      auto const & seedhash = seedhash_to_filename(get_seedhash(height));
+      auto const & seedhash = cache_t::get_seedhash(0).to_hex();
       std::stringstream ss;
       ss << std::hex << std::setw(4) << std::setfill('0') << epoch << "-" << seedhash.substr(0, 12) << ".dag";
       auto const epoch_file = GetDataDir() / "dag" / ss.str();
