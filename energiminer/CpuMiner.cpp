@@ -31,8 +31,7 @@ namespace energi
     else
     {
       // otherwise all we can do is generate a light hash
-      // TODO: pre-load caches and seed hashes
-      ret = egihash::light::hash(egihash::cache_t(height, egihash::get_seedhash(height)), headerHash, nonce);
+      ret = egihash::light::hash(egihash::cache_t(height), headerHash, nonce);
     }
 
     auto hashMix = ret.mixhash;
@@ -81,11 +80,28 @@ namespace energi
   }
 
 
-  boost::filesystem::path CpuMiner::GetDataDir()
-  {
-    namespace fs = boost::filesystem;
-    return fs::path("/home/ranjeet/.energicore/regtest/");
-  }
+    boost::filesystem::path CpuMiner::GetDataDir()
+    {
+        //! TODO remove testnet60 this is hardcoded for debug reason
+        namespace fs = boost::filesystem;
+    #ifdef WIN32
+        return fs::path(getenv("APPDATA") + std::string("/EnergiCore/testnet60"));
+        //return GetSpecialFolderPath(CSIDL_APPDATA) / "EnergiCore/testnet60";
+    #else
+        fs::path result;
+        char* homePath = getenv("HOME");
+        if (homePath == nullptr || strlen(homePath) == 0) {
+            result = fs::path("/testnet60");
+        } else {
+            result = fs::path(homePath);
+        }
+    #ifdef MAC_OSX
+        return result / "Library/Application Support/EnergiCore/testnet60";
+    #else
+        return result /".energicore/testnet60"
+    #endif
+    #endif
+    }
 
 
   void CpuMiner::InitDAG(egihash::progress_callback_type callback)
@@ -97,7 +113,7 @@ namespace energi
     {
       auto const height = 0;// TODO (max)(GetHeight(), 0);
       auto const epoch = height / constants::EPOCH_LENGTH;
-      auto const & seedhash = seedhash_to_filename(get_seedhash(height));
+      auto const & seedhash = cache_t::get_seedhash(0).to_hex();
       std::stringstream ss;
       ss << std::hex << std::setw(4) << std::setfill('0') << epoch << "-" << seedhash.substr(0, 12) << ".dag";
       auto const epoch_file = GetDataDir() / "dag" / ss.str();
