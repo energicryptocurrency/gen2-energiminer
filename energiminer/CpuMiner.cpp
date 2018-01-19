@@ -85,20 +85,19 @@ namespace energi
         //! TODO remove testnet60 this is hardcoded for debug reason
         namespace fs = boost::filesystem;
     #ifdef WIN32
-        return fs::path(getenv("APPDATA") + std::string("/EnergiCore/testnet60"));
-        //return GetSpecialFolderPath(CSIDL_APPDATA) / "EnergiCore/testnet60";
+        return fs::path(getenv("APPDATA") + std::string("/EnergiCore/energiminer"));
     #else
         fs::path result;
         char* homePath = getenv("HOME");
         if (homePath == nullptr || strlen(homePath) == 0) {
-            result = fs::path("/testnet60");
+            result = fs::path("/");
         } else {
             result = fs::path(homePath);
         }
     #ifdef MAC_OSX
-        return result / "Library/Application Support/EnergiCore/testnet60";
+        return result / "Library/Application Support/EnergiCore/energiminer";
     #else
-        return result /".energicore/testnet60"
+        return result /".energicore/energiminer";
     #endif
     #endif
     }

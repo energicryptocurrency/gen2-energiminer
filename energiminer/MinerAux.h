@@ -205,9 +205,9 @@ public:
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
 				throw;
 			}
-		/*else if (arg == "-G" || arg == "--opencl")
-			m_MinerExecutionMode = MinerExecutionMode::CL;
-		else if (arg == "-X" || arg == "--cuda-opencl")
+		else if (arg == "-G" || arg == "--opencl")
+			m_MinerExecutionMode = MinerExecutionMode::kCL;
+		/*else if (arg == "-X" || arg == "--cuda-opencl")
 		{
 			m_MinerExecutionMode = MinerExecutionMode::Mixed;
 		}*/
