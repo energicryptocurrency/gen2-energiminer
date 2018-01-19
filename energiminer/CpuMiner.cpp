@@ -82,7 +82,6 @@ namespace energi
 
     boost::filesystem::path CpuMiner::GetDataDir()
     {
-        //! TODO remove testnet60 this is hardcoded for debug reason
         namespace fs = boost::filesystem;
     #ifdef WIN32
         return fs::path(getenv("APPDATA") + std::string("/EnergiCore/energiminer"));

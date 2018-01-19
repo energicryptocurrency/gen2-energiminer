@@ -577,8 +577,9 @@ private:
 			}
 		}
 
-		cout << "Hello world: " << m_farmURL << " " << endl;
-		exit(0);
+        cout << "Hello world: " << m_farmURL << " " << endl;
+        plant.stopAllWork();
+        return;
 	}
 
 
