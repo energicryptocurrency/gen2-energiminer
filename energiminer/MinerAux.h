@@ -205,9 +205,9 @@ public:
 				cerr << "Bad " << arg << " option: " << argv[i] << endl;
 				throw;
 			}
-		/*else if (arg == "-G" || arg == "--opencl")
-			m_MinerExecutionMode = MinerExecutionMode::CL;
-		else if (arg == "-X" || arg == "--cuda-opencl")
+		else if (arg == "-G" || arg == "--opencl")
+			m_MinerExecutionMode = MinerExecutionMode::kCL;
+		/*else if (arg == "-X" || arg == "--cuda-opencl")
 		{
 			m_MinerExecutionMode = MinerExecutionMode::Mixed;
 		}*/
@@ -577,8 +577,9 @@ private:
 			}
 		}
 
-		cout << "Hello world: " << m_farmURL << " " << endl;
-		exit(0);
+        cout << "Hello world: " << m_farmURL << " " << endl;
+        plant.stopAllWork();
+        return;
 	}
 
 
