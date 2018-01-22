@@ -8,7 +8,10 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include "portable_endian.h"
+
+#if (defined(_WIN16) || defined(_WIN32) || defined(_WIN64))
+    #include "endian.h"
+#endif
 
 /**
  * @class CSHA256

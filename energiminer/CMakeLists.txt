@@ -20,7 +20,8 @@ set(SOURCES
   primitives/sha256.cpp
   primitives/uint256.h
   primitives/uint256.cpp
-  primitives/portable_endian.h
+  primitives/byteswap.h
+  primitives/endian.h
   egihash/egihash.cpp
   egihash/egihash.h
   egihash/keccak-tiny.h

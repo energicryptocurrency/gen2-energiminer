@@ -5,7 +5,6 @@
 #include <string.h>
 
 #include "sha256.h"
-//#include "common.h"
 
 
 // Internal implementation code.
