@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include "portable_endian.h"
 
 /**
  * @class CSHA256
