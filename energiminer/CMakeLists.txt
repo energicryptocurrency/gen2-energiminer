@@ -13,6 +13,13 @@ set(EXECUTABLE energiminer)
 file(GLOB HEADERS "*.h")
 
 set(SOURCES
+  primitives/hash.h
+  primitives/base58.h
+  primitives/base58.cpp
+  primitives/sha256.h
+  primitives/sha256.cpp
+  primitives/uint256.h
+  primitives/uint256.cpp
   egihash/egihash.cpp
   egihash/egihash.h
   egihash/keccak-tiny.h
