@@ -16,6 +16,164 @@
 #include <vector>
 #include <iostream>
 
+namespace {
+
+const char* strClError(cl_int err)
+{
+    switch (err) {
+        case CL_SUCCESS:
+            return "CL_SUCCESS";
+        case CL_DEVICE_NOT_FOUND:
+            return "CL_DEVICE_NOT_FOUND";
+        case CL_DEVICE_NOT_AVAILABLE:
+            return "CL_DEVICE_NOT_AVAILABLE";
+        case CL_COMPILER_NOT_AVAILABLE:
+            return "CL_COMPILER_NOT_AVAILABLE";
+        case CL_MEM_OBJECT_ALLOCATION_FAILURE:
+            return "CL_MEM_OBJECT_ALLOCATION_FAILURE";
+        case CL_OUT_OF_RESOURCES:
+            return "CL_OUT_OF_RESOURCES";
+        case CL_OUT_OF_HOST_MEMORY:
+            return "CL_OUT_OF_HOST_MEMORY";
+        case CL_PROFILING_INFO_NOT_AVAILABLE:
+            return "CL_PROFILING_INFO_NOT_AVAILABLE";
+        case CL_MEM_COPY_OVERLAP:
+            return "CL_MEM_COPY_OVERLAP";
+        case CL_IMAGE_FORMAT_MISMATCH:
+            return "CL_IMAGE_FORMAT_MISMATCH";
+        case CL_IMAGE_FORMAT_NOT_SUPPORTED:
+            return "CL_IMAGE_FORMAT_NOT_SUPPORTED";
+        case CL_BUILD_PROGRAM_FAILURE:
+            return "CL_BUILD_PROGRAM_FAILURE";
+        case CL_MAP_FAILURE:
+            return "CL_MAP_FAILURE";
+        case CL_MISALIGNED_SUB_BUFFER_OFFSET:
+            return "CL_MISALIGNED_SUB_BUFFER_OFFSET";
+        case CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST:
+            return "CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST";
+
+#ifdef CL_VERSION_1_2
+        case CL_COMPILE_PROGRAM_FAILURE:
+            return "CL_COMPILE_PROGRAM_FAILURE";
+        case CL_LINKER_NOT_AVAILABLE:
+            return "CL_LINKER_NOT_AVAILABLE";
+        case CL_LINK_PROGRAM_FAILURE:
+            return "CL_LINK_PROGRAM_FAILURE";
+        case CL_DEVICE_PARTITION_FAILED:
+            return "CL_DEVICE_PARTITION_FAILED";
+        case CL_KERNEL_ARG_INFO_NOT_AVAILABLE:
+            return "CL_KERNEL_ARG_INFO_NOT_AVAILABLE";
+#endif // CL_VERSION_1_2
+
+        case CL_INVALID_VALUE:
+                return "CL_INVALID_VALUE";
+        case CL_INVALID_DEVICE_TYPE:
+            return "CL_INVALID_DEVICE_TYPE";
+        case CL_INVALID_PLATFORM:
+            return "CL_INVALID_PLATFORM";
+        case CL_INVALID_DEVICE:
+            return "CL_INVALID_DEVICE";
+        case CL_INVALID_CONTEXT:
+            return "CL_INVALID_CONTEXT";
+        case CL_INVALID_QUEUE_PROPERTIES:
+            return "CL_INVALID_QUEUE_PROPERTIES";
+        case CL_INVALID_COMMAND_QUEUE:
+            return "CL_INVALID_COMMAND_QUEUE";
+        case CL_INVALID_HOST_PTR:
+            return "CL_INVALID_HOST_PTR";
+        case CL_INVALID_MEM_OBJECT:
+            return "CL_INVALID_MEM_OBJECT";
+        case CL_INVALID_IMAGE_FORMAT_DESCRIPTOR:
+            return "CL_INVALID_IMAGE_FORMAT_DESCRIPTOR";
+        case CL_INVALID_IMAGE_SIZE:
+            return "CL_INVALID_IMAGE_SIZE";
+        case CL_INVALID_SAMPLER:
+            return "CL_INVALID_SAMPLER";
+        case CL_INVALID_BINARY:
+            return "CL_INVALID_BINARY";
+        case CL_INVALID_BUILD_OPTIONS:
+            return "CL_INVALID_BUILD_OPTIONS";
+        case CL_INVALID_PROGRAM:
+            return "CL_INVALID_PROGRAM";
+        case CL_INVALID_PROGRAM_EXECUTABLE:
+            return "CL_INVALID_PROGRAM_EXECUTABLE";
+        case CL_INVALID_KERNEL_NAME:
+            return "CL_INVALID_KERNEL_NAME";
+        case CL_INVALID_KERNEL_DEFINITION:
+            return "CL_INVALID_KERNEL_DEFINITION";
+        case CL_INVALID_KERNEL:
+            return "CL_INVALID_KERNEL";
+        case CL_INVALID_ARG_INDEX:
+            return "CL_INVALID_ARG_INDEX";
+        case CL_INVALID_ARG_VALUE:
+            return "CL_INVALID_ARG_VALUE";
+        case CL_INVALID_ARG_SIZE:
+            return "CL_INVALID_ARG_SIZE";
+        case CL_INVALID_KERNEL_ARGS:
+            return "CL_INVALID_KERNEL_ARGS";
+        case CL_INVALID_WORK_DIMENSION:
+            return "CL_INVALID_WORK_DIMENSION";
+        case CL_INVALID_WORK_GROUP_SIZE:
+            return "CL_INVALID_WORK_GROUP_SIZE";
+        case CL_INVALID_WORK_ITEM_SIZE:
+                return "CL_INVALID_WORK_ITEM_SIZE";
+        case CL_INVALID_GLOBAL_OFFSET:
+            return "CL_INVALID_GLOBAL_OFFSET";
+        case CL_INVALID_EVENT_WAIT_LIST:
+            return "CL_INVALID_EVENT_WAIT_LIST";
+        case CL_INVALID_EVENT:
+            return "CL_INVALID_EVENT";
+        case CL_INVALID_OPERATION:
+            return "CL_INVALID_OPERATION";
+        case CL_INVALID_GL_OBJECT:
+            return "CL_INVALID_GL_OBJECT";
+        case CL_INVALID_BUFFER_SIZE:
+            return "CL_INVALID_BUFFER_SIZE";
+        case CL_INVALID_MIP_LEVEL:
+            return "CL_INVALID_MIP_LEVEL";
+        case CL_INVALID_GLOBAL_WORK_SIZE:
+            return "CL_INVALID_GLOBAL_WORK_SIZE";
+        case CL_INVALID_PROPERTY:
+            return "CL_INVALID_PROPERTY";
+
+#ifdef CL_VERSION_1_2
+        case CL_INVALID_IMAGE_DESCRIPTOR:
+            return "CL_INVALID_IMAGE_DESCRIPTOR";
+        case CL_INVALID_COMPILER_OPTIONS:
+            return "CL_INVALID_COMPILER_OPTIONS";
+        case CL_INVALID_LINKER_OPTIONS:
+            return "CL_INVALID_LINKER_OPTIONS";
+        case CL_INVALID_DEVICE_PARTITION_COUNT:
+            return "CL_INVALID_DEVICE_PARTITION_COUNT";
+#endif // CL_VERSION_1_2
+
+#ifdef CL_VERSION_2_0
+        case CL_INVALID_PIPE_SIZE:
+            return "CL_INVALID_PIPE_SIZE";
+        case CL_INVALID_DEVICE_QUEUE:
+            return "CL_INVALID_DEVICE_QUEUE";
+#endif // CL_VERSION_2_0
+
+#ifdef CL_VERSION_2_2
+        case CL_INVALID_SPEC_ID:
+            return "CL_INVALID_SPEC_ID";
+        case CL_MAX_SIZE_RESTRICTION_EXCEEDED:
+            return "CL_MAX_SIZE_RESTRICTION_EXCEEDED";
+#endif // CL_VERSION_2_2
+    }
+    return "Unknown CL error encountered";
+}
+
+std::string CLErrorHelper(const cl::Error& clerr)
+{
+    std::ostringstream osstream;
+    osstream << ": " << clerr.what() << ": " << strClError(clerr.err())
+        << " (" << clerr.err() << ")";
+    return osstream.str();
+}
+
+} //unnamed namespace
+
 namespace energi
 {
   unsigned OpenCLMiner::s_workgroupSize = OpenCLMiner::c_defaultLocalWorkSize;
@@ -215,51 +373,40 @@ namespace energi
   {
     // Memory for zero-ing buffers. Cannot be static because crashes on macOS.
     uint32_t const c_zero = 0;
-    uint64_t startNonce = 0;
+    uint32_t startNonce = 0;
     Work current_work; // Here we need current work as to initialize gpu
-    try
-    {
-      while (true)
-      {
+    try {
+      while (true) {
         Work work = this->work(); // This work is a copy of last assigned work the worker was provided by plant
-        if ( !work.isValid() )
-        {
+        if ( !work.isValid() ) {
           cdebug << "No work received. Pause for 1 s.";
           std::this_thread::sleep_for(std::chrono::seconds(1));
-          if ( this->shouldStop() )
-          {
+          if ( this->shouldStop() ) {
             break;
           }
-
           continue;
-        }
-        else
-        {
-          cnote << "Valid work.";
+        } else {
+          //cnote << "Valid work.";
         }
 
         uint32_t _ALIGN(128) endiandata[29];
-        uint32_t _ALIGN(128) hash[8];
-        const uint32_t max_nonce = nonceEnd_.load();
-        if ( current_work != work )
-        {
-          uint32_t *pdata     = work.blockHeader.data();
-          for (int k=0; k < 20; k++) // we dont use mixHash part to calculate hash but fill it later (below)
-          {
+        uint32_t *pdata     = work.blockHeader.data();
+        // we dont use mixHash part to calculate hash but fill it later (below)
+        for (int k=0; k < 20; k++) {
             be32enc(&endiandata[k], pdata[k]);
-          }
-
-          auto hash_header = CpuMiner::GetHeaderHash(endiandata);
+        }
+        if ( current_work != work ) {
           cllog << "Bits:" << work.bitsNum << " " << work.bits;
           auto localSwitchStart = std::chrono::high_resolution_clock::now();
 
-          if (!dagLoaded_ || ( egihash::cache_t::get_seedhash(current_work.height) != egihash::cache_t::get_seedhash(work.height) ) )
-          {
+          if (!dagLoaded_ || ( egihash::cache_t::get_seedhash(current_work.height) != egihash::cache_t::get_seedhash(work.height) ) ) {
             init_dag(work.height);
             dagLoaded_ = true;
           }
 
-          current_work = work;
+          //auto hash_header = egihash::h256_t(endiandata, 20); //CpuMiner::GetHeaderHash(endiandata);
+          energi::CBlockHeaderTruncatedLE truncatedBlockHeader(endiandata);
+          egihash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
           // Update header constant buffer.
           cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_FALSE, 0, sizeof(hash_header), hash_header.b);
@@ -271,7 +418,7 @@ namespace energi
           cl->kernelSearch_.setArg(0, cl->bufferSearch_);  // Supply output buffer to kernel.
           cl->kernelSearch_.setArg(4, cl->bufferTarget_);
 
-          startNonce  = nonceStart_.load();
+          startNonce  = get_start_nonce();
           cllog << "Nonce loaded" << startNonce;
 
           auto switchEnd = std::chrono::high_resolution_clock::now();
@@ -286,47 +433,33 @@ namespace energi
         cl->queue_.enqueueReadBuffer(cl->bufferSearch_, CL_TRUE, 0, sizeof(results), &results);
         //cllog << "results[0]: " << results[0] << " [1]: " << results[1];
 
-        uint64_t nonce = 0;
-        if (results[0] > 0)
-        {
+        uint32_t nonce = 0;
+        if (results[0] > 0) {
           // Ignore results except the first one.
           nonce = startNonce + results[1];
           // Reset search buffer if any solution found.
           cl->queue_.enqueueWriteBuffer(cl->bufferSearch_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
         }
-
         // Run the kernel.
         cl->kernelSearch_.setArg(3, startNonce);
         cl->queue_.enqueueNDRangeKernel(cl->kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
 
-
         // Report results while the kernel is running.
         // It takes some time because ethash must be re-evaluated on CPU.
-        do {
-          // Report hash count
-          auto nonceForHash = be32dec(&nonce);
-          *(current_work.blockHeader.data() + 28) = nonceForHash;
-
-          auto hash_res = CpuMiner::GetPOWHash(current_work.height, nonce, endiandata);
-          memcpy(hash, hash_res.value.b, sizeof(hash_res.value));
+        if (nonce != 0) {
+          auto hash_res = CpuMiner::GetPOWHash(work.height, nonce, endiandata);
           uint32_t arr[8] = {0};
           memcpy(arr, hash_res.mixhash.b, sizeof(hash_res.mixhash));
-
-          for (int i = 0; i < 8; i++)
-          {
-            current_work.blockHeader.data()[i + 20] = be32dec(&arr[i]);
+          for (int i = 0; i < 8; i++) {
+            pdata[i + 20] = be32dec(&arr[i]);
           }
+          auto nonceForHash = be32dec(&nonce);
+          pdata[28] = nonceForHash;
           addHashCount(globalWorkSize_);
-
-          uint32_t *ptarget = current_work.targetBin.data();
-          if (hash[7] <= ptarget[7] && fulltest(hash, ptarget)) {
-              Solution solution(current_work);
-              plant_.submit(solution);
-              cl->queue_.finish();
-              return;
-          }
-          ++nonce;
-        } while (nonce < max_nonce || !this->shouldStop());
+          Solution solution(work);
+          plant_.submit(solution);
+        }
+        current_work = work;
 
         addHashCount(globalWorkSize_);
 
@@ -334,18 +467,15 @@ namespace energi
         startNonce += globalWorkSize_;
 
         // Check if we should stop.
-        if (shouldStop())
-        {
+        if (shouldStop()) {
           // Make sure the last buffer write has finished --
           // it reads local variable.
           cl->queue_.finish();
           break;
         }
       }
-    }
-    catch (cl::Error const& _e)
-    {
-      cwarn << "OpenCL Error:" << _e.what() << _e.err();
+    } catch (cl::Error const& _e) {
+      cwarn << "OpenCL Error:" << CLErrorHelper(_e);
     }
   }
 
@@ -432,10 +562,8 @@ namespace energi
   bool OpenCLMiner::init_dag(uint32_t height)
   {
     // get all platforms
-    try
-    {
+    try {
       auto deviceResult = cl->getDeviceInfo(index_);
-
       // create context
       auto device = std::get<1>(deviceResult);
       cl->context_  = cl::Context(device);
@@ -444,11 +572,9 @@ namespace energi
       // make sure that global work size is evenly divisible by the local workgroup size
       workgroupSize_        = s_workgroupSize;
       globalWorkSize_       = s_initialGlobalWorkSize;
-      if (globalWorkSize_ % workgroupSize_ != 0)
-      {
+      if (globalWorkSize_ % workgroupSize_ != 0) {
         globalWorkSize_ = ((globalWorkSize_ / workgroupSize_) + 1) * workgroupSize_;
       }
-
       // patch source code
       // note: CLMiner_kernel is simply ethash_cl_miner_kernel.cl compiled
       // into a byte array by bin2h.cmake. There is no need to load the file by hand in runtime
@@ -472,13 +598,10 @@ namespace energi
       // create miner OpenCL program
       cl::Program::Sources sources{{code.data(), code.size()}};
       cl::Program program(cl->context_, sources);
-      try
-      {
+      try {
         program.build({device}, std::get<4>(deviceResult).c_str());
         cllog << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
-      }
-      catch (cl::Error const&)
-      {
+      } catch (cl::Error const&) {
         cwarn << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
         cwarn << " FAiled" ;
         return false;
@@ -486,17 +609,21 @@ namespace energi
 
       // create buffer for dag
       std::vector<uint32_t> vData;
-      for ( auto &d : cache.data() )
-      {
-        for ( auto &dv : d)
-        {
+      for ( auto &d : cache.data() ) {
+        for ( auto &dv : d) {
           vData.push_back(dv.hword);
         }
-
       }
 
-      try
-      {
+	  cl_ulong result = 0;
+      device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &result);
+      if (result < dagSize) {
+          cnote << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>()
+                << " has insufficient GPU memory." << result
+                << " bytes of memory found < " << dagSize << " bytes of memory required";
+          return false;
+      }
+      try {
         cl->bufferLight_      = cl::Buffer(cl->context_, CL_MEM_READ_ONLY, sizeof(uint32_t) * vData.size());
         cl->bufferDag_        = cl::Buffer(cl->context_, CL_MEM_READ_ONLY, dagSize);
 
@@ -505,9 +632,7 @@ namespace energi
 
         ETHCL_LOG("Creating light buffer");
         cl->queue_.enqueueWriteBuffer(cl->bufferLight_, CL_TRUE, 0, sizeof(uint32_t) * vData.size(), vData.data());
-      }
-      catch (cl::Error const& err)
-      {
+      } catch (cl::Error const& err) {
         cwarn << "Creating DAG buffer failed:" << err.what() << err.err();
         return false;
       }
@@ -536,8 +661,7 @@ namespace energi
       cl->kernelDag_.setArg(2, cl->bufferDag_);
       cl->kernelDag_.setArg(3, ~0u);
 
-      for (uint32_t i = 0; i < fullRuns; i++)
-      {
+      for (uint32_t i = 0; i < fullRuns; i++) {
         cl->kernelDag_.setArg(0, i * globalWorkSize_);
         cl->queue_.enqueueNDRangeKernel(cl->kernelDag_, cl::NullRange, globalWorkSize_, workgroupSize_);
         cl->queue_.finish();
@@ -546,19 +670,8 @@ namespace energi
 
       cllog << "DAG Loaded" ;
 
-
-//      // Test DAG Read
-//      uint64_t results[8];
-//      cl->queue_.enqueueReadBuffer(cl->bufferDag_, CL_TRUE, 0, sizeof(results), &results);
-//      for( int i = 0; i < 8; ++ i)
-//      {
-//        std::cerr<< "DAG  " << i << " " << std::hex << results[i];
-//      }
-
       std::this_thread::sleep_for(std::chrono::seconds(10));
-    }
-    catch (cl::Error const& err)
-    {
+    } catch (cl::Error const& err) {
       cwarn << err.what() << "(" << err.err() << ")";
       return false;
     }

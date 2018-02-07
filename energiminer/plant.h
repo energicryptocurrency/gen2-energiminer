@@ -17,6 +17,7 @@ namespace energi
   public:
     virtual ~Plant(){}
     virtual void submit(const Solution &m) const = 0;
+    virtual uint64_t get_nonce_scumbler() const = 0;
   };
 }
 

@@ -19,6 +19,7 @@
 #include <mutex>
 #include <map>
 #include <chrono>
+#include <random>
 
 
 namespace energi
@@ -75,7 +76,8 @@ namespace energi
   public:
     MinePlant(SolutionFoundCallback& solution_found_cb):solution_found_cb_(solution_found_cb)
     {
-
+        std::random_device engine;
+        nonce_scumbler_ = std::uniform_int_distribution<uint64_t>()(engine);
     }
     ~MinePlant()
     {
@@ -84,6 +86,11 @@ namespace energi
 
     bool start(const std::vector<EnumMinerEngine> &vMinerEngine);
     void stop();
+
+    uint64_t get_nonce_scumbler() const
+    {
+        return nonce_scumbler_;
+    }
 
     inline bool isStarted(){ return started_; }
     //bool solutionFound() const override;
@@ -112,6 +119,7 @@ namespace energi
 
     mutable std::mutex                    mutex_progress_;
     mutable WorkingProgress               progress_;
+    uint64_t                              nonce_scumbler_;
 
   };
 

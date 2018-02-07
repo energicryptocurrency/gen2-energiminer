@@ -40,6 +40,12 @@ namespace energi
       resetHashCount();
     }
 
+    uint64_t get_start_nonce() const
+    {
+        // Each GPU is given a non-overlapping 2^40 range to search
+        return plant_.get_nonce_scumbler() + ((uint64_t) index_ << 40);
+    }
+
     void stopMining()
     {
       stopAllWork();

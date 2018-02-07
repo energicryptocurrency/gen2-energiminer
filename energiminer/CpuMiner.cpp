@@ -265,60 +265,35 @@ namespace energi
 
         do
         {
-          //be32enc(&endiandata[28], nonce);
           auto hash_res = GetPOWHash(work.height, nonce, endiandata);
-          //auto hashBlock  = std::get<0>(hash_res);
-          //auto hashPOW    = std::get<1>(hash_res);
           memcpy(hash, hash_res.value.b, sizeof(hash_res.value));
           uint32_t arr[8] = {0};
           memcpy(arr, hash_res.mixhash.b, sizeof(hash_res.mixhash));
-
-          for (int i = 0; i < 8; i++)
-          {
+          for (int i = 0; i < 8; i++) {
             pdata[i + 20] = be32dec(&arr[i]);
           }
 
-          if (hash[7] <= Htarg && fulltest(hash, ptarget))
-          {
+          if (hash[7] <= Htarg && fulltest(hash, ptarget)) {
             auto nonceForHash = be32dec(&nonce);
             pdata[28] = nonceForHash;
-            //pdata[20] = nonceForHash;
-            //hashes_done = nonce - first_nonce;
-
-            //cnote << "HASH:" << GetHex(hash_res.value.b, 32);
-
-            /*CBlockHeaderFullLE fullBlockHeader(endiandata, nonce, hash_res.mixhash.b);
-            egihash::h256_t blockHash(&fullBlockHeader, sizeof(fullBlockHeader));*/
-
-//            cnote << "HASH MIX:" << GetHex(hash_res.mixhash.b, 32);
-//            cnote << "GET FULL HASH:" << GetHex(blockHash.b, 32);
-//            //cnote << "BlockHeader:" << GetHex((uint8_t*)work.blockHeader.data(), work.blockHeader.size() * 4);
-//            cnote << "device:" << index_ << "nonce: " << nonce;
             addHashCount(nonce + 1 - last_nonce);
 
             Solution solution(work);
             plant_.submit(solution);
-
             return;
           }
-
           nonce++;
-
-          if ( nonce % 10000 == 0 ) // rough guess
-          {
+          // rough guess
+          if ( nonce % 10000 == 0 ) {
             addHashCount(nonce - last_nonce);
             last_nonce = nonce;
           }
-
         } while (nonce < max_nonce || !this->shouldStop() );
 
         pdata[28] = be32dec(&nonce);
-        //hashes_done = nonce - first_nonce + 1;
         addHashCount(nonce - last_nonce);
       }
-    }
-    catch(WorkException &ex)
-    {
+    } catch(WorkException &ex) {
       cnote << ex.what();
     }
     catch(...)
