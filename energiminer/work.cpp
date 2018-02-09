@@ -48,9 +48,11 @@ namespace energi
     vbyte part3; // script
 
     // BIP 34: height in coinbase
-    for (int n = height; n > 0; n >>= 8)
-    {
+    for (int n = height; n > 0; n >>= 8) {
         part3.push_back( static_cast<uint8_t>(n & 0xFF) );
+    }
+    if (part3.back() & 0x80) {
+        part3.push_back(0);
     }
 
     part2[0] = part3.size() + 1;
