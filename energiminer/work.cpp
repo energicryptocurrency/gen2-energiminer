@@ -5,8 +5,23 @@
  *      Author: ranjeet
  */
 
-#include "work.h"
 #include <memory>
+#include "primitives/base58.h"
+#include "work.h"
+
+namespace {
+
+void GetScriptForDestination(const CKeyID& keyID, unsigned char* out)
+{
+    out[ 0] = 0x76;  /* OP_DUP */
+    out[ 1] = 0xa9;  /* OP_HASH160 */
+    out[ 2] = 0x14;  /* push 20 bytes */
+    std::copy(keyID.begin(), keyID.end(), &out[3]);
+    out[23] = 0x88;  /* OP_EQUALVERIFY */
+    out[24] = 0xac;  /* OP_CHECKSIG */
+}
+
+} //! unnamed namespace
 
 namespace energi
 {
@@ -81,10 +96,15 @@ namespace energi
     // Part 8
     vbyte part8(25, 0);
     // wallet address for coinbase reward
-    auto pk_script_size = address_to_script(part8.data(), part8.size(), coinbase_addr.c_str());
+    CBitcoinAddress coinbaseRewardAddress(coinbase_addr);
+    CKeyID coinbaseKeyID;
+    if (!coinbaseRewardAddress.GetKeyID(coinbaseKeyID)) {
+        throw WorkException("coinbase key is not valid");
+    }
+    GetScriptForDestination(coinbaseKeyID, part8.data());
+    int pk_script_size = part8.size();
 
-    if (!pk_script_size)
-    {
+    if (!pk_script_size) {
         //fprintf(stderr, "invalid address -- '%s'\n", arg);
         throw WorkException("Invalid coinbase reward address");
     }
@@ -93,10 +113,15 @@ namespace energi
     // Part 8.2
     vbyte part8_2(25, 0);
     // wallet address for coinbase reward
-    auto pk_script_size2 = address_to_script(part8_2.data(), part8_2.size(), "tFLyidSoz9teKks22hscftwhVHqdewvAzY");
+    CBitcoinAddress founderAddress("tFLyidSoz9teKks22hscftwhVHqdewvAzY");
+    CKeyID founderKeyID;
+    if (!founderAddress.GetKeyID(founderKeyID)) {
+        throw WorkException("Founder address is not valid");
+    }
+    GetScriptForDestination(founderKeyID, part8_2.data());
+    int pk_script_size2 = part8_2.size();
 
-    if (!pk_script_size2)
-    {
+    if (!pk_script_size2) {
         //fprintf(stderr, "invalid address -- '%s'\n", arg);
         throw WorkException("Invalid founder address");
     }
