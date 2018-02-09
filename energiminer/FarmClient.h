@@ -53,7 +53,7 @@ class GBTClient : public jsonrpc::Client
 
         }*/
 
-        bool submitSolution(const energi::Solution &solution)//const std::string& param1, const std::string& param2, const std::string& param3) throw (jsonrpc::JsonRpcException)
+        bool submitSolution(const energi::Solution &solution)
         {
           Json::Value params(Json::arrayValue);
           auto result1 = solution.getSubmitBlockData();
