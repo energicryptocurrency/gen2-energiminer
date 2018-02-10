@@ -211,15 +211,11 @@ namespace energi
   std::vector<cl::Platform> getPlatforms()
   {
     std::vector<cl::Platform> platforms;
-    try
-    {
+    try {
       cl::Platform::get(&platforms);
-    }
-    catch(cl::Error const& err)
-    {
+    } catch(cl::Error const& err) {
       throw err;
     }
-
     return platforms;
   }
 
@@ -253,7 +249,7 @@ namespace energi
     cl::Buffer              bufferLight_;
     cl::Buffer              bufferHeader_;
     cl::Buffer              bufferTarget_;
-    cl::Buffer              bufferSearch_;
+    cl::Buffer              searchBuffer_;
   };
 
   OpenCLMiner::OpenCLMiner(const Plant& plant, unsigned index)
@@ -403,19 +399,17 @@ namespace energi
             init_dag(work.height);
             dagLoaded_ = true;
           }
-
-          //auto hash_header = egihash::h256_t(endiandata, 20); //CpuMiner::GetHeaderHash(endiandata);
           energi::CBlockHeaderTruncatedLE truncatedBlockHeader(endiandata);
           egihash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
           // Update header constant buffer.
           cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_FALSE, 0, sizeof(hash_header), hash_header.b);
-          cl->queue_.enqueueWriteBuffer(cl->bufferSearch_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
+          cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
           cllog << "Target Buffer ..." << sizeof(work.targetBin);
           cl->queue_.enqueueWriteBuffer(cl->bufferTarget_, CL_FALSE, 0, sizeof(work.targetBin), work.targetBin.data());
           cllog << "Loaded";
 
-          cl->kernelSearch_.setArg(0, cl->bufferSearch_);  // Supply output buffer to kernel.
+          cl->kernelSearch_.setArg(0, cl->searchBuffer_);  // Supply output buffer to kernel.
           cl->kernelSearch_.setArg(4, cl->bufferTarget_);
 
           startNonce  = get_start_nonce();
@@ -430,7 +424,7 @@ namespace energi
         // Read results.
         // TODO: could use pinned host pointer instead.
         uint32_t results[c_maxSearchResults + 1];
-        cl->queue_.enqueueReadBuffer(cl->bufferSearch_, CL_TRUE, 0, sizeof(results), &results);
+        cl->queue_.enqueueReadBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(results), &results);
         //cllog << "results[0]: " << results[0] << " [1]: " << results[1];
 
         uint32_t nonce = 0;
@@ -438,16 +432,15 @@ namespace energi
           // Ignore results except the first one.
           nonce = startNonce + results[1];
           // Reset search buffer if any solution found.
-          cl->queue_.enqueueWriteBuffer(cl->bufferSearch_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
+          cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
         }
         // Run the kernel.
         cl->kernelSearch_.setArg(3, startNonce);
         cl->queue_.enqueueNDRangeKernel(cl->kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
-
         // Report results while the kernel is running.
         // It takes some time because ethash must be re-evaluated on CPU.
         if (nonce != 0) {
-          auto hash_res = CpuMiner::GetPOWHash(work.height, nonce, endiandata);
+          auto hash_res = Miner::GetPOWHash(work.height, nonce, endiandata);
           uint32_t arr[8] = {0};
           memcpy(arr, hash_res.mixhash.b, sizeof(hash_res.mixhash));
           for (int i = 0; i < 8; i++) {
@@ -462,10 +455,8 @@ namespace energi
         current_work = work;
 
         addHashCount(globalWorkSize_);
-
         // Increase start nonce for following kernel execution.
         startNonce += globalWorkSize_;
-
         // Check if we should stop.
         if (shouldStop()) {
           // Make sure the last buffer write has finished --
@@ -484,8 +475,7 @@ namespace energi
   {
     auto failResult = std::make_tuple(false, cl::Device(), 0, 0, "");
     std::vector<cl::Platform> platforms = getPlatforms();
-    if (platforms.empty())
-    {
+    if (platforms.empty()) {
       return failResult;
     }
 
@@ -495,23 +485,17 @@ namespace energi
     ETHCL_LOG("Platform: " << platformName);
 
     int platformId = OPENCL_PLATFORM_UNKNOWN;
-    if (platformName == "NVIDIA CUDA")
-    {
+    if (platformName == "NVIDIA CUDA") {
       platformId = OPENCL_PLATFORM_NVIDIA;
-    }
-    else if (platformName == "AMD Accelerated Parallel Processing")
-    {
+    } else if (platformName == "AMD Accelerated Parallel Processing") {
       platformId = OPENCL_PLATFORM_AMD;
-    }
-    else if (platformName == "Clover")
-    {
+    } else if (platformName == "Clover") {
       platformId = OPENCL_PLATFORM_CLOVER;
     }
 
     // get GPU device of the default platform
     std::vector<cl::Device> devices = getDevices(platforms, platformIdx);
-    if (devices.empty())
-    {
+    if (devices.empty()) {
       ETHCL_LOG("No OpenCL devices found.");
       return failResult;
     }
@@ -524,14 +508,10 @@ namespace energi
 
     std::string clVer = device_version.substr(7, 3);
 
-    if (clVer == "1.0" || clVer == "1.1")
-    {
-      if (platformId == OPENCL_PLATFORM_CLOVER)
-      {
+    if (clVer == "1.0" || clVer == "1.1") {
+      if (platformId == OPENCL_PLATFORM_CLOVER) {
         ETHCL_LOG("OpenCL " << clVer << " not supported, but platform Clover might work nevertheless. USE AT OWN RISK!");
-      }
-      else
-      {
+      } else {
         ETHCL_LOG("OpenCL " << clVer << " not supported - minimum required version is 1.2");
         return failResult;
       }
@@ -539,8 +519,7 @@ namespace energi
 
     char options[256];
     int computeCapability = 0;
-    if (platformId == OPENCL_PLATFORM_NVIDIA)
-    {
+    if (platformId == OPENCL_PLATFORM_NVIDIA) {
       cl_uint computeCapabilityMajor;
       cl_uint computeCapabilityMinor;
       clGetDeviceInfo(device(), CL_DEVICE_COMPUTE_CAPABILITY_MAJOR_NV, sizeof(cl_uint), &computeCapabilityMajor, NULL);
@@ -549,24 +528,22 @@ namespace energi
       computeCapability = computeCapabilityMajor * 10 + computeCapabilityMinor;
       int maxregs = computeCapability >= 35 ? 72 : 63;
       sprintf(options, "-cl-nv-maxrregcount=%d", maxregs);
-    }
-    else
-    {
+    } else {
       sprintf(options, "%s", "");
     }
 
     return std::make_tuple(true, device, platformId, computeCapability, std::string(options));
   }
 
-
   bool OpenCLMiner::init_dag(uint32_t height)
   {
+    egihash::cache_t cache = egihash::cache_t(height);
     // get all platforms
     try {
       auto deviceResult = cl->getDeviceInfo(index_);
       // create context
       auto device = std::get<1>(deviceResult);
-      cl->context_  = cl::Context(device);
+      cl->context_  = cl::Context(std::vector<cl::Device>(&device, &device + 1));
       cl->queue_    = cl::CommandQueue(cl->context_, device);
 
       // make sure that global work size is evenly divisible by the local workgroup size
@@ -575,16 +552,14 @@ namespace energi
       if (globalWorkSize_ % workgroupSize_ != 0) {
         globalWorkSize_ = ((globalWorkSize_ / workgroupSize_) + 1) * workgroupSize_;
       }
+      uint64_t dagSize = egihash::dag_t::get_full_size(height);
+      uint32_t dagSize128 = (unsigned)(dagSize / egihash::constants::MIX_BYTES);
+      uint32_t lightSize64 = cache.data().size();
       // patch source code
       // note: CLMiner_kernel is simply ethash_cl_miner_kernel.cl compiled
       // into a byte array by bin2h.cmake. There is no need to load the file by hand in runtime
       // TODO: Just use C++ raw string literal.
       std::string code(CLMiner_kernel, CLMiner_kernel + sizeof(CLMiner_kernel));
-
-      egihash::cache_t cache = egihash::cache_t(height);
-      uint64_t dagSize = egihash::dag_t::get_full_size(height);
-      uint32_t dagSize128 = (unsigned)(dagSize / egihash::constants::MIX_BYTES);
-      uint32_t lightSize64 = (unsigned)(cache.data().size());
 
       addDefinition(code, "GROUP_SIZE", workgroupSize_);
       addDefinition(code, "DAG_SIZE", dagSize128);
@@ -603,7 +578,7 @@ namespace energi
         cllog << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
       } catch (cl::Error const&) {
         cwarn << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
-        cwarn << " FAiled" ;
+        cwarn << " Failed" ;
         return false;
       }
 
@@ -630,7 +605,8 @@ namespace energi
         cl->kernelSearch_     = cl::Kernel(program, "ethash_search");
         cl->kernelDag_        = cl::Kernel(program, "ethash_calculate_dag_item");
 
-        ETHCL_LOG("Creating light buffer");
+        ETHCL_LOG("Caeating light buffer");
+
         cl->queue_.enqueueWriteBuffer(cl->bufferLight_, CL_TRUE, 0, sizeof(uint32_t) * vData.size(), vData.data());
       } catch (cl::Error const& err) {
         cwarn << "Creating DAG buffer failed:" << err.what() << err.err();
@@ -647,7 +623,7 @@ namespace energi
 
       // create mining buffers
       ETHCL_LOG("Creating mining buffer");
-      cl->bufferSearch_ = cl::Buffer(cl->context_, CL_MEM_WRITE_ONLY, (c_maxSearchResults + 1) * sizeof(uint32_t));
+      cl->searchBuffer_ = cl::Buffer(cl->context_, CL_MEM_WRITE_ONLY, (c_maxSearchResults + 1) * sizeof(uint32_t));
       cl->bufferTarget_ = cl::Buffer(cl->context_, CL_MEM_READ_ONLY, 32);
 
       cllog << "Generating DAG";
@@ -665,7 +641,6 @@ namespace energi
         cl->kernelDag_.setArg(0, i * globalWorkSize_);
         cl->queue_.enqueueNDRangeKernel(cl->kernelDag_, cl::NullRange, globalWorkSize_, workgroupSize_);
         cl->queue_.finish();
-        //cllog << "DAG" << int(100.0f * i / fullRuns) << '%';
       }
 
       cllog << "DAG Loaded" ;
