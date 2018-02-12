@@ -26,13 +26,13 @@ namespace energi {
 class Miner : public Worker
 {
 public:
-    Miner(std::string const& name, const Plant &plant, int index):
-        Worker(name + std::to_string(index))
-        ,index_(index)
-        ,plant_(plant)
-        ,nonceStart_(0)
-        ,nonceEnd_(0)
-        ,hashCount_(0)
+    Miner(std::string const& name, const Plant &plant, int index)
+        : Worker(name + std::to_string(index))
+        , index_(index)
+        , plant_(plant)
+        , nonceStart_(0)
+        , nonceEnd_(0)
+        , hashCount_(0)
     {
         // First time init egi hash dag
         // We got to do for every epoch change below
