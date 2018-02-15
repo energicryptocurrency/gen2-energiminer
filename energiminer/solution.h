@@ -12,23 +12,25 @@
 
 #include <functional>
 
-namespace energi
+namespace energi {
+
+class Solution
 {
-  class Solution
-  {
-  public:
+public:
     Solution()
     {}
-    Solution(const Work &work):work_(work)
+
+    Solution(const Work &work)
+        : work_(work)
     {}
 
     std::string getSubmitBlockData() const;
 
-  private:
+private:
     Work work_;
-  };
+};
 
-  using SolutionFoundCallback = std::function<void(const Solution&)>;
+using SolutionFoundCallback = std::function<void(const Solution&)>;
 
 } /* namespace energi */
 

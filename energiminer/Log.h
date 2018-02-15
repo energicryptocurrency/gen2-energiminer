@@ -240,19 +240,19 @@ namespace energi
 #define cslog(X) nslog(X)
 #else
 #if NDEBUG
-#define clog(X) if (X::debug) {} else LogOutputStream<X, true>()
-#define cslog(X) if (X::debug) {} else LogOutputStream<X, false>()
+#define clog(X) if (X::debug) {} else energi::LogOutputStream<X, true>()
+#define cslog(X) if (X::debug) {} else energi::LogOutputStream<X, false>()
 #else
-#define clog(X) LogOutputStream<X, true>()
-#define cslog(X) LogOutputStream<X, false>()
+#define clog(X) energi::LogOutputStream<X, true>()
+#define cslog(X) energi::LogOutputStream<X, false>()
 #endif
 #endif
 
 // Simple cout-like stream objects for accessing common log channels.
 // Dirties the global namespace, but oh so convenient...
-#define cdebug clog(DebugChannel)
-#define cnote clog(NoteChannel)
-#define cwarn clog(WarnChannel)
+#define cdebug clog(energi::DebugChannel)
+#define cnote clog(energi::NoteChannel)
+#define cwarn clog(energi::WarnChannel)
 
 // Null stream-like objects.
 #define ndebug if (true) {} else NullOutputStream()

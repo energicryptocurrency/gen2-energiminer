@@ -17,7 +17,48 @@
 #include <mutex>
 #include <array>
 
+enum class MinerExecutionMode : unsigned
+{
+    kCPU   = 0x1,
+    kCL    = 0x2,
+    kMixed = 0x3,
+    kCUDA  = 0x4
+};
 
+enum class EnumMinerEngine : unsigned
+{
+    kCPU    = 0x0,
+    kCL     = 0x1,
+    kTest   = 0x2
+};
+
+inline std::vector<EnumMinerEngine> getEngineModes(MinerExecutionMode minerExecutionMode)
+{
+    std::vector<EnumMinerEngine> vEngine;
+    if ( static_cast<unsigned>(minerExecutionMode) & static_cast<unsigned>(MinerExecutionMode::kCL) )
+        vEngine.push_back(EnumMinerEngine::kCL);
+    if ( static_cast<unsigned>(minerExecutionMode) & static_cast<unsigned>(MinerExecutionMode::kCPU) )
+        vEngine.push_back(EnumMinerEngine::kCPU);
+
+    return vEngine;
+}
+
+inline EnumMinerEngine getEngineMode(MinerExecutionMode minerExecutionMode)
+{
+    if ( static_cast<unsigned>(minerExecutionMode) & static_cast<unsigned>(MinerExecutionMode::kCL) )
+        return EnumMinerEngine::kCL;
+    if ( static_cast<unsigned>(minerExecutionMode) & static_cast<unsigned>(MinerExecutionMode::kCPU) )
+        return EnumMinerEngine::kCPU;
+
+    return EnumMinerEngine::kTest;
+}
+
+constexpr const char* StrMinerEngine[] = { "CPU", "CL", "Test" };
+
+inline std::string to_string(EnumMinerEngine minerEngine)
+{
+    return StrMinerEngine[static_cast<int>(minerEngine)];
+}
 
 namespace energi
 {

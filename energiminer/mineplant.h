@@ -24,21 +24,6 @@
 
 namespace energi
 {
-  enum class EnumMinerEngine : unsigned
-  {
-    kCPU    = 0x0,
-    kCL     = 0x1,
-    kTest   = 0x2
-  };
-
-  constexpr const char* StrMinerEngine[] = { "CPU", "CL", "Test" };
-
-  inline std::string to_string(EnumMinerEngine minerEngine)
-  {
-    return StrMinerEngine[static_cast<int>(minerEngine)];
-  }
-
-
   class SolutionStats {
   public:
     void accepted() { accepts++;  }
@@ -74,7 +59,8 @@ namespace energi
   class MinePlant : public Plant
   {
   public:
-    MinePlant(SolutionFoundCallback& solution_found_cb):solution_found_cb_(solution_found_cb)
+    MinePlant(SolutionFoundCallback& solution_found_cb)
+        :solution_found_cb_(solution_found_cb)
     {
         std::random_device engine;
         nonce_scumbler_ = std::uniform_int_distribution<uint64_t>()(engine);

@@ -385,7 +385,7 @@ void OpenCLMiner::trun()
                 auto localSwitchStart = std::chrono::high_resolution_clock::now();
 
                 if (!dagLoaded_) {
-                    init_dag(work.height);
+                    init_dag();
                     dagLoaded_ = true;
                 }
                 energi::CBlockHeaderTruncatedLE truncatedBlockHeader(endiandata);
@@ -523,7 +523,7 @@ std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::clInfo::getDevi
     return std::make_tuple(true, device, platformId, computeCapability, std::string(options));
 }
 
-bool OpenCLMiner::init_dag(uint32_t height)
+bool OpenCLMiner::init_dag()
 {
     const auto& dag = ActiveDAG();
     // get all platforms
@@ -540,7 +540,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
         if (globalWorkSize_ % workgroupSize_ != 0) {
             globalWorkSize_ = ((globalWorkSize_ / workgroupSize_) + 1) * workgroupSize_;
         }
-        uint64_t dagSize = dag->size(); //egihash::dag_t::get_full_size(height);
+        uint64_t dagSize = dag->size();
         uint32_t dagSize128 = (unsigned)(dagSize / egihash::constants::MIX_BYTES);
         uint32_t lightSize64 = dag->get_cache().data().size();
         // patch source code

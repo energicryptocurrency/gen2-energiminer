@@ -13,6 +13,9 @@ set(EXECUTABLE energiminer)
 file(GLOB HEADERS "*.h")
 
 set(SOURCES
+  protocol/GBTClient.h
+  protocol/StratumClient.h
+  protocol/StratumClient.cpp
   primitives/hash.h
   primitives/base58.h
   primitives/base58.cpp
