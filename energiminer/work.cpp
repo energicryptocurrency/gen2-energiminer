@@ -267,15 +267,4 @@ namespace energi
       blockHeader.insert(blockHeader.end(), part.begin(), part.end());
     }
   }
-
-  /*
-  void serialize_work(const Work &work)
-    {
-     std::ofstream f ("/var/tmp/gpu_miner.hex", std::ios_base::out | std::ios_base::binary);
-     f.write(reinterpret_cast<const char*>(work.data.data()), sizeof(uint32_t) * work.data.size());
-     f << "hello" << endl;
-     f.write(reinterpret_cast<const char*>(work.target.data()), sizeof(uint32_t) * work.target.size());
-     f.write(reinterpret_cast<const char*>(work.rawTransactionData.c_str()), work.rawTransactionData.size());
-     f.write(reinterpret_cast<const char*>(&work.height), sizeof(work.height));
-    }*/
 } /* namespace energi */

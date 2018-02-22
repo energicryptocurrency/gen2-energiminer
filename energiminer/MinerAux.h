@@ -93,6 +93,8 @@ public:
 			<< "    --benchmark-warmup <seconds>  Set the duration of warmup for the benchmark tests (default: 3)." << endl
 			<< "    --benchmark-trial <seconds>  Set the duration for each trial for the benchmark tests (default: 3)." << endl
 			<< "    --benchmark-trials <n>  Set the number of benchmark trials to run (default: 5)." << endl
+			<< "	-S, --stratum <host:port>  Put into stratum mode with the stratum server at host:port" << endl
+			<< "    -O, --userpass <username.workername:password> Stratum login credentials" << endl
 			<< "Simulation mode:" << endl
 			<< "    -Z [<n>],--simulation [<n>] Mining test mode. Used to validate kernel optimizations. Optionally specify block number." << endl
 			<< "Mining configuration:" << endl
@@ -111,13 +113,13 @@ private:
     void doSimulation(int difficulty = 20);
 
     /*
-       doGBT function starts Plant and in farm it starts miners intended to mine e.g. CPUMiner And/or Gpuminer
-       doGBT runs a loop where,
+       doMiner function starts Plant and in farm it starts miners intended to mine e.g. CPUMiner And/or Gpuminer
+       doMiner runs a loop where,
            1. it calls getblocktemplate to get the new work
            2. Prepares a Work object, which essentially contains data to be mined after parsing getblocktemplate.
            3. Since there is no queue concept here because of no need of mining old set of transactions to create new block
               Simply reset the Work everytime we get new data
-              So doGBT sets work on Plant which internally is meant to forward to all Miners.
+              So doMiner sets work on Plant which internally is meant to forward to all Miners.
            4. One way is to let Plant make a call back as soon as data is ready by using proper synchronization techniques e.g. events
            5. Other is to make a good guess of a few milliseconds wait to check for next getblocktemplate if is different
 
@@ -127,17 +129,16 @@ private:
               b. As soon as plant gets new Work, it sets the data for all miners and expects miners to restart ASAP on new data.
            Basically by requesting them to finish ASAP old block being mined as there is no point.
            Miners drop existing work and take new Work and start mining fresh.
-           As soon as a miner finds a solution, it calls plant onSolutionFind and plant expects it to be picked up on next check in doGBT.
+           As soon as a miner finds a solution, it calls plant onSolutionFind and plant expects it to be picked up on next check in doMiner.
 
            7. Threading design
-           8. doGBT runs in main thread
+           8. doMiner runs in main thread
               - Plant starts miners (miner is a worker)
               - miner instead spawns a child thread to do the real mine work and also keep ears open to listen for new data.
               - we need to synchronize plant and miner communication
 
     */
-    void doGBT();
-    void doStratum();
+    void doMiner();
 
 private:
 	/// Operating mode.
@@ -174,10 +175,11 @@ private:
 	int m_worktimeout = 180;
 	unsigned m_farmRetries = 0;
 	unsigned max_retries_ = 20;
-    unsigned m_stratumProtocol;
 	unsigned m_farmRecheckPeriod = 500;
 	unsigned m_defaultStratumFarmRecheckPeriod = 2000;
     std::string m_farmURL = "http://192.168.0.22:9998";
+    std::string m_user;
+    std::string m_pass;
 	std::string m_farmFailOverURL = "";
 	std::string m_energiURL = m_farmURL;
 	std::string m_fport = "";

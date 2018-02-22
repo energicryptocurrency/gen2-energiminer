@@ -1,3 +1,5 @@
+#include <memory>
+
 #include "MinerAux.h"
 #include "protocol/StratumClient.h"
 #include "protocol/GBTClient.h"
@@ -16,13 +18,17 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
     } else if ((arg == "-FO" || arg == "--failover-userpass") && i + 1 < argc) {
         mode = OperationMode::Stratum;
         m_farmFailOverURL = argv[++i];
-    } else if ((arg == "-SP" || arg == "--stratum-protocol") && i + 1 < argc) {
-        try {
-            m_stratumProtocol = atoi(argv[++i]);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
+    } else if ((arg == "-O" || arg == "--userpass") && i + 1 < argc) {
+        std::string userpass = std::string(argv[++i]);
+        size_t p = userpass.find_first_of(":");
+        m_user = userpass.substr(0, p);
+        if (p + 1 < userpass.length()) {
+            m_pass = userpass.substr(p + 1);
         }
+    } else if ((arg == "-u" || arg == "--user") && i + 1 < argc) {
+        m_user = std::string(argv[++i]);
+    } else if ((arg == "-p" || arg == "--pass") && i + 1 < argc) {
+        m_pass = std::string(argv[++i]);
     } else if ((arg == "--coinbase-addr") && i + 1 < argc) {
         coinbase_addr_ = argv[++i];
     } else if (arg == "--farm-recheck" && i + 1 < argc) {
@@ -185,24 +191,15 @@ void MinerCLI::execute()
         OpenCLMiner::setNumInstances(m_miningThreads);
     }
 
-    switch(mode)
-    {
-        case OperationMode::Benchmark:
+    if (mode == OperationMode::Benchmark) {
             ///doBenchmark(m_minerExecutionMode, m_benchmarkWarmup, m_benchmarkTrial, m_benchmarkTrials);
-            break;
-        case OperationMode::GBT:
-            doGBT();
-            break;
-        case OperationMode::Simulation:
-            doSimulation();
-            break;
-        case OperationMode::Stratum:
-            doStratum();
-            break;
-        default:
-            cerr << "No mining mode selected!" << std::endl;
-            exit(-1);
-            break;
+    } else if (mode == OperationMode::GBT || mode == OperationMode::Stratum) {
+        doMiner();
+    } else if (mode == OperationMode::Simulation) {
+        doSimulation();
+    } else {
+        cerr << "No mining mode selected!" << std::endl;
+        exit(-1);
     }
 }
 
@@ -271,6 +268,7 @@ void MinerCLI::doSimulation(int difficulty)
     }
 }
 
+/*
 void MinerCLI::doStratum()
 {
     if (m_farmRecheckSet) {
@@ -314,11 +312,10 @@ void MinerCLI::doStratum()
         std::this_thread::sleep_for(std::chrono::milliseconds(m_farmRecheckPeriod));
     }
 }
+*/
 
-void MinerCLI::doGBT()
+void MinerCLI::doMiner()
 {
-    jsonrpc::HttpClient client(m_farmURL);
-    GBTClient rpc(client);
     // Start plant now with given miners
     // start plant full of miners
     std::mutex mutex_solution;
@@ -341,6 +338,18 @@ void MinerCLI::doGBT()
     if ( !plant.start(vEngineModes) ) {
         return;
     }
+    std::unique_ptr<MiningClient> client;
+    if (mode == OperationMode::GBT) {
+        jsonrpc::HttpClient cli(m_farmURL);
+        client.reset(new GBTClient(cli, coinbase_addr_));
+    } else if (mode == OperationMode::Stratum) {
+        client.reset(new StratumClient(&plant, m_minerExecutionMode, m_farmURL, max_retries_, m_worktimeout));
+    }
+    if (client == nullptr) {
+        //! This should not happen
+        std::cerr << "Client is not contsructed normally" << std::endl;
+        std::exit(-1);
+    }
     cnote << "Engines started!";
 
     energi::Work current_work;
@@ -350,9 +359,7 @@ void MinerCLI::doGBT()
             solution_found = false;
             // Keep checking for new work and mine
             while(!solution_found) {
-                // Get Work using GetBlockTemplate
-                auto work_gbt = rpc.getBlockTemplate();
-                energi::Work new_work(work_gbt, coinbase_addr_);
+                energi::Work new_work = client->getWork();
                 // check if current work is no different, then skip
                 if ( new_work != current_work ) {
                     cnote << "work submitted";
@@ -375,7 +382,7 @@ void MinerCLI::doGBT()
             plant.stopAllWork();
             // 8. Now submit
             MutexLGuard l(mutex_solution);
-            rpc.submitSolution(solution);
+            client->submit(solution);
             current_work.reset();
         } catch(WorkException &we) {
             if (max_retries_ == 0) {
@@ -399,7 +406,7 @@ void MinerCLI::doGBT()
             --max_retries_;
         }
     }
-    cout << "GBT simulation is exiting: " << m_farmURL << " " << endl;
+    cout << "simulation is exiting: " << m_farmURL << " " << endl;
     plant.stopAllWork();
     return;
 }

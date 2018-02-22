@@ -13,6 +13,7 @@ set(EXECUTABLE energiminer)
 file(GLOB HEADERS "*.h")
 
 set(SOURCES
+  protocol/MiningClient.h
   protocol/GBTClient.h
   protocol/StratumClient.h
   protocol/StratumClient.cpp

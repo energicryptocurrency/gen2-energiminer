@@ -1,6 +1,7 @@
 #include "energiminer/mineplant.h"
 #include "StratumClient.h"
 #include "energiminer/Log.h"
+#include "BuildInfo.h"
 
 using boost::asio::ip::tcp;
 
@@ -9,22 +10,15 @@ StratumClient::StratumClient(energi::MinePlant* f,
                                        const std::string& farmURL,
                                        unsigned maxretries,
                                        int timeout)
-	: energi::Worker("stratum")
-    , m_minerType(mode)
-    , m_current(to_string(getEngineMode(mode)), *f, f->get_nonce_scumbler())
+	: m_minerType(mode)
     , m_socket(m_io_service)
     , m_worktimer(m_io_service)
 
 {
     std::size_t portPos = farmURL.find_last_of(":");
-    std::size_t passPos = farmURL.find_last_of(":", portPos - 1);
-    std::size_t atPos = farmURL.find_first_of("@");
 
-	m_minerType = mode;
-	m_primary.host = farmURL.substr(atPos + 1, portPos - atPos - 1);
+	m_primary.host = farmURL.substr(0, portPos);
 	m_primary.port = farmURL.substr(portPos + 1);
-	m_primary.user = farmURL.substr(7, passPos - 7);
-	m_primary.pass = farmURL.substr(passPos + 1, atPos - passPos - 1);
 
 	p_active = &m_primary;
 	m_authorized = false;
@@ -33,7 +27,16 @@ StratumClient::StratumClient(energi::MinePlant* f,
 	m_worktimeout = timeout;
 
 	p_farm = f;
-	start();
+    connect();
+}
+
+void StratumClient::processExtranonce(std::string& enonce)
+{
+    m_extraNonceHexSize = enonce.length();
+    cnote << "Extranonce set to " << enonce;
+    for (int i = enonce.length(); i < 16; ++i) {
+        enonce += "0";
+    }
 }
 
 StratumClient::~StratumClient()
@@ -53,18 +56,11 @@ void StratumClient::setFailover(const std::string& failOverURL)
 	m_failover.pass = failOverURL.substr(passPos + 1, atPos - passPos - 1);
 }
 
-//! TODO remove
-bool StratumClient::submitHashrate(const std::string& rate)
-{
-	return true;
-}
-
 bool StratumClient::submit(const energi::Solution& solution)
 {
     std::string blockData = solution.getSubmitBlockData();
-    std::string json = "{\"jsonrpc\":\1.0\", \"id\": 4, \"method\": \"submitblock\", \"params\": [\"" + blockData + "\"]}\n";
     std::ostream os(&m_requestBuffer);
-    os << json;
+    os << "{\"id\": 2, \"method\": \"mining.submit\", \"params\": []}\n";
     write(m_socket, m_requestBuffer);
     cnote << "Solution found; Submitted to" << p_active->host;
     return true;
@@ -120,8 +116,7 @@ void StratumClient::connect()
             p_farm->start(modes);
         }
         std::ostream os(&m_requestBuffer);
-
-        std::string user;
+        os << "{\"id\": 1, \"method\": \"mining.subscribe\", \"params\": [\"energiminer/" << ENERGI_PROJECT_VERSION << "\",\"EnergiStratum/1.0.0\"]}\n";
         write(m_socket, m_requestBuffer);
     }
 }
@@ -138,7 +133,7 @@ void StratumClient::disconnect()
     m_socket.close();
 }
 
-void StratumClient::work_timeout_handler(const boost::system::error_code& ec)
+void StratumClient::workTimeoutHandler(const boost::system::error_code& ec)
 {
     if (!ec) {
         cnote << "No new work received in" << m_worktimeout << "seconds.";
@@ -146,143 +141,73 @@ void StratumClient::work_timeout_handler(const boost::system::error_code& ec)
     }
 }
 
-void StratumClient::processExtranonce(std::string& enonce)
+bool StratumClient::processResponse(Json::Value& responseObject)
 {
-    m_extraNonceHexSize = enonce.length();
-    cnote << "Extranonce set to " << enonce;
-    for (int i = enonce.length(); i < 16; ++i)
-        enonce += "0";
-    //m_extraNonce = h64(enonce);
-}
-
-void StratumClient::processReponse(Json::Value& responseObject)
-{
-//    Json::Value error = responseObject.get("error", new Json::Value);
-//    if (error.isArray()) {
-//        std::string msg = error.get(1, "Unknown error").asString();
-//        cnote << msg;
-//    }
-//    std::ostream os(&m_requestBuffer);
-//    Json::Value params;
-//    int id = responseObject.get("id", Json::Value::null).asInt();
-//    switch (id)
-//    {
-//        case 1:
-//            m_authorized = true;
-//            os << "{\"id\": 5, \"method\": \"getblocktemplate\", \"params\": []}\n";
-//            write(m_socket, m_requestBuffer);
-//            break;
-//        case 2:
-//            // nothing to do...
-//            break;
-//        case 3:
-//            m_authorized = responseObject.get("result", Json::Value::null).asBool();
-//            if (!m_authorized) {
-//                disconnect();
-//                return;
-//            }
-//            break;
-//        case 4:
-//            if (responseObject.get("result", false).asBool()) {
-//                //p_farm->acceptedSolution(m_stale);
-//            }
-//            else {
-//                //cwarn << "Rejected.";
-//                //p_farm->rejectedSolution(m_stale);
-//            }
-//            break;
-//        default:
-//            std::string method, workattr;
-//            unsigned index;
-//
-//            method = responseObject.get("method", "").asString();
-//            workattr = "params";
-//            index = 1;
-//
-//            if (method == "getblockcount") {
-//                params = responseObject.get(workattr, Json::Value::null);
-//                if (params.isArray()) {
-//                    std::string job = params.get((Json::Value::ArrayIndex)0, "").asString();
-//                    if (m_protocol == STRATUM_PROTOCOL_ETHEREUMSTRATUM) {
-//                        std::string job = params.get((Json::Value::ArrayIndex)0, "").asString();
-//                        std::string sSeedHash = params.get((Json::Value::ArrayIndex)1, "").asString();
-//                        std::string sHeaderHash = params.get((Json::Value::ArrayIndex)2, "").asString();
-//
-//                        if (sHeaderHash != "" && sSeedHash != "") {
-//                            m_worktimer.cancel();
-//                            m_worktimer.expires_from_now(boost::posix_time::seconds(m_worktimeout));
-//                            m_worktimer.async_wait(boost::bind(&EthStratumClientV2::work_timeout_handler, this, boost::asio::placeholders::error));
-//
-//                            m_current.header = h256(sHeaderHash);
-//                            m_current.seed = h256(sSeedHash);
-//                            m_current.boundary = h256();
-//                            diffToTarget((uint32_t*)m_current.boundary.data(), m_nextWorkDifficulty);
-//                            m_current.startNonce = ethash_swap_u64(*((uint64_t*)m_extraNonce.data()));
-//                            m_current.exSizeBits = m_extraNonceHexSize * 4;
-//                            m_current.job = h256(job);
-//
-//                            p_farm->setWork(m_current);
-//                            cnote << "Received new job #" + job.substr(0, 8)
-//                                << " seed: " << "#" + m_current.seed.hex().substr(0, 32)
-//                                << " target: " << "#" + m_current.boundary.hex().substr(0, 24);
-//                        }
-//                    } else {
-//                        string sHeaderHash = params.get((Json::Value::ArrayIndex)index++, "").asString();
-//                        string sSeedHash = params.get((Json::Value::ArrayIndex)index++, "").asString();
-//                        string sShareTarget = params.get((Json::Value::ArrayIndex)index++, "").asString();
-//
-//                        // coinmine.pl fix
-//                        int l = sShareTarget.length();
-//                        if (l < 66)
-//                            sShareTarget = "0x" + string(66 - l, '0') + sShareTarget.substr(2);
-//
-//
-//                        if (sHeaderHash != "" && sSeedHash != "" && sShareTarget != "") {
-//                            m_worktimer.cancel();
-//                            m_worktimer.expires_from_now(boost::posix_time::seconds(m_worktimeout));
-//                            m_worktimer.async_wait(boost::bind(&EthStratumClientV2::work_timeout_handler, this, boost::asio::placeholders::error));
-//
-//                            h256 headerHash = h256(sHeaderHash);
-//
-//                            if (headerHash != m_current.header) {
-//                                m_current.header = h256(sHeaderHash);
-//                                m_current.seed = h256(sSeedHash);
-//                                m_current.boundary = h256(sShareTarget);
-//                                m_current.job = h256(job);
-//
-//                                p_farm->setWork(m_current);
-//                            }
-//                            cnote << "Received new job #" + job.substr(0, 8)
-//                                << " seed: " << "#" + m_current.seed.hex().substr(0, 32)
-//                                << " target: " << "#" + m_current.boundary.hex().substr(0, 24);
-//                        }
-//                    }
-//                }
-//            } else if (method == "mining.set_difficulty" && m_protocol == STRATUM_PROTOCOL_ETHEREUMSTRATUM) {
-//                params = responseObject.get("params", Json::Value::null);
-//                if (params.isArray()) {
-//                    m_nextWorkDifficulty = params.get((Json::Value::ArrayIndex)0, 1).asDouble();
-//                    if (m_nextWorkDifficulty <= 0.0001) m_nextWorkDifficulty = 0.0001;
-//                    cnote << "Difficulty set to " << m_nextWorkDifficulty;
-//                }
-//            } else if (method == "mining.set_extranonce" && m_protocol == STRATUM_PROTOCOL_ETHEREUMSTRATUM) {
-//                params = responseObject.get("params", Json::Value::null);
-//                if (params.isArray()) {
-//                    std::string enonce = params.get((Json::Value::ArrayIndex)0, "").asString();
-//                    processExtranonce(enonce);
-//                }
-//            } else if (method == "client.get_version") {
-//                os << "{\"error\": null, \"id\" : " << id << ", \"result\" : \"" << ETH_PROJECT_VERSION << "\"}\n";
-//                write(m_socket, m_requestBuffer);
-//            }
-//            break;
-//    }
-}
-
-void StratumClient::trun()
-{
+    Json::Value error = responseObject.get("error", new Json::Value);
+    if (error.isArray()) {
+        std::string msg = error.get(1, "Unknown error").asString();
+        cnote << msg;
+    }
     std::ostream os(&m_requestBuffer);
-    while (m_running) {
+    Json::Value params;
+    int id = responseObject.get("id", Json::Value::null).asInt();
+    switch (id) {
+        case 1:
+            m_nextWorkDifficulty = 1;
+            params = responseObject.get("result", Json::Value::null);
+            if (params.isArray()) {
+                std::string enonce = params.get((Json::Value::ArrayIndex)1, "").asString();
+                processExtranonce(enonce);
+            }
+            os << "{\"id\": 2, \"method\": \"mining.extranonce.subscribe\", \"params\": []}\n";
+			m_authorized = true;
+			os << "{\"id\": 5, \"method\": \"getblocktemplate\", \"params\": []}\n";
+            // not strictly required but it does speed up initialization
+			write(m_socket, m_requestBuffer);
+            break;
+        default:
+            std::string method, workattr;
+            method = responseObject.get("method", "").asString();
+            workattr = "params";
+            if (method == "mining.notify") {
+                params = responseObject.get(workattr, Json::Value::null);
+                if (params.isArray()) {
+                    auto workGBT = params.get((Json::Value::ArrayIndex)0, "");
+                    const auto& master = workGBT["masternode"];
+                    m_current = energi::Work(workGBT, master["payee"].asString());
+                    m_worktimer.cancel();
+                    m_worktimer.expires_from_now(boost::posix_time::seconds(m_worktimeout));
+                    m_worktimer.async_wait(boost::bind(&StratumClient::workTimeoutHandler, this, boost::asio::placeholders::error));
+                    p_farm->setWork(m_current);
+                }
+            } else if (method == "mining.set_difficulty") {
+                params = responseObject.get("params", Json::Value::null);
+                if (params.isArray()) {
+                    m_nextWorkDifficulty = params.get((Json::Value::ArrayIndex)0, 1).asDouble();
+                    if (m_nextWorkDifficulty <= 0.0001) {
+                        m_nextWorkDifficulty = 0.0001;
+                    }
+                    cnote << "Difficulty set to " << m_nextWorkDifficulty;
+                }
+            } else if (method == "mining.set_extranonce") {
+                params = responseObject.get("params", Json::Value::null);
+                if (params.isArray()) {
+                    std::string enonce = params.get((Json::Value::ArrayIndex)0, "").asString();
+                    processExtranonce(enonce);
+                }
+            } else if (method == "client.get_version") {
+                os << "{\"error\": null, \"id\" : " << id << ", \"result\" : \"" << ENERGI_PROJECT_VERSION << "\"}\n";
+                write(m_socket, m_requestBuffer);
+            }
+            break;
+    }
+    return false;
+}
+
+Json::Value StratumClient::getBlockTemplate() throw (jsonrpc::JsonRpcException)
+{
+    bool process = false;
+    while (m_running || !process) {
         try {
             if (!m_connected) {
                 connect();
@@ -291,27 +216,27 @@ void StratumClient::trun()
             std::istream is(&m_responseBuffer);
             std::string response;
             getline(is, response);
-
             if (!response.empty() && response.front() == '{' && response.back() == '}') {
-                m_authorized = true;
-                os << "{\"id\": 5, \"method\": \"getblocktemplate\", \"params\": []}\n";
-                write(m_socket, m_requestBuffer);
                 Json::Value responseObject;
                 Json::Reader reader;
                 if (reader.parse(response.c_str(), responseObject)) {
-                    std::cout << responseObject << std::endl;
-                    processReponse(responseObject);
+                    process = processResponse(responseObject);
+                } else {
+                    cwarn << "Parse response failed: " << reader.getFormattedErrorMessages();
                 }
-                //    m_response = response;
-                //} else {
-                //    cwarn << "Parse response failed: " << reader.getFormattedErrorMessages();
-                //}
             } else {
-                cnote << "Discarding incomplete response";
+                cwarn << "Discarding incomplete response";
             }
-        } catch (const std::exception& _e) {
-            cwarn << _e.what();
+        } catch (const std::exception& ex) {
+            cwarn << ex.what();
             reconnect();
         }
     }
+    return Json::Value();
+}
+
+energi::Work StratumClient::getWork()
+{
+    getBlockTemplate();
+    return m_current;
 }

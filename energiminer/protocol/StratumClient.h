@@ -7,6 +7,7 @@
 
 #include "energiminer/worker.h"
 #include "energiminer/miner.h"
+#include "MiningClient.h"
 
 typedef struct {
     std::string host;
@@ -16,7 +17,7 @@ typedef struct {
 } credentials;
 
 
-class StratumClient : public energi::Worker
+class StratumClient : public MiningClient
 {
 public:
     StratumClient(energi::MinePlant* plant,
@@ -27,24 +28,20 @@ public:
     ~StratumClient();
 
 public:
-    bool isRunning() { return m_running; }
-    bool isConnected() { return m_connected && m_authorized; }
-    bool current() { return this->work().isValid(); }
-
-    bool submitHashrate(const::std::string& rate);
-    bool submit(const energi::Solution& solution);
+    bool submit(const energi::Solution& solution) override;
     void reconnect();
+    Json::Value getBlockTemplate() throw (jsonrpc::JsonRpcException) override;
+    energi::Work getWork() override;
 
 public:
 	void setFailover(const std::string& failOverURL);
 
 private:
-    void trun() override;
     void connect();
     void disconnect();
-    void processReponse(Json::Value& responseObject);
+    bool processResponse(Json::Value& responseObject);
 
-    void work_timeout_handler(const boost::system::error_code& ec);
+    void workTimeoutHandler(const boost::system::error_code& ec);
 
 public:
     MinerExecutionMode m_minerType;
@@ -64,7 +61,7 @@ public:
     std::string m_response;
 
     energi::MinePlant* p_farm;
-    energi::Miner m_current;
+    energi::Work m_current;
 
     boost::asio::io_service m_io_service;
     boost::asio::ip::tcp::socket m_socket;
@@ -74,12 +71,8 @@ public:
 
     boost::asio::deadline_timer m_worktimer;
 
-    //string m_email;
-
     double m_nextWorkDifficulty;
-
-    //h64 m_extraNonce;
     int m_extraNonceHexSize;
 
-    void processExtranonce(std::string& enonce);
+	void processExtranonce(std::string& enonce);
 };
