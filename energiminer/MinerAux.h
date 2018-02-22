@@ -207,10 +207,10 @@ public:
 			}
 		else if (arg == "-G" || arg == "--opencl")
 			m_MinerExecutionMode = MinerExecutionMode::kCL;
-		else if (arg == "-X" || arg == "--cuda-opencl")
+		/*else if (arg == "-X" || arg == "--cuda-opencl")
 		{
-			m_MinerExecutionMode = MinerExecutionMode::kMixed;
-		}
+			m_MinerExecutionMode = MinerExecutionMode::Mixed;
+		}*/
 		else if (arg == "-M" || arg == "--benchmark")
 		{
 			mode = OperationMode::Benchmark;
@@ -530,7 +530,7 @@ private:
           auto mp = plant.miningProgress();
           mp.rate();
 
-         //cnote << "Mining on difficulty " << " " << mp;
+         cnote << "Mining on difficulty " << " " << mp;
          this_thread::sleep_for(chrono::milliseconds(1000));
         }
 
@@ -576,7 +576,9 @@ private:
 			}
 		}
 
-		exit(0);
+        cout << "Hello world: " << m_farmURL << " " << endl;
+        plant.stopAllWork();
+        return;
 	}
 
 

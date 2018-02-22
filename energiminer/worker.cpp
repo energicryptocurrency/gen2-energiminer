@@ -84,12 +84,9 @@ namespace energi
       if ( state_ != State::Stopped )
       {
         state_ = State::Stopping;
-      }
-
-      while (state_ != State::Stopped)
-      {
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         cnote << " Waiting here" << name_ << (int)state_;
+        state_ = State::Stopped;
       }
     }
 

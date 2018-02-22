@@ -9,110 +9,6 @@
 
 namespace energi
 {
-  bool b58dec(unsigned char *bin, size_t binsz, const char *b58)
-  {
-      size_t i, j;
-      uint64_t t;
-      uint32_t c;
-      uint32_t *outi;
-      size_t outisz = (binsz + 3) / 4;
-      int rem = binsz % 4;
-      uint32_t remmask = 0xffffffff << (8 * rem);
-      size_t b58sz = strlen(b58);
-      bool rc = false;
-
-      outi = (uint32_t *) calloc(outisz, sizeof(*outi));
-
-      for (i = 0; i < b58sz; ++i) {
-          for (c = 0; b58digits[c] != b58[i]; c++)
-              if (!b58digits[c])
-                  goto out;
-          for (j = outisz; j--; ) {
-              t = (uint64_t)outi[j] * 58 + c;
-              c = t >> 32;
-              outi[j] = t & 0xffffffff;
-          }
-          if (c || outi[0] & remmask)
-              goto out;
-      }
-
-      j = 0;
-      switch (rem) {
-          case 3:
-              *(bin++) = (outi[0] >> 16) & 0xff;
-          case 2:
-              *(bin++) = (outi[0] >> 8) & 0xff;
-          case 1:
-              *(bin++) = outi[0] & 0xff;
-              ++j;
-          default:
-              break;
-      }
-      for (; j < outisz; ++j) {
-          be32enc((uint32_t *)bin, outi[j]);
-          bin += sizeof(uint32_t);
-      }
-
-      rc = true;
-      out:
-      free(outi);
-      return rc;
-  }
-
-  int b58check(unsigned char *bin, size_t binsz, const char *b58)
-  {
-      unsigned char buf[32];
-      int i;
-
-      sha256d(buf, bin, (int) (binsz - 4));
-      if (memcmp(&bin[binsz - 4], buf, 4))
-          return -1;
-
-      /* Check number of zeros is correct AFTER verifying checksum
-       * (to avoid possibility of accessing the string beyond the end) */
-      for (i = 0; bin[i] == '\0' && b58[i] == '1'; ++i);
-      if (bin[i] == '\0' || b58[i] == '1')
-          return -3;
-
-      return bin[0];
-  }
-
-
-  size_t address_to_script(unsigned char *out, size_t outsz, const char *addr)
-  {
-      unsigned char addrbin[25];
-      int addrver;
-      size_t rv;
-
-      if (!b58dec(addrbin, sizeof(addrbin), addr))
-          return 0;
-      addrver = b58check(addrbin, sizeof(addrbin), addr);
-      if (addrver < 0)
-          return 0;
-      switch (addrver) {
-          case 5:    /* Bitcoin script hash */
-          case 196:  /* Testnet script hash */
-              if (outsz < (rv = 23))
-                  return rv;
-              out[ 0] = 0xa9;  /* OP_HASH160 */
-              out[ 1] = 0x14;  /* push 20 bytes */
-              memcpy(&out[2], &addrbin[1], 20);
-              out[22] = 0x87;  /* OP_EQUAL */
-              return rv;
-          default:
-              if (outsz < (rv = 25))
-                  return rv;
-              out[ 0] = 0x76;  /* OP_DUP */
-              out[ 1] = 0xa9;  /* OP_HASH160 */
-              out[ 2] = 0x14;  /* push 20 bytes */
-              memset(&out[3], 0, 20);
-              //memcpy(&out[3], &addrbin[1], 20);
-              out[23] = 0x88;  /* OP_EQUALVERIFY */
-              out[24] = 0xac;  /* OP_CHECKSIG */
-              return rv;
-      }
-  }
-
   int varint_encode(unsigned char *p, uint64_t n)
   {
       int i;
@@ -203,10 +99,6 @@ namespace energi
     }
     return rc;
   }
-
-
-
-
 }
 
 

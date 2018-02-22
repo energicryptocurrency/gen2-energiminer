@@ -239,6 +239,8 @@ namespace energi
         }
 
         uint32_t _ALIGN(128) endiandata[29];
+        uint32_t _ALIGN(128) hash[8];
+        const uint32_t max_nonce = nonceEnd_.load();
         if ( current_work != work )
         {
           uint32_t *pdata     = work.blockHeader.data();
@@ -300,31 +302,31 @@ namespace energi
 
         // Report results while the kernel is running.
         // It takes some time because ethash must be re-evaluated on CPU.
-        if (nonce != 0)
-        {
+        do {
           // Report hash count
-          cllog << "Global work" << globalWorkSize_;
-          cllog << "Nonce: " << nonce ;
           auto nonceForHash = be32dec(&nonce);
           *(current_work.blockHeader.data() + 28) = nonceForHash;
 
           auto hash_res = CpuMiner::GetPOWHash(current_work.height, nonce, endiandata);
-          cnote << "HASH:" << GetHex(hash_res.value.b, 32);
-
+          memcpy(hash, hash_res.value.b, sizeof(hash_res.value));
           uint32_t arr[8] = {0};
           memcpy(arr, hash_res.mixhash.b, sizeof(hash_res.mixhash));
+
           for (int i = 0; i < 8; i++)
           {
             current_work.blockHeader.data()[i + 20] = be32dec(&arr[i]);
           }
-
           addHashCount(globalWorkSize_);
 
-          Solution solution(current_work);
-          plant_.submit(solution);
-          cl->queue_.finish();
-          return;
-        }
+          uint32_t *ptarget = current_work.targetBin.data();
+          if (hash[7] <= ptarget[7] && fulltest(hash, ptarget)) {
+              Solution solution(current_work);
+              plant_.submit(solution);
+              cl->queue_.finish();
+              return;
+          }
+          ++nonce;
+        } while (nonce < max_nonce || !this->shouldStop());
 
         addHashCount(globalWorkSize_);
 
