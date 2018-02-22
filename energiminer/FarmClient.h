@@ -57,7 +57,7 @@ class GBTClient : public jsonrpc::Client
         {
           Json::Value params(Json::arrayValue);
           auto result1 = solution.getSubmitBlockData();
-          cout << "SOLUTION: " << result1 << endl;
+          //cout << "SOLUTION: " << result1 << endl;
           params.append(result1);
           Json::Value result = this->CallMethod("submitblock", params);
           auto resultStr = result.toStyledString();

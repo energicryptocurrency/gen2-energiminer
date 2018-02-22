@@ -530,8 +530,9 @@ private:
           auto mp = plant.miningProgress();
           mp.rate();
 
-         cnote << "Mining on difficulty " << " " << mp;
-         this_thread::sleep_for(chrono::milliseconds(1000));
+          cnote << "Mining on difficulty " << " " << mp;
+
+          this_thread::sleep_for(chrono::milliseconds(500));
         }
 
         // 7. Since solution was found, before submit stop all miners
@@ -612,7 +613,7 @@ private:
 
 
 	/// Farm params
-	string m_farmURL = "http://127.0.0.1:9796";
+	string m_farmURL = "http://192.168.0.22:9998";
 	string m_farmFailOverURL = "";
 	string m_energiURL = m_farmURL;
 	unsigned m_farmRetries = 0;
