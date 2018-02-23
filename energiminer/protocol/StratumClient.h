@@ -23,8 +23,11 @@ public:
     StratumClient(energi::MinePlant* plant,
                   MinerExecutionMode mode,
                   const std::string& farmURL,
+                  const std::string& m_user,
+                  const std::string& m_pass,
                   unsigned maxretries,
                   int timeout);
+
     ~StratumClient();
 
 public:

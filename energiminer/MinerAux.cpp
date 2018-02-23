@@ -268,52 +268,6 @@ void MinerCLI::doSimulation(int difficulty)
     }
 }
 
-/*
-void MinerCLI::doStratum()
-{
-    if (m_farmRecheckSet) {
-        m_farmRecheckPeriod = m_defaultStratumFarmRecheckPeriod;
-    }
-    // Start plant now with given miners
-    // start plant full of miners
-    std::mutex mutex_solution;
-    bool solution_found = false;
-    energi::Solution solution;
-    // Note, this is mostly called from a miner thread, but since solution is consumed in main thread after set
-    // its safe to not lock the access
-    SolutionFoundCallback solution_found_cb = [&solution_found, &mutex_solution, &solution](const energi::Solution& found_solution)
-    {
-        MutexLGuard l(mutex_solution);
-        solution = found_solution;
-        solution_found = true;
-    };
-    // Create plant
-    energi::MinePlant plant(solution_found_cb);
-    StratumClient client(&plant, m_minerExecutionMode, m_farmURL, max_retries_, m_worktimeout);
-    auto vEngineModes = getEngineModes(m_minerExecutionMode);
-    if ( !plant.start(vEngineModes) ) {
-        return;
-    }
-    if (!m_farmFailOverURL.empty()) {
-        client.setFailover(m_farmFailOverURL);
-    }
-    cnote << "Engines started!";
-    while (client.isRunning()) {
-        auto mp = plant.miningProgress();
-        if (client.isConnected()) {
-            if (client.current()) {
-                cnote << "Mining on difficulty " << " " << mp;
-            } else {
-                cnote << "Waiting for work package...";
-            }
-            //!TODO
-            //client.submitHashrate(mp.rate());
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(m_farmRecheckPeriod));
-    }
-}
-*/
-
 void MinerCLI::doMiner()
 {
     // Start plant now with given miners
@@ -343,7 +297,13 @@ void MinerCLI::doMiner()
     if (mode == OperationMode::GBT) {
         client.reset(new GBTClient(cli, coinbase_addr_));
     } else if (mode == OperationMode::Stratum) {
-        client.reset(new StratumClient(&plant, m_minerExecutionMode, m_farmURL, max_retries_, m_worktimeout));
+        client.reset(new StratumClient(&plant,
+                                        m_minerExecutionMode,
+                                        m_farmURL,
+                                        m_user,
+                                        m_pass,
+                                        max_retries_,
+                                        m_worktimeout));
     }
     if (client == nullptr) {
         //! This should not happen

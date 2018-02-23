@@ -8,6 +8,8 @@ using boost::asio::ip::tcp;
 StratumClient::StratumClient(energi::MinePlant* f,
                                        MinerExecutionMode mode,
                                        const std::string& farmURL,
+                                       const std::string& user,
+                                       const std::string& pass,
                                        unsigned maxretries,
                                        int timeout)
 	: m_minerType(mode)
@@ -19,6 +21,8 @@ StratumClient::StratumClient(energi::MinePlant* f,
 
 	m_primary.host = farmURL.substr(0, portPos);
 	m_primary.port = farmURL.substr(portPos + 1);
+    m_primary.user = user;
+    m_primary.pass = pass;
 
 	p_active = &m_primary;
 	m_authorized = false;
