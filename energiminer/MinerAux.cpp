@@ -339,8 +339,8 @@ void MinerCLI::doMiner()
         return;
     }
     std::unique_ptr<MiningClient> client;
+    jsonrpc::HttpClient cli = jsonrpc::HttpClient(m_farmURL);
     if (mode == OperationMode::GBT) {
-        jsonrpc::HttpClient cli(m_farmURL);
         client.reset(new GBTClient(cli, coinbase_addr_));
     } else if (mode == OperationMode::Stratum) {
         client.reset(new StratumClient(&plant, m_minerExecutionMode, m_farmURL, max_retries_, m_worktimeout));
