@@ -178,7 +178,7 @@ bool StratumClient::processResponse(Json::Value& responseObject)
                     m_worktimer.cancel();
                     m_worktimer.expires_from_now(boost::posix_time::seconds(m_worktimeout));
                     m_worktimer.async_wait(boost::bind(&StratumClient::workTimeoutHandler, this, boost::asio::placeholders::error));
-                    p_farm->setWork(m_current);
+                    return true;
                 }
             } else if (method == "mining.set_difficulty") {
                 params = responseObject.get("params", Json::Value::null);
@@ -207,7 +207,7 @@ bool StratumClient::processResponse(Json::Value& responseObject)
 Json::Value StratumClient::getBlockTemplate() throw (jsonrpc::JsonRpcException)
 {
     bool process = false;
-    while (m_running || !process) {
+    while (m_running && !process) {
         try {
             if (!m_connected) {
                 connect();
