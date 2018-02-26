@@ -20,14 +20,23 @@ public:
     Solution()
     {}
 
-    Solution(const Work &work)
-        : work_(work)
+    Solution(Work work, uint32_t nonce)
+        : m_nonce(nonce)
+        , m_work(work)
     {}
 
     std::string getSubmitBlockData() const;
 
+    inline const std::string& getJobName() const
+    {
+        return m_work.getJobName();
+    }
+
+public:
+    uint32_t m_nonce;
+
 private:
-    Work work_;
+    Work m_work;
 };
 
 using SolutionFoundCallback = std::function<void(const Solution&)>;

@@ -25,7 +25,7 @@ void GetScriptForDestination(const CKeyID& keyID, unsigned char* out)
 
 namespace energi
 {
-  Work::Work(const Json::Value &gbt, const std::string &coinbase_addr)
+  Work::Work(const Json::Value &gbt, const std::string &coinbase_addr, const std::string& job)
   {
     if ( !( gbt.isMember("height") && gbt.isMember("version") && gbt.isMember("previousblockhash") ) )
     {
@@ -41,6 +41,7 @@ namespace energi
     auto curtime              = gbt["curtime"];
     previousblockhash         = gbt["previousblockhash"].asString();
 
+    jobName = job;
     auto transactions_data_len = 0;
     for ( auto txn : transactions )
     {

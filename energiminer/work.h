@@ -20,24 +20,24 @@
 
 namespace energi
 {
-  // Work receives getblocktemplate input string, json
-  // After parsing it builds the block to be mined and passes to miners
-  // after finding POW, creates solution
-  // Block -> block header + raw transaction data ( txncount + raw transactions )
-  struct Work
-  {
+// Work receives getblocktemplate input string, json
+// After parsing it builds the block to be mined and passes to miners
+// after finding POW, creates solution
+// Block -> block header + raw transaction data ( txncount + raw transactions )
+struct Work
+{
     Work()
     {}
 
     Work(Work &&) = default; // -> Blank work for comparisons
     Work& operator=(Work &&) = default;
     Work(const Work &) = default; // -> Blank work for comparisons
-    Work(const Json::Value &gbt, const std::string &coinbase_addr); // -> coinbase to transfer miners reward
+    Work(const Json::Value &gbt, const std::string &coinbase_addr, const std::string& job = std::string()); // -> coinbase to transfer miners reward
     Work& operator=(const Work &) = default;
 
     bool operator==(const Work& other) const
     {
-      return previousblockhash == other.previousblockhash && this->height == other.height;
+        return previousblockhash == other.previousblockhash && this->height == other.height;
     }
 
     bool operator!=(const Work& other) const
@@ -47,13 +47,18 @@ namespace energi
 
     void reset()
     {
-      height = 0;
-      previousblockhash = "";
+        height = 0;
+        previousblockhash = "";
     }
 
     bool isValid() const
     {
-      return this->height > 0;
+        return this->height > 0;
+    }
+
+    inline const std::string& getJobName() const
+    {
+        return jobName;
     }
 
     uint32_t                height  = 0;
@@ -64,23 +69,23 @@ namespace energi
     std::string             previousblockhash;
     target                  targetBin;
     std::string             rawTransactionData;
+    std::string             jobName;
 
     std::string ToString() const
     {
-      std::stringstream ss;
-      ss << "Height: " << height << " "
-          << "Bits: " << bits << " "
-          << "Target: " << targetStr << " "
-          << "PrevBlockHash: " << previousblockhash << " ";
+        std::stringstream ss;
+        ss << "Height: " << height << " "
+            << "Bits: " << bits << " "
+            << "Target: " << targetStr << " "
+            << "PrevBlockHash: " << previousblockhash << " ";
 
-      return ss.str();
+        return ss.str();
     }
-  };
+};
 
-
-  struct SimulatedWork : Work
-  {
-  };
+struct SimulatedWork : Work
+{
+};
 
 } /* namespace energi */
 

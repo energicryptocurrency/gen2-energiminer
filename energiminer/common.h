@@ -192,8 +192,6 @@ namespace energi
     return _out;
   }
 
-  static const char b58digits[] = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-
   int varint_encode(unsigned char *p, uint64_t n);
   void bin2hex(char *s, const unsigned char *p, size_t len);
   char *abin2hex(const unsigned char *p, size_t len);

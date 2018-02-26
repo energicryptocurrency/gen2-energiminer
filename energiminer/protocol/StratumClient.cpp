@@ -6,12 +6,12 @@
 using boost::asio::ip::tcp;
 
 StratumClient::StratumClient(energi::MinePlant* f,
-                                       MinerExecutionMode mode,
-                                       const std::string& farmURL,
-                                       const std::string& user,
-                                       const std::string& pass,
-                                       unsigned maxretries,
-                                       int timeout)
+                             MinerExecutionMode mode,
+                             const std::string& farmURL,
+                             const std::string& user,
+                             const std::string& pass,
+                             unsigned maxretries,
+                             int timeout)
 	: m_minerType(mode)
     , m_socket(m_io_service)
     , m_worktimer(m_io_service)
@@ -19,18 +19,18 @@ StratumClient::StratumClient(energi::MinePlant* f,
 {
     std::size_t portPos = farmURL.find_last_of(":");
 
-	m_primary.host = farmURL.substr(0, portPos);
-	m_primary.port = farmURL.substr(portPos + 1);
+    m_primary.host = farmURL.substr(0, portPos);
+    m_primary.port = farmURL.substr(portPos + 1);
     m_primary.user = user;
     m_primary.pass = pass;
 
-	p_active = &m_primary;
-	m_authorized = false;
-	m_connected = false;
-	m_maxRetries = maxretries;
-	m_worktimeout = timeout;
+    p_active = &m_primary;
+    m_authorized = false;
+    m_connected = false;
+    m_maxRetries = maxretries;
+    m_worktimeout = timeout;
 
-	p_farm = f;
+    p_farm = f;
     connect();
 }
 
@@ -62,9 +62,14 @@ void StratumClient::setFailover(const std::string& failOverURL)
 
 bool StratumClient::submit(const energi::Solution& solution)
 {
-    std::string blockData = solution.getSubmitBlockData();
+    std::string solutionNonce = std::to_string(solution.m_nonce);
+    std::string minernonce;
+    std::string nonceHex = energi::GetHex(reinterpret_cast<uint8_t*>(&solutionNonce[0]), solutionNonce.size());
+    minernonce = nonceHex.substr(m_extraNonceHexSize, 16 - m_extraNonceHexSize);
     std::ostream os(&m_requestBuffer);
-    os << "{\"id\": 2, \"method\": \"mining.submit\", \"params\": []}\n";
+    std::string json = "{\"id\": 4, \"method\": \"mining.submit\", \"params\": [\"" + p_active->user + "\",\"" + solution.getJobName() + "\",\"" + minernonce + "\", \"82345678\"]}\n";
+    cnote << json;
+    os << json;
     write(m_socket, m_requestBuffer);
     cnote << "Solution found; Submitted to" << p_active->host;
     return true;
@@ -165,7 +170,9 @@ bool StratumClient::processResponse(Json::Value& responseObject)
             }
             os << "{\"id\": 2, \"method\": \"mining.extranonce.subscribe\", \"params\": []}\n";
 			m_authorized = true;
-			os << "{\"id\": 5, \"method\": \"getblocktemplate\", \"params\": []}\n";
+            cnote << "Subscribed to stratum server";
+            os << "{\"id\": 3, \"method\": \"mining.authorize\", \"params\": [\"" << p_active->user << "\",\"" << p_active->pass << "\"]}\n";
+
             // not strictly required but it does speed up initialization
 			write(m_socket, m_requestBuffer);
             break;
@@ -178,7 +185,8 @@ bool StratumClient::processResponse(Json::Value& responseObject)
                 if (params.isArray()) {
                     auto workGBT = params.get((Json::Value::ArrayIndex)0, "");
                     const auto& master = workGBT["masternode"];
-                    m_current = energi::Work(workGBT, master["payee"].asString());
+                    std::string job = params.get((Json::Value::ArrayIndex)1, "").asString();
+                    m_current = energi::Work(workGBT, master["payee"].asString(), job);
                     m_worktimer.cancel();
                     m_worktimer.expires_from_now(boost::posix_time::seconds(m_worktimeout));
                     m_worktimer.async_wait(boost::bind(&StratumClient::workTimeoutHandler, this, boost::asio::placeholders::error));

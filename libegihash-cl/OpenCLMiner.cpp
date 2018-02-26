@@ -437,7 +437,7 @@ void OpenCLMiner::trun()
                 auto nonceForHash = be32dec(&nonce);
                 pdata[28] = nonceForHash;
                 addHashCount(globalWorkSize_);
-                Solution solution(work);
+                Solution solution(work, nonce);
                 plant_.submit(solution);
             }
             current_work = work;
