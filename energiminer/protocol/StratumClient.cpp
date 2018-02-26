@@ -64,12 +64,10 @@ bool StratumClient::submit(const energi::Solution& solution)
 {
     std::string solutionNonce = std::to_string(solution.m_nonce);
     std::string minernonce;
-    std::string nonceHex = energi::GetHex(reinterpret_cast<uint8_t*>(&solutionNonce[0]), solutionNonce.size());
+    std::string nonceHex = energi::GetHex(reinterpret_cast<uint8_t*>(&solutionNonce[0]), 8);
     minernonce = nonceHex.substr(m_extraNonceHexSize, 16 - m_extraNonceHexSize);
     std::ostream os(&m_requestBuffer);
-    std::string json = "{\"id\": 4, \"method\": \"mining.submit\", \"params\": [\"" + p_active->user + "\",\"" + solution.getJobName() + "\",\"" + minernonce + "\", \"82345678\"]}\n";
-    cnote << json;
-    os << json;
+    os << "{\"id\": 4, \"method\": \"mining.submit\", \"params\": [\"" + p_active->user + "\",\"" + solution.getJobName() + "\",\"" + minernonce + "\", \"" + solution.getTime() + "\", \"" + minernonce + "\"]}\n";
     write(m_socket, m_requestBuffer);
     cnote << "Solution found; Submitted to" << p_active->host;
     return true;
