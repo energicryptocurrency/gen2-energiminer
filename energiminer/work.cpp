@@ -25,7 +25,7 @@ void GetScriptForDestination(const CKeyID& keyID, unsigned char* out)
 
 namespace energi
 {
-  Work::Work(const Json::Value &gbt, const std::string &coinbase_addr)
+  Work::Work(const Json::Value &gbt, const std::string &coinbase_addr, const std::string& job)
   {
     if ( !( gbt.isMember("height") && gbt.isMember("version") && gbt.isMember("previousblockhash") ) )
     {
@@ -41,6 +41,7 @@ namespace energi
     auto curtime              = gbt["curtime"];
     previousblockhash         = gbt["previousblockhash"].asString();
 
+    jobName = job;
     auto transactions_data_len = 0;
     for ( auto txn : transactions )
     {
@@ -267,15 +268,4 @@ namespace energi
       blockHeader.insert(blockHeader.end(), part.begin(), part.end());
     }
   }
-
-  /*
-  void serialize_work(const Work &work)
-    {
-     std::ofstream f ("/var/tmp/gpu_miner.hex", std::ios_base::out | std::ios_base::binary);
-     f.write(reinterpret_cast<const char*>(work.data.data()), sizeof(uint32_t) * work.data.size());
-     f << "hello" << endl;
-     f.write(reinterpret_cast<const char*>(work.target.data()), sizeof(uint32_t) * work.target.size());
-     f.write(reinterpret_cast<const char*>(work.rawTransactionData.c_str()), work.rawTransactionData.size());
-     f.write(reinterpret_cast<const char*>(&work.height), sizeof(work.height));
-    }*/
 } /* namespace energi */

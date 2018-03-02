@@ -270,7 +270,7 @@ __kernel void ethash_search(
     __global volatile uint* restrict g_output,
     __constant hash32_t const* g_header,
     __global hash128_t const* g_dag,
-    ulong start_nonce,
+    uint start_nonce,
     __constant hash32_t const* g_target,
     uint isolate
     )

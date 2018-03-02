@@ -89,7 +89,7 @@ namespace energi
     void onSetWork()
     {}
 
-    bool init_dag(uint32_t height);
+    bool init_dag();
 
     bool                    dagLoaded_ = false;
     int                     index_ = 0;

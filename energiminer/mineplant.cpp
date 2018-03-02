@@ -146,27 +146,8 @@ namespace energi
     }
   }
 
-//  bool MinePlant::solutionFound() const
-//  {
-//    cnote << "Submission Found" << solutionFound_.load();
-//    return solutionFound_.load();
-//  }
-
-
   void MinePlant::submit(const Solution &solution) const
   {
-//    // Ask every miner to stop mining now as solution has been found.
-//    MutexLGuard l(mutex_work_);
-//    for (auto &miner: miners_)
-//    {
-//      if ( miner.name() != miner->name() )
-//      {
-//        miner->stopMining();
-//      }
-//    }
-
-    //solutionFound_ = true;
-    //cnote << "Submitted" << solutionFound_.load();
     solution_found_cb_(solution);
   }
 

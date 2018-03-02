@@ -11,33 +11,25 @@
 
 #include <sstream>
 
-namespace energi
+using namespace energi;
+
+std::string Solution::getSubmitBlockData() const
 {
-  std::string Solution::getSubmitBlockData() const
-  {
-    if ( !work_.isValid() )
-    {
-      throw WorkException("Invalid work, solution must be wrong!");
+    if (!m_work.isValid()) {
+        throw WorkException("Invalid work, solution must be wrong!");
     }
 
-    std::string blockHeaderStr(2 * work_.blockHeader.size() * sizeof(uint32_t) + 1, 0);
-    for( auto &v : work_.blockHeader)
-    {
-      be32enc(const_cast<uint32_t*>(&v), v);
+    std::string blockHeaderStr(2 * m_work.blockHeader.size() * sizeof(uint32_t) + 1, 0);
+    for( auto &v : m_work.blockHeader) {
+        be32enc(const_cast<uint32_t*>(&v), v);
     }
 
-    bin2hex(const_cast<char*>(blockHeaderStr.c_str()), (unsigned char *)work_.blockHeader.data(), 116);
+    bin2hex(const_cast<char*>(blockHeaderStr.c_str()), (unsigned char *)m_work.blockHeader.data(), 116);
     std::stringstream ss;
-    ss << blockHeaderStr.c_str() << work_.rawTransactionData;
-
-
+    ss << blockHeaderStr.c_str() << m_work.rawTransactionData;
 
     cdebug << "JOIN: " << ss.str();
-
-
-    cnote << work_.ToString();
-
+    cnote << m_work.ToString();
     return ss.str();
-  }
+}
 
-} /* namespace energi */
