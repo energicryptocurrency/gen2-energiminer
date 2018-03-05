@@ -11,6 +11,7 @@
 
 namespace {
 
+// TODO: This only supports P2PKH addresses. This should support all address types.
 void GetScriptForDestination(const CKeyID& keyID, unsigned char* out)
 {
     out[ 0] = 0x76;  /* OP_DUP */
@@ -20,6 +21,42 @@ void GetScriptForDestination(const CKeyID& keyID, unsigned char* out)
     out[23] = 0x88;  /* OP_EQUALVERIFY */
     out[24] = 0xac;  /* OP_CHECKSIG */
 }
+
+struct blocktemplate_payee
+{
+    // default
+    blocktemplate_payee()
+    : payee()
+    , script()
+    , amount(0)
+    {
+
+    }
+
+    blocktemplate_payee(blocktemplate_payee const &) = default;
+    blocktemplate_payee& operator=(blocktemplate_payee const &) = default;
+    blocktemplate_payee(blocktemplate_payee &&) = delete;
+    blocktemplate_payee& operator=(blocktemplate_payee &&) = delete;
+    ~blocktemplate_payee() = default;
+
+    blocktemplate_payee(Json::Value json)
+    : payee()
+    , script()
+    , amount(0)
+    {
+        // ensure well formed JSON
+        if (json.isMember("payee") && json.isMember("script") && json.isMember("amount"))
+        {
+            payee = json["payee"].asString();
+            script = json["script"].asString();
+            amount = json["amount"].asUInt();
+        }
+    }
+
+    std::string payee;
+    std::string script;
+    unsigned int amount;
+};
 
 } //! unnamed namespace
 
@@ -42,25 +79,19 @@ namespace energi
     previousblockhash         = gbt["previousblockhash"].asString();
 
     // Energi Backbone
-    auto const backbone             = gbt["backbone"];
-    auto const backbone_addr        = backbone["payee"].asString();
-    auto const backbone_script      = backbone["script"].asString();
-    auto const backbone_amount      = backbone["amount"].asUInt();
+    blocktemplate_payee const backbone(gbt["backbone"]);
 
     // masternode payment
     bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
     bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool();
-    auto const masternode           = gbt["masternode"];
-    auto const masternode_addr      = masternode_payments_started ? masternode["payee"].asString() : "";
-    auto const masternode_script    = masternode_payments_started ? masternode["script"].asString() : "";
-    auto const masternode_amount    = masternode_payments_started ? masternode["amount"].asUInt() : 0;
+    blocktemplate_payee const masternode(gbt["masternode"]);
 
     // superblock payments
-    // TODO
     bool const superblocks_started = gbt["superblocks_started"].asBool();
     bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();
+    auto const superblock_proposals = gbt["superblock"];
 
-    auto const miner_payment = coinbasevalue - backbone_amount - masternode_amount;
+    auto const miner_payment = coinbasevalue - backbone.amount - masternode.amount;
 
 
     jobName = job;
@@ -109,8 +140,8 @@ namespace energi
 
 
     vbyte part6_2(8, 0);
-    setBuffer(part6_2.data(), (uint32_t)backbone_amount);
-    setBuffer(part6_2.data() + 4, (uint32_t)(backbone_amount >> 32 ));
+    setBuffer(part6_2.data(), (uint32_t)backbone.amount);
+    setBuffer(part6_2.data() + 4, (uint32_t)(backbone.amount >> 32 ));
 
     // Part 8
     vbyte part8(25, 0);
@@ -131,7 +162,7 @@ namespace energi
 
     // Part 8.2
     vbyte part8_2(25, 0);
-    if (!hex2bin(part8_2.data(), backbone_script.c_str(), backbone_script.size() ? (int) (backbone_script.size() / 2) : 0))
+    if (!hex2bin(part8_2.data(), backbone.script.c_str(), backbone.script.size() ? (int) (backbone.script.size() / 2) : 0))
     {
         throw WorkException("Invalid script for Energi Backbone");
     }
