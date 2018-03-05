@@ -8,20 +8,7 @@
 #include <memory>
 #include "primitives/base58.h"
 #include "work.h"
-
-namespace {
-
-void GetScriptForDestination(const CKeyID& keyID, unsigned char* out)
-{
-    out[ 0] = 0x76;  /* OP_DUP */
-    out[ 1] = 0xa9;  /* OP_HASH160 */
-    out[ 2] = 0x14;  /* push 20 bytes */
-    std::copy(keyID.begin(), keyID.end(), &out[3]);
-    out[23] = 0x88;  /* OP_EQUALVERIFY */
-    out[24] = 0xac;  /* OP_CHECKSIG */
-}
-
-} //! unnamed namespace
+#include "transaction.h"
 
 namespace energi
 {
@@ -41,27 +28,18 @@ namespace energi
     auto curtime              = gbt["curtime"];
     previousblockhash         = gbt["previousblockhash"].asString();
 
-    // Energi Backbone
-    auto const backbone             = gbt["backbone"];
-    auto const backbone_addr        = backbone["payee"].asString();
-    auto const backbone_script      = backbone["script"].asString();
-    auto const backbone_amount      = backbone["amount"].asUInt();
-
     // masternode payment
     bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
     bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool();
-    auto const masternode           = gbt["masternode"];
-    auto const masternode_addr      = masternode_payments_started ? masternode["payee"].asString() : "";
-    auto const masternode_script    = masternode_payments_started ? masternode["script"].asString() : "";
-    auto const masternode_amount    = masternode_payments_started ? masternode["amount"].asUInt() : 0;
 
     // superblock payments
-    // TODO
     bool const superblocks_started = gbt["superblocks_started"].asBool();
     bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();
+    auto const superblock_proposals = gbt["superblock"];
 
-    auto const miner_payment = coinbasevalue - backbone_amount - masternode_amount;
-
+    coinbase_tx cb(coinbasevalue, coinbase_addr);
+    cb.add(gbt["backbone"]);
+    if (masternode_payments_started) cb.add(gbt["masternode"]);
 
     jobName = job;
     auto transactions_data_len = 0;
@@ -102,51 +80,7 @@ namespace energi
     // Part 5 outputs count ( 1 byte)
     vbyte part5(1, 2); // output count
 
-    // Part 6 coin base gbt 8 bytes -> 64 bit integer
-    vbyte part6(8, 0); // gbt of coinbase
-    setBuffer(part6.data(), (uint32_t)miner_payment);
-    setBuffer(part6.data() + 4, (uint32_t)( miner_payment >> 32 ));
-
-
-    vbyte part6_2(8, 0);
-    setBuffer(part6_2.data(), (uint32_t)backbone_amount);
-    setBuffer(part6_2.data() + 4, (uint32_t)(backbone_amount >> 32 ));
-
-    // Part 8
-    vbyte part8(25, 0);
-    // wallet address for coinbase reward
-    CBitcoinAddress coinbaseRewardAddress(coinbase_addr);
-    CKeyID coinbaseKeyID;
-    if (!coinbaseRewardAddress.GetKeyID(coinbaseKeyID)) {
-        throw WorkException("coinbase key is not valid");
-    }
-    GetScriptForDestination(coinbaseKeyID, part8.data());
-    int pk_script_size = part8.size();
-
-    if (!pk_script_size) {
-        //fprintf(stderr, "invalid address -- '%s'\n", arg);
-        throw WorkException("Invalid coinbase reward address");
-    }
-
-
-    // Part 8.2
-    vbyte part8_2(25, 0);
-    if (!hex2bin(part8_2.data(), backbone_script.c_str(), backbone_script.size() ? (int) (backbone_script.size() / 2) : 0))
-    {
-        throw WorkException("Invalid script for Energi Backbone");
-    }
-    int pk_script_size2 = part8_2.size();
-
-    if (!pk_script_size2) {
-        //fprintf(stderr, "invalid address -- '%s'\n", arg);
-        throw WorkException("Did not correctly decode script for Energi Backbone");
-    }
-
-    // Part 7 tx out script length
-    vbyte part7(1, (uint8_t)pk_script_size); // txout script length
-
-    // Part 7 tx out script length
-    vbyte part7_2(1, (uint8_t)pk_script_size2); // txout script length
+    // parts 6-8 replaced by coinbase_tx object
 
     vbyte part9(4, 0);
 
@@ -160,12 +94,7 @@ namespace energi
                     , std::move(part3)
                     , std::move(part4)
                     , std::move(part5)
-                    , std::move(part6)
-                    , std::move(part7)
-                    , std::move(vbyte(part8.begin(), part8.begin() + pk_script_size))
-                    , std::move(part6_2)
-                    , std::move(part7_2)
-                    , std::move(vbyte(part8_2.begin(), part8_2.begin() + pk_script_size2))
+                    , cb.data()
                     , std::move(part9)})
     {
         coinbase_txn.insert(coinbase_txn.end(), part.begin(), part.end());
