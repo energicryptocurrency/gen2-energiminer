@@ -41,6 +41,28 @@ namespace energi
     auto curtime              = gbt["curtime"];
     previousblockhash         = gbt["previousblockhash"].asString();
 
+    // Energi Backbone
+    auto const backbone             = gbt["backbone"];
+    auto const backbone_addr        = backbone["payee"].asString();
+    auto const backbone_script      = backbone["script"].asString();
+    auto const backbone_amount      = backbone["amount"].asUInt();
+
+    // masternode payment
+    bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
+    bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool();
+    auto const masternode           = gbt["masternode"];
+    auto const masternode_addr      = masternode_payments_started ? masternode["payee"].asString() : "";
+    auto const masternode_script    = masternode_payments_started ? masternode["script"].asString() : "";
+    auto const masternode_amount    = masternode_payments_started ? masternode["amount"].asUInt() : 0;
+
+    // superblock payments
+    // TODO
+    bool const superblocks_started = gbt["superblocks_started"].asBool();
+    bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();
+
+    auto const miner_payment = coinbasevalue - backbone_amount - masternode_amount;
+
+
     jobName = job;
     auto transactions_data_len = 0;
     for ( auto txn : transactions )
@@ -82,17 +104,13 @@ namespace energi
 
     // Part 6 coin base gbt 8 bytes -> 64 bit integer
     vbyte part6(8, 0); // gbt of coinbase
-    auto miner_reward = coinbasevalue * 90 / 100;
-    auto founder_reward = coinbasevalue * 10 / 100;
-    cdebug << "Miner reward" << miner_reward;
-    cdebug << "Founder reward" << founder_reward;
-    setBuffer(part6.data(), (uint32_t)miner_reward);
-    setBuffer(part6.data() + 4, (uint32_t)( miner_reward >> 32 ));
+    setBuffer(part6.data(), (uint32_t)miner_payment);
+    setBuffer(part6.data() + 4, (uint32_t)( miner_payment >> 32 ));
 
 
     vbyte part6_2(8, 0);
-    setBuffer(part6_2.data(), (uint32_t)founder_reward);
-    setBuffer(part6_2.data() + 4, (uint32_t)( founder_reward >> 32 ));
+    setBuffer(part6_2.data(), (uint32_t)backbone_amount);
+    setBuffer(part6_2.data() + 4, (uint32_t)(backbone_amount >> 32 ));
 
     // Part 8
     vbyte part8(25, 0);
@@ -113,18 +131,15 @@ namespace energi
 
     // Part 8.2
     vbyte part8_2(25, 0);
-    // wallet address for coinbase reward
-    CBitcoinAddress founderAddress("tFLyidSoz9teKks22hscftwhVHqdewvAzY");
-    CKeyID founderKeyID;
-    if (!founderAddress.GetKeyID(founderKeyID)) {
-        throw WorkException("Founder address is not valid");
+    if (!hex2bin(part8_2.data(), backbone_script.c_str(), backbone_script.size() ? (int) (backbone_script.size() / 2) : 0))
+    {
+        throw WorkException("Invalid script for Energi Backbone");
     }
-    GetScriptForDestination(founderKeyID, part8_2.data());
     int pk_script_size2 = part8_2.size();
 
     if (!pk_script_size2) {
         //fprintf(stderr, "invalid address -- '%s'\n", arg);
-        throw WorkException("Invalid founder address");
+        throw WorkException("Did not correctly decode script for Energi Backbone");
     }
 
     // Part 7 tx out script length
