@@ -9,9 +9,13 @@
 #include "primitives/base58.h"
 #include "work.h"
 
+namespace energi
+{
+    typedef int64_t CAmount;
+
 namespace {
 
-// TODO: This only supports P2PKH addresses. This should support all address types.
+// TODO: This only supports P2PKH addresses. This should support all address types. (issue #14)
 void GetScriptForDestination(const CKeyID& keyID, unsigned char* out)
 {
     out[ 0] = 0x76;  /* OP_DUP */
@@ -22,6 +26,38 @@ void GetScriptForDestination(const CKeyID& keyID, unsigned char* out)
     out[24] = 0xac;  /* OP_CHECKSIG */
 }
 
+struct txo_script : public vbyte
+{
+    txo_script(std::string const & scriptHex)
+    : vbyte(scriptHex.size() / 2, 0)
+    {
+        if (!hex2bin(data(), scriptHex.c_str(), scriptHex.size() / 2))
+        {
+            throw WorkException("Cannot decode script");
+        }
+    }
+
+    txo_script(CBitcoinAddress const & address)
+    : vbyte(25, 0)
+    {
+        CKeyID keyID;
+        if (!address.GetKeyID(keyID))
+        {
+            throw WorkException("Could not get KeyID for address");
+        }
+
+        GetScriptForDestination(keyID, data());
+    }
+
+    txo_script() = default;
+    txo_script(txo_script const &) = default;
+    txo_script(txo_script &&) = default;
+    txo_script & operator=(txo_script const &) = default;
+    txo_script & operator=(txo_script &&) = default;
+    ~txo_script() = default;
+};
+
+// represents a payee from getblocktemplate, i.e. Energi Backbone or a Masternode
 struct blocktemplate_payee
 {
     // default
@@ -35,8 +71,8 @@ struct blocktemplate_payee
 
     blocktemplate_payee(blocktemplate_payee const &) = default;
     blocktemplate_payee& operator=(blocktemplate_payee const &) = default;
-    blocktemplate_payee(blocktemplate_payee &&) = delete;
-    blocktemplate_payee& operator=(blocktemplate_payee &&) = delete;
+    blocktemplate_payee(blocktemplate_payee &&) = default;
+    blocktemplate_payee& operator=(blocktemplate_payee &&) = default;
     ~blocktemplate_payee() = default;
 
     blocktemplate_payee(Json::Value json)
@@ -48,20 +84,63 @@ struct blocktemplate_payee
         if (json.isMember("payee") && json.isMember("script") && json.isMember("amount"))
         {
             payee = json["payee"].asString();
-            script = json["script"].asString();
+            script = txo_script(json["script"].asString());
             amount = json["amount"].asUInt();
         }
     }
 
     std::string payee;
-    std::string script;
-    unsigned int amount;
+    txo_script script;
+    CAmount amount;
 };
 
-} //! unnamed namespace
-
-namespace energi
+// represents the entire coinbase transaction, i.e. set of all payees
+struct coinbase_tx
 {
+    coinbase_tx(CAmount value, std::string const & miner_address)
+    : value(value)
+    , miner_script(CBitcoinAddress(miner_address))
+    {
+
+    }
+
+    void add(blocktemplate_payee && payee)
+    {
+        cb_outputs.push_back(payee);
+    }
+
+    vbyte data()
+    {
+        vbyte ret;
+
+        CAmount left_for_miner = value;
+
+        for (auto const & i: cb_outputs)
+        {
+            left_for_miner -= i.amount;
+            // add the amount owed to this payee
+            ret.insert(ret.end(), reinterpret_cast<uint8_t const *>(&i.amount), reinterpret_cast<uint8_t const *>(&i.amount) + 8);
+            // add the size of the payee script
+            ret.push_back(static_cast<uint8_t>(i.script.size()));
+            // add the payee script
+            ret.insert(ret.end(), i.script.begin(), i.script.end());
+        }
+
+        // implicitly add the miner's output
+        ret.insert(ret.end(), reinterpret_cast<uint8_t const *>(&left_for_miner), reinterpret_cast<uint8_t const *>(&left_for_miner) + 8);
+        ret.push_back(static_cast<uint8_t>(miner_script.size()));
+        ret.insert(ret.end(), miner_script.begin(), miner_script.end());
+
+        return ret;
+    }
+
+    std::vector<blocktemplate_payee> cb_outputs;
+    CAmount value;
+    txo_script miner_script;
+};
+
+}
+
   Work::Work(const Json::Value &gbt, const std::string &coinbase_addr, const std::string& job)
   {
     if ( !( gbt.isMember("height") && gbt.isMember("version") && gbt.isMember("previousblockhash") ) )
@@ -78,21 +157,18 @@ namespace energi
     auto curtime              = gbt["curtime"];
     previousblockhash         = gbt["previousblockhash"].asString();
 
-    // Energi Backbone
-    blocktemplate_payee const backbone(gbt["backbone"]);
-
     // masternode payment
     bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
     bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool();
-    blocktemplate_payee const masternode(gbt["masternode"]);
 
     // superblock payments
     bool const superblocks_started = gbt["superblocks_started"].asBool();
     bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();
     auto const superblock_proposals = gbt["superblock"];
 
-    auto const miner_payment = coinbasevalue - backbone.amount - masternode.amount;
-
+    coinbase_tx cb(coinbasevalue, coinbase_addr);
+    cb.add(gbt["backbone"]);
+    if (masternode_payments_started) cb.add(gbt["masternode"]);
 
     jobName = job;
     auto transactions_data_len = 0;
@@ -133,51 +209,7 @@ namespace energi
     // Part 5 outputs count ( 1 byte)
     vbyte part5(1, 2); // output count
 
-    // Part 6 coin base gbt 8 bytes -> 64 bit integer
-    vbyte part6(8, 0); // gbt of coinbase
-    setBuffer(part6.data(), (uint32_t)miner_payment);
-    setBuffer(part6.data() + 4, (uint32_t)( miner_payment >> 32 ));
-
-
-    vbyte part6_2(8, 0);
-    setBuffer(part6_2.data(), (uint32_t)backbone.amount);
-    setBuffer(part6_2.data() + 4, (uint32_t)(backbone.amount >> 32 ));
-
-    // Part 8
-    vbyte part8(25, 0);
-    // wallet address for coinbase reward
-    CBitcoinAddress coinbaseRewardAddress(coinbase_addr);
-    CKeyID coinbaseKeyID;
-    if (!coinbaseRewardAddress.GetKeyID(coinbaseKeyID)) {
-        throw WorkException("coinbase key is not valid");
-    }
-    GetScriptForDestination(coinbaseKeyID, part8.data());
-    int pk_script_size = part8.size();
-
-    if (!pk_script_size) {
-        //fprintf(stderr, "invalid address -- '%s'\n", arg);
-        throw WorkException("Invalid coinbase reward address");
-    }
-
-
-    // Part 8.2
-    vbyte part8_2(25, 0);
-    if (!hex2bin(part8_2.data(), backbone.script.c_str(), backbone.script.size() ? (int) (backbone.script.size() / 2) : 0))
-    {
-        throw WorkException("Invalid script for Energi Backbone");
-    }
-    int pk_script_size2 = part8_2.size();
-
-    if (!pk_script_size2) {
-        //fprintf(stderr, "invalid address -- '%s'\n", arg);
-        throw WorkException("Did not correctly decode script for Energi Backbone");
-    }
-
-    // Part 7 tx out script length
-    vbyte part7(1, (uint8_t)pk_script_size); // txout script length
-
-    // Part 7 tx out script length
-    vbyte part7_2(1, (uint8_t)pk_script_size2); // txout script length
+    // parts 6-8 replaced by coinbase_tx object
 
     vbyte part9(4, 0);
 
@@ -191,12 +223,7 @@ namespace energi
                     , std::move(part3)
                     , std::move(part4)
                     , std::move(part5)
-                    , std::move(part6)
-                    , std::move(part7)
-                    , std::move(vbyte(part8.begin(), part8.begin() + pk_script_size))
-                    , std::move(part6_2)
-                    , std::move(part7_2)
-                    , std::move(vbyte(part8_2.begin(), part8_2.begin() + pk_script_size2))
+                    , cb.data()
                     , std::move(part9)})
     {
         coinbase_txn.insert(coinbase_txn.end(), part.begin(), part.end());
