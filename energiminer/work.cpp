@@ -33,13 +33,21 @@ namespace energi
     bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool();
 
     // superblock payments
-    bool const superblocks_started = gbt["superblocks_started"].asBool();
     bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();
     auto const superblock_proposals = gbt["superblock"];
 
     coinbase_tx cb(coinbasevalue, coinbase_addr);
     cb.add(gbt["backbone"]);
     if (masternode_payments_started) cb.add(gbt["masternode"]);
+    if (superblocks_enabled)
+    {
+        auto const superblock = gbt["superblock"];
+        for (auto const & proposal_payee : superblock)
+        {
+            cb.add(proposal_payee);
+        }
+
+    }
 
     jobName = job;
     auto transactions_data_len = 0;
