@@ -89,7 +89,7 @@ namespace energi
   {
   public:
     WorkException(const std::string &reason):m_reason(reason){}
-      const char* what() const _GLIBCXX_USE_NOEXCEPT override
+      const char* what() const noexcept override
       {
           return m_reason.c_str();
       }
