@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#if (defined(_WIN16) || defined(_WIN32) || defined(_WIN64))
+#if (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) || defined(__APPLE__)
     #include "endian.h"
 #endif
 
