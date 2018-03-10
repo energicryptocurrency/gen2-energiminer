@@ -593,7 +593,7 @@ bool OpenCLMiner::init_dag()
             cl->kernelSearch_     = cl::Kernel(program, "ethash_search");
             cl->kernelDag_        = cl::Kernel(program, "ethash_calculate_dag_item");
 
-            ETHCL_LOG("Caeating light buffer");
+            ETHCL_LOG("Creating light buffer");
 
             cl->queue_.enqueueWriteBuffer(cl->bufferLight_, CL_TRUE, 0, sizeof(uint32_t) * vData.size(), vData.data());
         } catch (cl::Error const& err) {
