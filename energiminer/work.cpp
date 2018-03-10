@@ -30,7 +30,7 @@ namespace energi
 
     // masternode payment
     bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
-    bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool();
+    //bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool(); // not used currently
 
     // superblock payments
     bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();

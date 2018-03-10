@@ -98,7 +98,7 @@ public:
         return sizeof(data);
     }
 
-    inline unsigned int GetSerializeSize(int nType, int nVersion) const
+    inline unsigned int GetSerializeSize(int /*nType*/, int /*nVersion*/) const
     {
         return sizeof(data);
     }
