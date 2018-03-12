@@ -558,6 +558,16 @@ bool OpenCLMiner::init_dag()
         addDefinition(code, "COMPUTE", std::get<3>(deviceResult));
         addDefinition(code, "THREADS_PER_HASH", s_threadsPerHash);
 
+        cnote << "DAG GROUP_SIZE=" << workgroupSize_;
+        cnote << "DAG_SIZE=" << dagSize;
+        cnote << "DAG_SIZE(128)=" << dagSize128;
+        cnote << "LIGHT_SIZE=" << lightSize64;
+        cnote << "ACCESSES=" << egihash::constants::ACCESSES;
+        cnote << "MAX_OUTPUTS=" << c_maxSearchResults;
+        cnote << "PLATTFORM=" << std::get<2>(deviceResult);
+        cnote << "COMPUTE=" << std::get<3>(deviceResult);
+        cnote << "THREADS_PER_HASH=" << s_threadsPerHash;
+
         // create miner OpenCL program
         cl::Program::Sources sources{{code.data(), code.size()}};
         cl::Program program(cl->context_, sources);
