@@ -86,8 +86,7 @@ namespace energi
 
   private:
     void trun() override;
-    void onSetWork()
-    {}
+    void onSetWork() override {}
 
     bool init_dag();
 

@@ -59,7 +59,7 @@ option(ETHASHCL "Build with OpenCL mining" ON)
 
 # propagates CMake configuration options to the compiler
 function(configureProject)
-    add_definitions(-DETH_ETHASHCL)
+    add_definitions(-DETH_ETHASHCL -Wno-unused-private-field -Wno-unused-function)
 endfunction()
 
 function(createBuildInfo)

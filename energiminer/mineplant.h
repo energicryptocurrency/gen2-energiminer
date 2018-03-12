@@ -73,7 +73,7 @@ namespace energi
     bool start(const std::vector<EnumMinerEngine> &vMinerEngine);
     void stop();
 
-    uint64_t get_nonce_scumbler() const
+    uint64_t get_nonce_scumbler() const override
     {
         return nonce_scumbler_;
     }
