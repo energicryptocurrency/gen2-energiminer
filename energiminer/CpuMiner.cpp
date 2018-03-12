@@ -12,7 +12,7 @@
 using namespace energi;
 
 CpuMiner::CpuMiner(const Plant &plant, int index)
-    :Miner("cpu", plant, index)
+    :Miner("CPU/", plant, index)
 {
 }
 

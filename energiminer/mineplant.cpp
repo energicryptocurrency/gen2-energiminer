@@ -162,7 +162,7 @@ namespace energi
     {
       auto minerHashCount = miner->hashCount();
       p.hashes += minerHashCount;
-      p.minersHashes.push_back(minerHashCount);
+      p.minersHashes.insert(std::make_pair<std::string, uint64_t>(miner->name(), minerHashCount));
     }
 
     //Reset miner hashes
@@ -203,17 +203,16 @@ namespace energi
       MutexLGuard l(mutex_work_);
       for (auto const& miner : miners_)
       {
-        (void) miner;
-        p.minersHashes.push_back(0);
+        p.minersHashes.insert(std::make_pair<std::string, uint64_t>(miner->name(), 0));
       }
 
       for (auto const& cp : lastProgresses_)
       {
         p.ms += cp.ms;
         p.hashes += cp.hashes;
-        for (unsigned int i = 0; i < cp.minersHashes.size(); i++)
+        for (auto const & i : cp.minersHashes)
         {
-          p.minersHashes.at(i) += cp.minersHashes.at(i);
+          p.minersHashes.at(i.first) += i.second;
         }
       }
     }
