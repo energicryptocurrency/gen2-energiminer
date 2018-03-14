@@ -24,7 +24,7 @@ std::string Solution::getSubmitBlockData() const
         be32enc(const_cast<uint32_t*>(&v), v);
     }
 
-    bin2hex(const_cast<char*>(blockHeaderStr.c_str()), (unsigned char *)m_work.blockHeader.data(), 116);
+    bin2hex(const_cast<char*>(&blockHeaderStr[0]), (unsigned char *)m_work.blockHeader.data(), 116);
     std::stringstream ss;
     ss << blockHeaderStr.c_str() << m_work.rawTransactionData;
 

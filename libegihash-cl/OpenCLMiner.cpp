@@ -252,7 +252,7 @@ struct OpenCLMiner::clInfo
 };
 
 OpenCLMiner::OpenCLMiner(const Plant& plant, unsigned index)
-    : Miner("cl", plant, index)
+    : Miner("GPU/", plant, index)
     , cl(new clInfo)
 {
 }
@@ -558,6 +558,16 @@ bool OpenCLMiner::init_dag()
         addDefinition(code, "COMPUTE", std::get<3>(deviceResult));
         addDefinition(code, "THREADS_PER_HASH", s_threadsPerHash);
 
+        cnote << "DAG GROUP_SIZE=" << workgroupSize_;
+        cnote << "DAG_SIZE=" << dagSize;
+        cnote << "DAG_SIZE(128)=" << dagSize128;
+        cnote << "LIGHT_SIZE=" << lightSize64;
+        cnote << "ACCESSES=" << egihash::constants::ACCESSES;
+        cnote << "MAX_OUTPUTS=" << c_maxSearchResults;
+        cnote << "PLATTFORM=" << std::get<2>(deviceResult);
+        cnote << "COMPUTE=" << std::get<3>(deviceResult);
+        cnote << "THREADS_PER_HASH=" << s_threadsPerHash;
+
         // create miner OpenCL program
         cl::Program::Sources sources{{code.data(), code.size()}};
         cl::Program program(cl->context_, sources);
@@ -593,7 +603,7 @@ bool OpenCLMiner::init_dag()
             cl->kernelSearch_     = cl::Kernel(program, "ethash_search");
             cl->kernelDag_        = cl::Kernel(program, "ethash_calculate_dag_item");
 
-            ETHCL_LOG("Caeating light buffer");
+            ETHCL_LOG("Creating light buffer");
 
             cl->queue_.enqueueWriteBuffer(cl->bufferLight_, CL_TRUE, 0, sizeof(uint32_t) * vData.size(), vData.data());
         } catch (cl::Error const& err) {

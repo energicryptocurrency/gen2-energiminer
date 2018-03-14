@@ -172,7 +172,7 @@ namespace energi
     uint64_t ms = 0;        ///< Total number of milliseconds of mining thus far.
     uint64_t rate() const { return ms == 0 ? 0 : hashes * 1000 / ms; }
 
-    std::vector<uint64_t> minersHashes;
+    std::map<std::string, uint64_t> minersHashes; // maps a miner's device name to it's hash count
     uint64_t minerRate(const uint64_t hashCount) const { return ms == 0 ? 0 : hashCount * 1000 / ms; }
   };
 
@@ -183,10 +183,10 @@ namespace energi
        << EthTealBold << std::fixed << std::setw(6) << std::setprecision(2) << mh << EthReset
        << " Kh/s    ";
 
-    for (size_t i = 0; i < _p.minersHashes.size(); ++i)
+    for (auto const & i : _p.minersHashes)
     {
-      mh = _p.minerRate(_p.minersHashes[i]) / 1000.0f;
-      _out << "device/" << i << " " << EthTeal << std::fixed << std::setw(5) << std::setprecision(2) << mh << EthReset << "  ";
+      mh = _p.minerRate(i.second) / 1000.0f;
+      _out << i.first << " " << EthTeal << std::fixed << std::setw(5) << std::setprecision(2) << mh << EthReset << "  ";
     }
 
     return _out;
