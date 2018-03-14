@@ -59,7 +59,7 @@ void CpuMiner::trun()
                     pdata[28] = nonceForHash;
                     addHashCount(nonce + 1 - last_nonce);
 
-                    Solution solution(work, nonce);
+                    Solution solution(work, nonce, hash_res.mixhash);
                     plant_.submit(solution);
                     return;
                 }
