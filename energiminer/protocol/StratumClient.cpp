@@ -67,7 +67,10 @@ bool StratumClient::submit(const energi::Solution& solution)
     std::string nonceHex = energi::GetHex(reinterpret_cast<uint8_t*>(&solutionNonce[0]), 8);
     minernonce = nonceHex.substr(m_extraNonceHexSize, 16 - m_extraNonceHexSize);
     std::ostream os(&m_requestBuffer);
-    os << "{\"id\": 4, \"method\": \"mining.submit\", \"params\": [\"" + p_active->user + "\",\"" + solution.getJobName() + "\",\"" + minernonce + "\", \"" + solution.getTime() + "\", \"" + minernonce + "\"]}\n";
+    os << "{\"id\": 4, \"method\": \"mining.submit\", \"params\": [\"" +
+            p_active->user + "\",\"" + solution.getJobName() +
+            "\",\"" + minernonce + "\", \"" + solution.getTime() +
+            "\", \"" + minernonce + "\", \"" + solution.m_mixhash.to_hex() + "\"]}\n";
     write(m_socket, m_requestBuffer);
     cnote << "Solution found; Submitted to" << p_active->host;
     return true;
@@ -166,7 +169,6 @@ bool StratumClient::processResponse(Json::Value& responseObject)
                 std::string enonce = params.get((Json::Value::ArrayIndex)1, "").asString();
                 processExtranonce(enonce);
             }
-            os << "{\"id\": 2, \"method\": \"mining.extranonce.subscribe\", \"params\": []}\n";
 			m_authorized = true;
             cnote << "Subscribed to stratum server";
             os << "{\"id\": 3, \"method\": \"mining.authorize\", \"params\": [\"" << p_active->user << "\",\"" << p_active->pass << "\"]}\n";
