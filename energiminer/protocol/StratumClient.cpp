@@ -62,15 +62,15 @@ void StratumClient::setFailover(const std::string& failOverURL)
 
 bool StratumClient::submit(const energi::Solution& solution)
 {
-    std::string solutionNonce = std::to_string(solution.m_nonce);
-    std::string minernonce;
-    std::string nonceHex = energi::GetHex(reinterpret_cast<uint8_t*>(&solutionNonce[0]), 8);
-    minernonce = nonceHex.substr(m_extraNonceHexSize, 16 - m_extraNonceHexSize);
+    std::stringstream ss;
+    ss << std::setw(8) << std::setfill('0') << solution.m_nonce;
+    std::string solutionNonce = ss.str();
     std::ostream os(&m_requestBuffer);
     os << "{\"id\": 4, \"method\": \"mining.submit\", \"params\": [\"" +
             p_active->user + "\",\"" + solution.getJobName() +
-            "\",\"" + minernonce + "\", \"" + solution.getTime() +
-            "\", \"" + minernonce + "\", \"" + solution.m_mixhash.to_hex() + "\"]}\n";
+            "\",\"" + solutionNonce + "\", \"" + solution.getTime() +
+            "\", \"" + solutionNonce + "\", \"" + solution.m_mixhash.to_hex() + "\"]}\n";
+
     write(m_socket, m_requestBuffer);
     cnote << "Solution found; Submitted to" << p_active->host;
     return true;
