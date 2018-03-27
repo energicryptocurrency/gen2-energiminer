@@ -7,6 +7,7 @@
 
 #include <memory>
 #include "primitives/base58.h"
+#include "primitives/block.h"
 #include "work.h"
 #include "transaction.h"
 
@@ -14,8 +15,7 @@ namespace energi
 {
   Work::Work(const Json::Value &gbt, const std::string &coinbase_addr, const std::string& job)
   {
-    if ( !( gbt.isMember("height") && gbt.isMember("version") && gbt.isMember("previousblockhash") ) )
-    {
+    if ( !( gbt.isMember("height") && gbt.isMember("version") && gbt.isMember("previousblockhash") ) ) {
       throw WorkException("Height or Version or Previous Block Hash not found");
     }
 
@@ -27,6 +27,10 @@ namespace energi
     bits                      = gbt["bits"].asString();
     auto curtime              = gbt["curtime"];
     previousblockhash         = gbt["previousblockhash"].asString();
+
+    //!TODO keep only this part
+    Block block(gbt);
+    //!
 
     // masternode payment
     bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
@@ -49,10 +53,9 @@ namespace energi
 
     }
 
-    jobName = job;
+    m_jobName = job;
     auto transactions_data_len = 0;
-    for ( auto txn : transactions )
-    {
+    for ( auto txn : transactions ) {
         auto data = txn["data"].asString();
         transactions_data_len += data.size() / 2;
     }
@@ -123,17 +126,13 @@ namespace energi
     std::vector<MerkleTreeElement> merkle_tree( ( 1 + transactions.size() + 1 ) & 0xFFFFFFFF, MerkleTreeElement{});
     sha256d(merkle_tree[0].data(), coinbase_txn.data(), coinbase_txn.size());
 
-    for (int i = 0; i < int(transactions.size()); ++i)
-    {
+    for (int i = 0; i < int(transactions.size()); ++i) {
       auto tx_hex = transactions[i]["data"].asString();
       const int tx_size = tx_hex.size() ? (int) (tx_hex.size() / 2) : 0;
       vbyte tx(tx_size, 0);
-      if (!hex2bin(tx.data(), tx_hex.c_str(), tx_size))
-      {
-          //applog(LOG_ERR, "JSON invalid transactions");
+      if (!hex2bin(tx.data(), tx_hex.c_str(), tx_size)) {
           throw WorkException("Invalid hex2 bin conversion");
       }
-
       sha256d(merkle_tree[1 + i].data(), tx.data(), tx_size);
       // TODO
       // if (!submit_coinbase)
@@ -144,17 +143,13 @@ namespace energi
     rawTransactionData.append(txn_data.get());
 
     n = 1 + transactions.size();
-
-    while (n > 1)
-    {
-      if (n % 2)
-      {
+    while (n > 1) {
+      if (n % 2) {
           memcpy(merkle_tree[n].data(), merkle_tree[n-1].data(), 32);
           ++n;
       }
-
       n /= 2;
-      for (int i = 0; i < n; i++)
+      for (int i = 0; i < n; ++i)
           sha256d(merkle_tree[i].data(), merkle_tree[2*i].data(), 64);
     }
 

@@ -9,13 +9,15 @@
 #define ENERGIMINER_WORK_H_
 
 #include "energiminer/common.h"
+#include "energiminer/primitives/serialize.h"
+#include "energiminer/primitives/uint256.h"
+#include "energiminer/primitives/block.h"
 
 #include <limits>
 #include <cstdint>
 #include <cstring>
 #include <sstream>
 #include <string>
-#include <json/json.h>
 
 
 namespace energi
@@ -58,7 +60,7 @@ struct Work
 
     inline const std::string& getJobName() const
     {
-        return jobName;
+        return m_jobName;
     }
 
     uint32_t                height  = 0;
@@ -69,7 +71,11 @@ struct Work
     std::string             previousblockhash;
     target                  targetBin;
     std::string             rawTransactionData;
-    std::string             jobName;
+
+
+    //!TODO keep only this part
+    std::string             m_jobName;
+    Block                   m_block;
 
     std::string ToString() const
     {

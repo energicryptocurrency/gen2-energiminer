@@ -26,6 +26,10 @@ set(SOURCES
   primitives/uint256.cpp
   primitives/byteswap.h
   primitives/endian.h
+  primitives/serialize.h
+  primitives/block.h
+  primitives/arith_uint256.h
+  primitives/arith_uint256.cpp
   egihash/egihash.cpp
   egihash/egihash.h
   egihash/keccak-tiny.h

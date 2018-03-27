@@ -151,3 +151,17 @@ uint64_t uint256::GetHash(const uint256& salt) const
 
     return ((((uint64_t)b) << 32) | c);
 }
+
+// Explicit instantiations for base_blob<160>
+template base_blob<160>::base_blob(const std::vector<unsigned char>&);
+template std::string base_blob<160>::GetHex() const;
+template std::string base_blob<160>::ToString() const;
+template void base_blob<160>::SetHex(const char*);
+template void base_blob<160>::SetHex(const std::string&);
+
+// Explicit instantiations for base_blob<256>
+template base_blob<256>::base_blob(const std::vector<unsigned char>&);
+template std::string base_blob<256>::GetHex() const;
+template std::string base_blob<256>::ToString() const;
+template void base_blob<256>::SetHex(const char*);
+template void base_blob<256>::SetHex(const std::string&);
