@@ -374,12 +374,6 @@ void OpenCLMiner::trun()
             } else {
                 //cnote << "Valid work.";
             }
-            uint32_t _ALIGN(128) endiandata[29];
-            uint32_t *pdata     = work.blockHeader.data();
-            // we dont use mixHash part to calculate hash but fill it later (below)
-            for (int k=0; k < 20; k++) {
-                be32enc(&endiandata[k], pdata[k]);
-            }
             if ( current_work != work ) {
                 cllog << "Bits:" << work.bitsNum << " " << work.nBits;
                 auto localSwitchStart = std::chrono::high_resolution_clock::now();
@@ -388,7 +382,7 @@ void OpenCLMiner::trun()
                     init_dag();
                     dagLoaded_ = true;
                 }
-                energi::CBlockHeaderTruncatedLE truncatedBlockHeader(endiandata);
+                energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
                 egihash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
                 // Update header constant buffer.
@@ -428,16 +422,10 @@ void OpenCLMiner::trun()
             // Report results while the kernel is running.
             // It takes some time because ethash must be re-evaluated on CPU.
             if (nonce != 0) {
-                auto hash_res = Miner::GetPOWHash(work.height, nonce, endiandata);
-                uint32_t arr[8] = {0};
-                memcpy(arr, hash_res.mixhash.b, sizeof(hash_res.mixhash));
-                for (int i = 0; i < 8; i++) {
-                    pdata[i + 20] = be32dec(&arr[i]);
-                }
-                auto nonceForHash = be32dec(&nonce);
-                pdata[28] = nonceForHash;
+                work.nNonce = nonce;
+                auto hash = GetPOWHash(work);
                 addHashCount(globalWorkSize_);
-                Solution solution(work, nonce, uint256(hash_res.mixhash));
+                Solution solution(work, nonce, work.hashMix);
                 plant_.submit(solution);
             }
             current_work = work;
