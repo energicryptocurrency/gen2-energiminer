@@ -81,6 +81,21 @@ egihash::result_t Miner::GetPOWHash(uint32_t height, uint32_t nonce, const void 
     return ret;
 }
 
+uint256 Miner::GetPOWHash(const BlockHeader& header)
+{
+    energi::CBlockHeaderTruncatedLE truncatedBlockHeader(header);
+    egihash::h256_t headerHash(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
+
+    egihash::result_t ret;
+    const auto& dag = ActiveDAG();
+    if (dag && ((egihash::constants::EPOCH_LENGTH) == dag->epoch())) {
+        ret = egihash::full::hash(*dag, headerHash, header.nNonce);
+    } else {
+        ret = egihash::light::hash(egihash::cache_t(header.nHeight), headerHash, header.nNonce);
+    }
+    return uint256(ret.value);
+}
+
 egihash::h256_t Miner::GetHeaderHash(const void *input)
 {
     energi::CBlockHeaderTruncatedLE truncatedBlockHeader(input);

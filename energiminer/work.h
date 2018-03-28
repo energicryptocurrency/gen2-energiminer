@@ -11,6 +11,7 @@
 #include "energiminer/common.h"
 #include "energiminer/primitives/serialize.h"
 #include "energiminer/primitives/uint256.h"
+#include "energiminer/primitives/arith_uint256.h"
 #include "energiminer/primitives/block.h"
 
 #include <limits>
@@ -67,7 +68,6 @@ struct Work
     std::string             bits;
     uint32_t                bitsNum = 0;
     vuint32                 blockHeader;
-    std::string             targetStr;
     std::string             previousblockhash;
     target                  targetBin;
     std::string             rawTransactionData;
@@ -75,6 +75,7 @@ struct Work
 
     //!TODO keep only this part
     std::string             m_jobName;
+    arith_uint256           hashTarget;
     Block                   m_block;
 
     std::string ToString() const
@@ -82,7 +83,7 @@ struct Work
         std::stringstream ss;
         ss << "Height: " << height << " "
             << "Bits: " << bits << " "
-            << "Target: " << targetStr << " "
+            << "Target: " << hashTarget.ToString() << " "
             << "PrevBlockHash: " << previousblockhash << " ";
 
         return ss.str();
