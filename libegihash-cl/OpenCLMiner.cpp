@@ -381,7 +381,7 @@ void OpenCLMiner::trun()
                 be32enc(&endiandata[k], pdata[k]);
             }
             if ( current_work != work ) {
-                cllog << "Bits:" << work.bitsNum << " " << work.bits;
+                cllog << "Bits:" << work.bitsNum << " " << work.nBits;
                 auto localSwitchStart = std::chrono::high_resolution_clock::now();
 
                 if (!dagLoaded_) {
@@ -394,8 +394,8 @@ void OpenCLMiner::trun()
                 // Update header constant buffer.
                 cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_FALSE, 0, sizeof(hash_header), hash_header.b);
                 cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
-                cllog << "Target Buffer ..." << sizeof(work.targetBin);
-                cl->queue_.enqueueWriteBuffer(cl->bufferTarget_, CL_FALSE, 0, sizeof(work.targetBin), work.targetBin.data());
+                cllog << "Target Buffer ..." << sizeof(work.hashTarget);
+                cl->queue_.enqueueWriteBuffer(cl->bufferTarget_, CL_FALSE, 0, sizeof(work.hashTarget), work.hashTarget.ToString().c_str());
                 cllog << "Loaded";
 
                 cl->kernelSearch_.setArg(0, cl->searchBuffer_);  // Supply output buffer to kernel.

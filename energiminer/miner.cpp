@@ -93,6 +93,7 @@ uint256 Miner::GetPOWHash(const BlockHeader& header)
     } else {
         ret = egihash::light::hash(egihash::cache_t(header.nHeight), headerHash, header.nNonce);
     }
+    const_cast<BlockHeader&>(header).hashMix = uint256(ret.mixhash);
     return uint256(ret.value);
 }
 

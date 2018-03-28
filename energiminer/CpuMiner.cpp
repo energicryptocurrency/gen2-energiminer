@@ -37,9 +37,9 @@ void CpuMiner::trun()
             uint32_t _ALIGN(128) hash[8];
             uint32_t _ALIGN(128) endiandata[29];
             uint32_t *pdata = work.blockHeader.data();
-            uint32_t *ptarget = work.targetBin.data();
+            //uint32_t *ptarget = work.targetBin.data();
 
-            const uint32_t Htarg = ptarget[7];
+            //const uint32_t Htarg = ptarget[7];
             uint32_t nonce = first_nonce;
             uint32_t last_nonce = first_nonce;
             // we dont use mixHash part to calculate hash but fill it later (below)
@@ -54,7 +54,8 @@ void CpuMiner::trun()
                 for (int i = 0; i < 8; i++) {
                     pdata[i + 20] = be32dec(&arr[i]);
                 }
-                if (hash[7] <= Htarg && fulltest(hash, ptarget)) {
+                if (UintToArith256(uint256(hash_res.value)) < work.hashTarget) {
+                //if (hash[7] <= Htarg && fulltest(hash, ptarget)) {
                     auto nonceForHash = be32dec(&nonce);
                     pdata[28] = nonceForHash;
                     addHashCount(nonce + 1 - last_nonce);

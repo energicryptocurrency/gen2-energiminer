@@ -27,7 +27,7 @@ namespace energi
 // After parsing it builds the block to be mined and passes to miners
 // after finding POW, creates solution
 // Block -> block header + raw transaction data ( txncount + raw transactions )
-struct Work
+struct Work : public Block
 {
     Work()
     {}
@@ -40,7 +40,7 @@ struct Work
 
     bool operator==(const Work& other) const
     {
-        return previousblockhash == other.previousblockhash && this->height == other.height;
+        return (hashPrevBlock == other.hashPrevBlock) && (nHeight == other.nHeight);
     }
 
     bool operator!=(const Work& other) const
@@ -51,7 +51,7 @@ struct Work
     void reset()
     {
         height = 0;
-        previousblockhash = "";
+        SetNull();
     }
 
     bool isValid() const
@@ -65,11 +65,8 @@ struct Work
     }
 
     uint32_t                height  = 0;
-    std::string             bits;
     uint32_t                bitsNum = 0;
     vuint32                 blockHeader;
-    std::string             previousblockhash;
-    target                  targetBin;
     std::string             rawTransactionData;
 
 
@@ -81,11 +78,10 @@ struct Work
     std::string ToString() const
     {
         std::stringstream ss;
-        ss << "Height: " << height << " "
-            << "Bits: " << bits << " "
-            << "Target: " << hashTarget.ToString() << " "
-            << "PrevBlockHash: " << previousblockhash << " ";
-
+        ss << "Height: " << this->nNonce << " "
+           << "Bits: "   << this->nBits << " "
+           << "Target: " << this->hashTarget.ToString()
+           << "PrevBlockHash: " << this->hashPrevBlock.ToString();
         return ss.str();
     }
 };

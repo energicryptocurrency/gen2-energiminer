@@ -114,7 +114,7 @@ namespace energi
       return false;
     }
 
-    cnote << "New Work assigned: Height: " << work.height << "Target:" << work.hashTarget.ToString() << "PrevHash:" << work.previousblockhash;
+    cnote << "New Work assigned: Height: " << work.height << "Target:" << work.hashTarget.ToString() << "PrevHash:" << work.hashPrevBlock.ToString();
     work_ = work;
 
     // Propagate to all miners

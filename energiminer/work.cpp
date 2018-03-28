@@ -149,7 +149,7 @@ namespace energi
 
     //!TODO keep only this part
     Block block(gbt);
-    arith_uint256 hashTarget = arith_uint256().SetCompact(block.nBits);
+    hashTarget = arith_uint256().SetCompact(block.nBits);
     //!
     block.vtx.push_back(cb);
 
