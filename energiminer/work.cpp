@@ -13,6 +13,7 @@
 namespace energi
 {
   Work::Work(const Json::Value &gbt, const std::string &coinbase_addr, const std::string& job)
+      : Block(gbt)
   {
     if ( !( gbt.isMember("height") && gbt.isMember("version") && gbt.isMember("previousblockhash") ) ) {
       throw WorkException("Height or Version or Previous Block Hash not found");
@@ -134,7 +135,7 @@ namespace energi
       std::strcat(txn_data.get(), tx_hex.c_str());
     }
 
-    rawTransactionData.append(txn_data.get());
+    //rawTransactionData.append(txn_data.get());
 
     n = 1 + transactions.size();
     while (n > 1) {
@@ -148,10 +149,9 @@ namespace energi
     }
 
     //!TODO keep only this part
-    Block block(gbt);
-    hashTarget = arith_uint256().SetCompact(block.nBits);
+    hashTarget = arith_uint256().SetCompact(this->nBits);
     //!
-    block.vtx.push_back(cb);
+    this->vtx.push_back(cb);
 
 //    // assemble block header
 //    // Part 1 version

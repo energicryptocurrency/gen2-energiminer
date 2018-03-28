@@ -67,13 +67,12 @@ struct Work : public Block
     uint32_t                height  = 0;
     uint32_t                bitsNum = 0;
     vuint32                 blockHeader;
-    std::string             rawTransactionData;
+    //std::string             rawTransactionData;
 
 
     //!TODO keep only this part
     std::string             m_jobName;
     arith_uint256           hashTarget;
-    Block                   m_block;
 
     std::string ToString() const
     {

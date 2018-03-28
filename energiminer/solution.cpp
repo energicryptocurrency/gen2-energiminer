@@ -26,7 +26,7 @@ std::string Solution::getSubmitBlockData() const
 
     bin2hex(const_cast<char*>(&blockHeaderStr[0]), (unsigned char *)m_work.blockHeader.data(), 116);
     std::stringstream ss;
-    ss << blockHeaderStr.c_str() << m_work.rawTransactionData;
+    //ss << blockHeaderStr.c_str() << m_work.rawTransactionData;
 
     cdebug << "JOIN: " << ss.str();
     cnote << m_work.ToString();
