@@ -34,26 +34,26 @@ void CpuMiner::trun()
             const uint32_t first_nonce = nonceStart_.load();
             const uint32_t max_nonce = nonceEnd_.load();
 
-            uint32_t nonce = first_nonce;
+            work.nNonce = first_nonce;
             uint32_t last_nonce = first_nonce;
             // we dont use mixHash part to calculate hash but fill it later (below)
             do {
                 auto hash = GetPOWHash(work);
                 if (UintToArith256(hash) < work.hashTarget) {
-                    addHashCount(nonce + 1 - last_nonce);
+                    addHashCount(work.nNonce + 1 - last_nonce);
 
-                    Solution solution(work, nonce, work.hashMix);
+                    Solution solution(work, work.nNonce, work.hashMix);
                     plant_.submit(solution);
                     return;
                 }
-                ++nonce;
+                ++work.nNonce;
                 // rough guess
-                if ( nonce % 10000 == 0 ) {
-                    addHashCount(nonce - last_nonce);
-                    last_nonce = nonce;
+                if ( work.nNonce % 10000 == 0 ) {
+                    addHashCount(work.nNonce - last_nonce);
+                    last_nonce = work.nNonce;
                 }
-            } while (nonce < max_nonce || !this->shouldStop() );
-            addHashCount(nonce - last_nonce);
+            } while (work.nNonce < max_nonce || !this->shouldStop() );
+            addHashCount(work.nNonce - last_nonce);
         }
     } catch(WorkException &ex) {
         cnote << ex.what();
