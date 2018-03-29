@@ -72,8 +72,20 @@ namespace energi
   using MutexLGuard = std::lock_guard<std::mutex>;
   using MutexRLGuard = std::lock_guard<std::recursive_mutex>;
 
+  inline std::string strToHex(const std::string& str)
+  {
+      std::ostringstream result;
+      for (const auto& item : str) {
+          result << std::hex
+                 << std::setfill('0')
+                 << std::setw(2)
+                 << std::nouppercase
+                 << static_cast<unsigned int>(static_cast<unsigned char>(item));
+      }
+      return result.str();
+  }
 
-  inline bool setenv(const char name[], const char value[], bool override = false)
+  inline bool setenv(const char name[], const char value[], bool over = false)
   {
   #if _WIN32
     if (!override && std::getenv(name) != nullptr)
@@ -81,7 +93,7 @@ namespace energi
 
     return ::_putenv_s(name, value) == 0;
   #else
-    return ::setenv(name, value, override ? 1 : 0) == 0;
+    return ::setenv(name, value, over ? 1 : 0) == 0;
   #endif
   }
 
