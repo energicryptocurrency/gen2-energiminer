@@ -51,6 +51,7 @@ struct BlockHeader
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
+        READWRITE(nBits);
         READWRITE(nHeight);
         READWRITE(hashMix);
         READWRITE(nNonce);
