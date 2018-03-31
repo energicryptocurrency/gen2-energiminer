@@ -1,4 +1,5 @@
 #include "transaction.h"
+#include "energiminer/common/utilstrencodings.h"
 
 namespace energi
 {
@@ -16,10 +17,11 @@ namespace energi
     txo_script::txo_script(std::string const & scriptHex)
     : vbyte(scriptHex.size() / 2, 0)
     {
-        if (!hex2bin(data(), scriptHex.c_str(), scriptHex.size() / 2))
-        {
+        if (!IsHex(scriptHex)) {
             throw WorkException("Cannot decode script");
         }
+        auto data = ParseHex(scriptHex);
+        swap(data);
     }
 
     txo_script::txo_script(CBitcoinAddress const & address)
