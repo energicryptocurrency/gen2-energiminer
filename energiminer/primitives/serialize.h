@@ -6,7 +6,7 @@
 #ifndef BITCOIN_SERIALIZE_H
 #define BITCOIN_SERIALIZE_H
 
-#include "energiminer/portable_endian.h"
+#include "energiminer/common/portable_endian.h"
 
 #include <algorithm>
 #include <assert.h>

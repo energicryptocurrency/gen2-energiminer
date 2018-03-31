@@ -7,7 +7,7 @@
 #include <jsonrpccpp/client.h>
 #include <iostream>
 
-#include "energiminer/Log.h"
+#include "energiminer/common/Log.h"
 #include "MiningClient.h"
 
 using namespace std;

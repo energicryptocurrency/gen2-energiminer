@@ -25,7 +25,7 @@
 #include <jsonrpccpp/client/connectors/httpclient.h>
 
 #include "egihash/egihash.h"
-#include "energiminer/common.h"
+#include "energiminer/common/common.h"
 #include "energiminer/solution.h"
 #include "energiminer/work.h"
 #include "energiminer/mineplant.h"

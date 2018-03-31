@@ -8,7 +8,7 @@
 #ifndef ENERGIMINER_COMMON_H_
 #define ENERGIMINER_COMMON_H_
 
-#include "energiminer/Log.h"
+#include "Log.h"
 #include "portable_endian.h"
 
 #include <cstdint>
@@ -88,7 +88,7 @@ namespace energi
   inline bool setenv(const char name[], const char value[], bool over = false)
   {
   #if _WIN32
-    if (!override && std::getenv(name) != nullptr)
+    if (!over && std::getenv(name) != nullptr)
       return true;
 
     return ::_putenv_s(name, value) == 0;

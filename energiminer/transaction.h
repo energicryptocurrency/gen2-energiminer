@@ -5,7 +5,7 @@
 #include <string>
 #include <json/json.h>
 
-#include "energiminer/common.h"
+#include "energiminer/common/common.h"
 #include "primitives/base58.h"
 
 namespace energi

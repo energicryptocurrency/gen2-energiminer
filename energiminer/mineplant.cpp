@@ -10,10 +10,11 @@
 #include "libegihash-cl/OpenCLMiner.h"
 #include "energiminer/miner.h"
 #include "energiminer/work.h"
-#include "energiminer/common.h"
 #include "energiminer/CpuMiner.h"
 #include "energiminer/TestMiner.h"
-#include "energiminer/Log.h"
+
+#include "energiminer/common/common.h"
+#include "energiminer/common/Log.h"
 
 #include <iostream>
 #include <limits>

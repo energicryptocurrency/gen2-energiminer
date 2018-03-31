@@ -1,6 +1,6 @@
 #include "energiminer/mineplant.h"
 #include "StratumClient.h"
-#include "energiminer/Log.h"
+#include "energiminer/common/Log.h"
 #include "BuildInfo.h"
 
 using boost::asio::ip::tcp;

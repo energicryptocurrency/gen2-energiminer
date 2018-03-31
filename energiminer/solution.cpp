@@ -6,8 +6,8 @@
  */
 
 #include "solution.h"
-#include "energiminer/common.h"
-#include "energiminer/Log.h"
+#include "energiminer/common/common.h"
+#include "energiminer/common/Log.h"
 
 #include <sstream>
 

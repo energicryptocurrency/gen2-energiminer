@@ -6,8 +6,8 @@
  */
 
 #include "CpuMiner.h"
-#include "energiminer/Log.h"
-#include "energiminer/common.h"
+#include "energiminer/common/Log.h"
+#include "energiminer/common/common.h"
 
 using namespace energi;
 

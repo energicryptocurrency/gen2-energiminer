@@ -10,7 +10,7 @@
 #include "../libegihash-cl/CL/cl2.hpp"
 #include "energiminer/egihash/egihash.h"
 #include "CLMiner_kernel.h"
-#include "energiminer/Log.h"
+#include "energiminer/common/Log.h"
 #include "energiminer/CpuMiner.h"
 
 #include <vector>

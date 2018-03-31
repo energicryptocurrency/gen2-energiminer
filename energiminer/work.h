@@ -8,7 +8,7 @@
 #ifndef ENERGIMINER_WORK_H_
 #define ENERGIMINER_WORK_H_
 
-#include "energiminer/common.h"
+#include "energiminer/common/common.h"
 #include "energiminer/primitives/serialize.h"
 #include "energiminer/primitives/uint256.h"
 #include "energiminer/primitives/arith_uint256.h"

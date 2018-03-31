@@ -30,6 +30,13 @@ set(SOURCES
   primitives/block.h
   primitives/arith_uint256.h
   primitives/arith_uint256.cpp
+  common/common.h
+  common/common.cpp
+  common/Log.h
+  common/Log.cpp
+  common/Terminal.h
+  common/utilstrencodings.h
+  common/utilstrencodings.cpp
   egihash/egihash.cpp
   egihash/egihash.h
   egihash/keccak-tiny.h
