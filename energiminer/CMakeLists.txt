@@ -30,6 +30,9 @@ set(SOURCES
   primitives/block.h
   primitives/arith_uint256.h
   primitives/arith_uint256.cpp
+  primitives/script.h
+  primitives/script.cpp
+  primitives/prevector.h
   common/common.h
   common/common.cpp
   common/Log.h

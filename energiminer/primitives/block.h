@@ -93,7 +93,7 @@ struct Block : public BlockHeader
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
         READWRITE(*(BlockHeader*)this);
-        //READWRITE(vtx);
+        READWRITE(vtx);
     }
 
     void SetNull()
