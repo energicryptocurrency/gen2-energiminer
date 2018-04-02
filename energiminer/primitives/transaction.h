@@ -7,10 +7,12 @@
 #define BITCOIN_PRIMITIVES_TRANSACTION_H
 
 #include "script.h"
-#include "serialize.h"
+#include "energiminer/common/serialize.h"
 #include "uint256.h"
 #include "amount.h"
 #include "base58.h"
+#include "energiminer/common/streams.h"
+#include "energiminer/common/utilstrencodings.h"
 
 // TODO: This only supports P2PKH addresses. This should support all address types. (issue #14)
 CScript GetScriptForDestination(const CKeyID& keyID);
@@ -371,5 +373,22 @@ struct CompareOutputBIP69
         return a.nValue < b.nValue || (a.nValue == b.nValue && a.scriptPubKey < b.scriptPubKey);
     }
 };
+
+inline bool DecodeHexTx(CTransaction& tx, const std::string& strHexTx)
+{
+    if (!IsHex(strHexTx)) {
+        return false;
+    }
+
+    std::vector<unsigned char> txData(ParseHex(strHexTx));
+    CDataStream ssData(txData, SER_NETWORK, 70208);
+    try {
+        ssData >> tx;
+    } catch (const std::exception&) {
+        return false;
+    }
+
+    return true;
+}
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

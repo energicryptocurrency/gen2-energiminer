@@ -16,39 +16,6 @@ namespace energi
       : Block(gbt, coinbase_addr)
       , m_jobName(job)
   {
-//    if ( !( gbt.isMember("height") && gbt.isMember("version") && gbt.isMember("previousblockhash") ) ) {
-//      throw WorkException("Height or Version or Previous Block Hash not found");
-//    }
-//
-//    height                    = gbt["height"].asInt();
-//    //auto version              = gbt["version"].asInt();
-//    auto transactions         = gbt["transactions"];
-//    auto coinbasevalue        = gbt["coinbasevalue"].asInt64();
-//    //auto target_hex           = gbt["target"].asString();
-//    //auto curtime              = gbt["curtime"];
-//    //previousblockhash         = gbt["previousblockhash"].asString();
-//
-//    // masternode payment
-//    bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
-//    //bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool(); // not used currently
-//
-//    // superblock payments
-//    bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();
-//    auto const superblock_proposals = gbt["superblock"];
-//
-//    coinbase_tx cb(coinbasevalue, coinbase_addr);
-//    cb.add(gbt["backbone"]);
-//    if (masternode_payments_started) {
-//        cb.add(gbt["masternode"]);
-//    }
-//    if (superblocks_enabled) {
-//        auto const superblock = gbt["superblock"];
-//        for (auto const & proposal_payee : superblock) {
-//            cb.add(proposal_payee);
-//        }
-//
-//    }
-//
 //    auto transactions_data_len = 0;
 //    for ( auto txn : transactions ) {
 //        auto data = txn["data"].asString();

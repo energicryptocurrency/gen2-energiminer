@@ -664,7 +664,7 @@ inline void Serialize(Stream& os, const prevector<N, T>& v, int nType, int nVers
 
 
 template<typename Stream, unsigned int N, typename T>
-void Unserialize_impl(Stream& is, prevector<N, T>& v, int nType, int nVersion, const unsigned char&)
+void Unserialize_impl(Stream& is, prevector<N, T>& v, int/* nType*/, int/* nVersion*/, const unsigned char&)
 {
     // Limit size per read so bogus size value won't cause out of memory
     v.clear();
@@ -938,25 +938,16 @@ struct CSerActionUnserialize
 };
 
 template<typename Stream, typename T>
-inline void SerReadWrite(Stream& s, const T& obj, int nType, int nVersion, CSerActionSerialize ser_action)
+inline void SerReadWrite(Stream& s, const T& obj, int nType, int nVersion, CSerActionSerialize /*ser_action*/)
 {
-    (void)ser_action;
     ::Serialize(s, obj, nType, nVersion);
 }
 
 template<typename Stream, typename T>
-inline void SerReadWrite(Stream& s, T& obj, int nType, int nVersion, CSerActionUnserialize ser_action)
+inline void SerReadWrite(Stream& s, T& obj, int nType, int nVersion, CSerActionUnserialize/* ser_action*/)
 {
     ::Unserialize(s, obj, nType, nVersion);
 }
-
-
-
-
-
-
-
-
 
 class CSizeComputer
 {

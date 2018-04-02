@@ -8,7 +8,7 @@
 
 #include "energiminer/primitives/transaction.h"
 #include "energiminer/common/utilstrencodings.h"
-#include "serialize.h"
+#include "energiminer/common/serialize.h"
 #include "uint256.h"
 
 namespace energi {

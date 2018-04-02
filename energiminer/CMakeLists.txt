@@ -26,7 +26,6 @@ set(SOURCES
   primitives/uint256.cpp
   primitives/byteswap.h
   primitives/endian.h
-  primitives/serialize.h
   primitives/block.h
   primitives/arith_uint256.h
   primitives/arith_uint256.cpp
@@ -37,6 +36,7 @@ set(SOURCES
   primitives/transaction.cpp
   primitives/amount.h
   primitives/amount.cpp
+  common/serialize.h
   common/common.h
   common/common.cpp
   common/Log.h
@@ -44,6 +44,8 @@ set(SOURCES
   common/Terminal.h
   common/utilstrencodings.h
   common/utilstrencodings.cpp
+  common/merkle.h
+  common/merkle.cpp
   egihash/egihash.cpp
   egihash/egihash.h
   egihash/keccak-tiny.h
