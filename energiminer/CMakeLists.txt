@@ -33,6 +33,10 @@ set(SOURCES
   primitives/script.h
   primitives/script.cpp
   primitives/prevector.h
+  primitives/transaction.h
+  primitives/transaction.cpp
+  primitives/amount.h
+  primitives/amount.cpp
   common/common.h
   common/common.cpp
   common/Log.h

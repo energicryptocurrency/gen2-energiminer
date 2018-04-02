@@ -2,6 +2,7 @@
 
 #include "uint256.h"
 #include "sha256.h"
+#include "serialize.h"
 
 /* ----------- Bitcoin Hash ------------------------------------------------- */
 /** A hasher class for Bitcoin's 256-bit hash (double SHA-256). */
@@ -41,3 +42,45 @@ inline uint256 Hash(const T1 pbegin, const T1 pend)
               .Finalize((unsigned char*)&result);
     return result;
 }
+
+/** A writer stream (for serialization) that computes a 256-bit hash. */
+class CHashWriter
+{
+private:
+    CHash256 ctx;
+
+public:
+    int nType;
+    int nVersion;
+
+    CHashWriter(int nTypeIn, int nVersionIn) : nType(nTypeIn), nVersion(nVersionIn) {}
+
+    CHashWriter& write(const char *pch, size_t size) {
+        ctx.Write((const unsigned char*)pch, size);
+        return (*this);
+    }
+
+    // invalidates the object
+    uint256 GetHash() {
+        uint256 result;
+        ctx.Finalize((unsigned char*)&result);
+        return result;
+    }
+
+    template<typename T>
+    CHashWriter& operator<<(const T& obj) {
+        // Serialize to this stream
+        ::Serialize(*this, obj, nType, nVersion);
+        return (*this);
+    }
+};
+
+/** Compute the 256-bit hash of an object's serialization. */
+template<typename T>
+uint256 SerializeHash(const T& obj, int nType=(1 << 2), int nVersion=70208)
+{
+    CHashWriter ss(nType, nVersion);
+    ss << obj;
+    return ss.GetHash();
+}
+

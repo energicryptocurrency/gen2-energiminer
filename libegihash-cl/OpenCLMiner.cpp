@@ -423,7 +423,7 @@ void OpenCLMiner::trun()
             // It takes some time because ethash must be re-evaluated on CPU.
             if (nonce != 0) {
                 work.nNonce = nonce;
-                auto hash = GetPOWHash(work);
+                GetPOWHash(work);
                 addHashCount(globalWorkSize_);
                 Solution solution(work, nonce, work.hashMix);
                 plant_.submit(solution);

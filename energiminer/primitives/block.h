@@ -6,7 +6,8 @@
 #include <cstdlib>
 #include <vector>
 
-#include "energiminer/transaction.h"
+#include "energiminer/primitives/transaction.h"
+#include "energiminer/common/utilstrencodings.h"
 #include "serialize.h"
 #include "uint256.h"
 
@@ -71,22 +72,73 @@ struct BlockHeader
 
 struct Block : public BlockHeader
 {
-    std::vector<coinbase_tx> vtx;
+    std::vector<CTransaction> vtx;
+
+    CTxOut txoutBackbone; // Energibackbone payment
+    CTxOut txoutMasternode; // masternode payment
+    std::vector<CTxOut> voutSuperblock; //superblock payment
 
     Block()
     {
         SetNull();
     }
 
-    Block(const Json::Value &gbt)
+    Block(const Json::Value& gbt, const std::string& coinbaseAddress)
         : BlockHeader(gbt)
     {
+        if ( !( gbt.isMember("height") && gbt.isMember("version") && gbt.isMember("previousblockhash") ) ) {
+            throw WorkException("Height or Version or Previous Block Hash not found");
+        }
+        auto coinbaseValue        = gbt["coinbasevalue"].asInt64();
+        CKeyID keyID;
+        if (!CBitcoinAddress(coinbaseAddress).GetKeyID(keyID)) {
+            throw WorkException("Could not get KeyID for address");
+        }
+        CScript script = GetScriptForDestination(keyID);
+        CTxOut out = CTxOut(coinbaseValue, script);
+        fillTransactions(gbt);
     }
 
     Block(const BlockHeader& header)
     {
         SetNull();
         *((BlockHeader*)this) = header;
+    }
+
+    void fillTransactions(const Json::Value& gbt)
+    {
+        // masternode payment
+        bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
+        //bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool(); // not used currently
+
+        // superblock payments
+        bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();
+        auto const superblock_proposals = gbt["superblock"];
+        txoutBackbone = outTransaction(gbt["backbone"]);
+        if (masternode_payments_started) {
+            txoutMasternode = outTransaction(gbt["masternode"]);
+        }
+        if (superblocks_enabled) {
+            const auto superblock = gbt["superblock"];
+            for (const auto& proposal_payee : superblock) {
+                voutSuperblock.push_back(outTransaction(proposal_payee));
+            }
+        }
+    }
+
+    CTxOut outTransaction(const Json::Value& json) const
+    {
+        if (json.isMember("payee") && json.isMember("script") && json.isMember("amount")) {
+            std::string scriptStr = json["script"].asString();
+            if (!IsHex(scriptStr)) {
+                throw WorkException("Cannot decode script");
+            }
+            auto data = ParseHex(scriptStr);
+            CScript transScript(data.begin(), data.end());
+            CTxOut trans(json["amount"].asUInt(), transScript);
+            return trans;
+        }
+        return CTxOut();
     }
 
     template<typename Stream, typename Operation>
@@ -100,18 +152,14 @@ struct Block : public BlockHeader
     {
         BlockHeader::SetNull();
         vtx.clear();
+        txoutBackbone = CTxOut();
+        txoutMasternode = CTxOut();
+        voutSuperblock.clear();
     }
 };
 
 #pragma pack(push, 1)
 
-//*
-//*   The Keccak-256 hash of this structure is used as input for egihash
-//*   It is a truncated block header with a deterministic encoding
-//*   All integer values are little endian
-//*   Hashes are the nul-terminated hex encoded representation as if ToString() was called
-
-// Bytes => 4 + 65 + 65 + 4 + 4 + 4 -> 130 + 16 -> 146 bytes
 struct CBlockHeaderTruncatedLE
 {
     int32_t nVersion;
@@ -121,58 +169,23 @@ struct CBlockHeaderTruncatedLE
     uint32_t nBits;
     uint32_t nHeight;
 
-    CBlockHeaderTruncatedLE(const void* data)
-        : nVersion(htole32(*reinterpret_cast<const int32_t*>(reinterpret_cast<const uint8_t*>(data) + 0)))
+    CBlockHeaderTruncatedLE(const BlockHeader& header)
+        : nVersion(htole32(header.nVersion))
         , hashPrevBlock{0}
         , hashMerkleRoot{0}
-        , nTime(htole32(*reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(data) + 4 + 32 + 32 )))
-        , nBits(htole32(*reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(data) + 4 + 32 + 32 + 4 )))
-        , nHeight(htole32(*reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(data) + 4 + 32 + 32 + 4 + 4 )))
+        , nTime(htole32(header.nTime))
+        , nBits(htole32(header.nBits))
+        , nHeight(htole32(header.nHeight))
     {
-        auto inputHashPrevBlock = reinterpret_cast<const uint8_t*>(data) + 4;
-        auto prevHash = GetHex(inputHashPrevBlock, 32);
-        std::memcpy(hashPrevBlock, prevHash.c_str(), (std::min)(prevHash.size(), sizeof(hashPrevBlock)));
+        auto prevHash = header.hashPrevBlock.ToString();
+        memcpy(hashPrevBlock, prevHash.c_str(), (std::min)(prevHash.size(), sizeof(hashPrevBlock)));
 
-        auto inputMerkleHashPrevBlock = reinterpret_cast<const uint8_t*>(data) + 36;
-        auto merkleRoot = GetHex(inputMerkleHashPrevBlock, 32);
-        std::memcpy(hashMerkleRoot, merkleRoot.c_str(), (std::min)(merkleRoot.size(), sizeof(hashMerkleRoot)));
+        auto merkleRoot = header.hashMerkleRoot.ToString();
+        memcpy(hashMerkleRoot, merkleRoot.c_str(), (std::min)(merkleRoot.size(), sizeof(hashMerkleRoot)));
     }
-
-   CBlockHeaderTruncatedLE(const BlockHeader& header)
-       : nVersion(htole32(header.nVersion))
-       , hashPrevBlock{0}
-       , hashMerkleRoot{0}
-       , nTime(htole32(header.nTime))
-       , nBits(htole32(header.nBits))
-       , nHeight(htole32(header.nHeight))
-   {
-       auto prevHash = header.hashPrevBlock.ToString();
-       memcpy(hashPrevBlock, prevHash.c_str(), (std::min)(prevHash.size(), sizeof(hashPrevBlock)));
-
-       auto merkleRoot = header.hashMerkleRoot.ToString();
-       memcpy(hashMerkleRoot, merkleRoot.c_str(), (std::min)(merkleRoot.size(), sizeof(hashMerkleRoot)));
-   }
 };
 
 static_assert(sizeof(CBlockHeaderTruncatedLE) == 146, "CBlockHeaderTruncatedLE has incorrect size");
-
-struct CBlockHeaderFullLE : public CBlockHeaderTruncatedLE
-{
-    uint32_t nNonce;
-    char hashMix[65];
-
-    CBlockHeaderFullLE(const void* data, uint32_t nonce, const uint8_t* hashMix_)
-        : CBlockHeaderTruncatedLE(data)
-          , nNonce(nonce)
-          , hashMix{0}
-    {
-        auto mixString = GetHex(hashMix_, 32);
-        /*cdebug << "NONCE:" << nNonce;
-          cdebug << "GET HEX HASH:" << mixString;*/
-        std::memcpy(hashMix, mixString.c_str(), (std::min)(mixString.size(), sizeof(hashMix)));
-    }
-};
-static_assert(sizeof(CBlockHeaderFullLE) == 215, "CBlockHeaderFullLE has incorrect size");
 #pragma pack(pop)
 
 } // namespace energi

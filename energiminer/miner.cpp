@@ -59,28 +59,6 @@ bool Miner::InitEgiHashDag()
     return true;
 }
 
-egihash::result_t Miner::GetPOWHash(uint32_t height, uint32_t nonce, const void *input)
-{
-    energi::CBlockHeaderTruncatedLE truncatedBlockHeader(input);
-    egihash::h256_t headerHash(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
-    egihash::result_t ret;
-    // if we have a DAG loaded, use it
-    auto const & dag = ActiveDAG();
-
-    if (dag && ((height / egihash::constants::EPOCH_LENGTH) == dag->epoch())) {
-        ret = egihash::full::hash(*dag, headerHash, nonce);
-    } else {
-        // otherwise all we can do is generate a light hash
-        ret = egihash::light::hash(egihash::cache_t(height), headerHash, nonce);
-    }
-
-    auto hashMix = ret.mixhash;
-    if (std::memcmp(hashMix.b, egihash::empty_h256.b, egihash::empty_h256.hash_size) == 0) {
-        throw WorkException("Can not produce a valid mixhash");
-    }
-    return ret;
-}
-
 uint256 Miner::GetPOWHash(const BlockHeader& header)
 {
     energi::CBlockHeaderTruncatedLE truncatedBlockHeader(header);
@@ -95,12 +73,6 @@ uint256 Miner::GetPOWHash(const BlockHeader& header)
     }
     const_cast<BlockHeader&>(header).hashMix = uint256(ret.mixhash);
     return uint256(ret.value);
-}
-
-egihash::h256_t Miner::GetHeaderHash(const void *input)
-{
-    energi::CBlockHeaderTruncatedLE truncatedBlockHeader(input);
-    return egihash::h256_t(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 }
 
 std::unique_ptr<egihash::dag_t> const & Miner::ActiveDAG(std::unique_ptr<egihash::dag_t> next_dag)
