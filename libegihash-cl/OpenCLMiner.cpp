@@ -362,6 +362,7 @@ void OpenCLMiner::trun()
     uint32_t startNonce = 0;
     Work current_work; // Here we need current work as to initialize gpu
     try {
+        unsigned int nExtraNonce = 0;
         while (true) {
             Work work = this->work(); // This work is a copy of last assigned work the worker was provided by plant
             if ( !work.isValid() ) {
@@ -374,6 +375,7 @@ void OpenCLMiner::trun()
             } else {
                 //cnote << "Valid work.";
             }
+            work.incrementExtraNonce(nExtraNonce);
             if ( current_work != work ) {
                 cllog << "Bits:" << " " << work.nBits;
                 auto localSwitchStart = std::chrono::high_resolution_clock::now();
