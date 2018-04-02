@@ -25,7 +25,6 @@ set(SOURCES
   primitives/uint256.h
   primitives/uint256.cpp
   primitives/byteswap.h
-  primitives/endian.h
   primitives/block.h
   primitives/arith_uint256.h
   primitives/arith_uint256.cpp
