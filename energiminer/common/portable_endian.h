@@ -74,9 +74,12 @@
 #		define htole32(x) (x)
 #		define be32toh(x) ntohl(x)
 #		define le32toh(x) (x)
- 
+
+#       define htonll(x) ((1==htonl(1)) ? (x) : ((uint64_t)htonl((x) & 0xFFFFFFFF) << 32) | htonl((x) >> 32))
 #		define htobe64(x) htonll(x)
 #		define htole64(x) (x)
+
+#       define ntohll(x) ((1==ntohl(1)) ? (x) : ((uint64_t)ntohl((x) & 0xFFFFFFFF) << 32) | ntohl((x) >> 32))
 #		define be64toh(x) ntohll(x)
 #		define le64toh(x) (x)
 

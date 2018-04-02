@@ -10,12 +10,13 @@
 #include "primitives/block.h"
 #include "work.h"
 
-namespace energi
+namespace energi {
+
+Work::Work(const Json::Value &gbt, const std::string &coinbase_addr, const std::string& job)
+    : Block(gbt, coinbase_addr)
+    , m_jobName(job)
 {
-  Work::Work(const Json::Value &gbt, const std::string &coinbase_addr, const std::string& job)
-      : Block(gbt, coinbase_addr)
-      , m_jobName(job)
-  {
-      hashTarget = arith_uint256().SetCompact(this->nBits);
-  }
+    hashTarget = arith_uint256().SetCompact(this->nBits);
+}
+
 } /* namespace energi */
