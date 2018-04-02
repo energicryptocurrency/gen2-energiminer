@@ -9,6 +9,7 @@
 #define ENERGIMINER_WORK_H_
 
 #include "energiminer/common/common.h"
+#include "energiminer/common/merkle.h"
 #include "energiminer/primitives/uint256.h"
 #include "energiminer/primitives/arith_uint256.h"
 #include "energiminer/primitives/block.h"
@@ -61,6 +62,8 @@ struct Work : public Block
     {
         return m_jobName;
     }
+
+    void incrementExtraNonce(unsigned int& nExtraNonce);
 
     //!TODO keep only this part
     std::string             m_jobName;

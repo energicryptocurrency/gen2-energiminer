@@ -9,7 +9,6 @@
 #include "energiminer/primitives/transaction.h"
 #include "energiminer/common/utilstrencodings.h"
 #include "energiminer/common/serialize.h"
-#include "energiminer/common/merkle.h"
 #include "uint256.h"
 
 
@@ -91,14 +90,7 @@ struct Block : public BlockHeader
         if ( !( gbt.isMember("height") && gbt.isMember("version") && gbt.isMember("previousblockhash") ) ) {
             throw WorkException("Height or Version or Previous Block Hash not found");
         }
-        auto coinbaseValue        = gbt["coinbasevalue"].asInt64();
-        CKeyID keyID;
-        if (!CBitcoinAddress(coinbaseAddress).GetKeyID(keyID)) {
-            throw WorkException("Could not get KeyID for address");
-        }
-        CScript script = GetScriptForDestination(keyID);
-        CTxOut out = CTxOut(coinbaseValue, script);
-        fillTransactions(gbt);
+        fillTransactions(gbt, coinbaseAddress);
     }
 
     Block(const BlockHeader& header)
@@ -107,8 +99,19 @@ struct Block : public BlockHeader
         *((BlockHeader*)this) = header;
     }
 
-    void fillTransactions(const Json::Value& gbt)
+    void fillTransactions(const Json::Value& gbt, const std::string& coinbaseAddress)
     {
+        //! first transaction
+        CTransaction coinbaseTransaction;
+        auto coinbaseValue = gbt["coinbasevalue"].asInt64();
+        CKeyID keyID;
+        if (!CBitcoinAddress(coinbaseAddress).GetKeyID(keyID)) {
+            throw WorkException("Could not get KeyID for address");
+        }
+        CScript script = GetScriptForDestination(keyID);
+        CTxOut out = CTxOut(coinbaseValue, script);
+        coinbaseTransaction.vout.push_back(out);
+
         // masternode payment
         bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
         //bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool(); // not used currently
@@ -119,6 +122,7 @@ struct Block : public BlockHeader
         txoutBackbone = outTransaction(gbt["backbone"]);
         if (masternode_payments_started) {
             txoutMasternode = outTransaction(gbt["masternode"]);
+            coinbaseTransaction.vout.push_back(txoutBackbone);
         }
         if (superblocks_enabled) {
             const auto superblock = gbt["superblock"];
@@ -126,6 +130,10 @@ struct Block : public BlockHeader
                 voutSuperblock.push_back(outTransaction(proposal_payee));
             }
         }
+        for (const auto& tx : voutSuperblock) {
+            coinbaseTransaction.vout.push_back(tx);
+        }
+
         auto transactions = gbt["transactions"];
         for (const auto& txn : transactions) {
             CTransaction trans;

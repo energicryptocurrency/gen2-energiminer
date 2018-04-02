@@ -19,6 +19,7 @@ CpuMiner::CpuMiner(const Plant &plant, int index)
 void CpuMiner::trun()
 {
     try {
+        unsigned int nExtraNonce = 0;
         while (true) {
             Work work = this->work(); // This work is a copy of last assigned work the worker was provided by plant
             if ( !work.isValid() ) {
@@ -31,6 +32,7 @@ void CpuMiner::trun()
             } else {
                 //cnote << "Valid work.";
             }
+            work.incrementExtraNonce(nExtraNonce);
             const uint32_t first_nonce = nonceStart_.load();
             const uint32_t max_nonce = nonceEnd_.load();
 
