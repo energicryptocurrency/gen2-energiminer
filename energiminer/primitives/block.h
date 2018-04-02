@@ -124,6 +124,12 @@ struct Block : public BlockHeader
                 voutSuperblock.push_back(outTransaction(proposal_payee));
             }
         }
+        auto transactions = gbt["transactions"];
+        for (const auto& txn : transactions) {
+            CTransaction trans;
+            DecodeHexTx(trans, txn["data"].asString());
+            vtx.push_back(trans);
+        }
     }
 
     CTxOut outTransaction(const Json::Value& json) const
