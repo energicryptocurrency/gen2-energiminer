@@ -92,7 +92,7 @@ bool MinePlant::setWork(const Work& work)
         return false;
     }
     cnote << "New Work assigned: Height: "
-          << work.height << "Target:"
+          << work.nHeight << "Target:"
           << work.hashTarget.ToString()
           << "PrevHash:" << work.hashPrevBlock.ToString();
     work_ = work;

@@ -375,7 +375,7 @@ void OpenCLMiner::trun()
                 //cnote << "Valid work.";
             }
             if ( current_work != work ) {
-                cllog << "Bits:" << work.bitsNum << " " << work.nBits;
+                cllog << "Bits:" << " " << work.nBits;
                 auto localSwitchStart = std::chrono::high_resolution_clock::now();
 
                 if (!dagLoaded_) {

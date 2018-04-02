@@ -49,25 +49,18 @@ struct Work : public Block
 
     void reset()
     {
-        height = 0;
         SetNull();
     }
 
     bool isValid() const
     {
-        return this->height > 0;
+        return this->nHeight > 0;
     }
 
     inline const std::string& getJobName() const
     {
         return m_jobName;
     }
-
-    uint32_t                height  = 0;
-    uint32_t                bitsNum = 0;
-    vuint32                 blockHeader;
-    //std::string             rawTransactionData;
-
 
     //!TODO keep only this part
     std::string             m_jobName;

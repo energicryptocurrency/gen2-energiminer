@@ -9,7 +9,9 @@
 #include "energiminer/primitives/transaction.h"
 #include "energiminer/common/utilstrencodings.h"
 #include "energiminer/common/serialize.h"
+#include "energiminer/common/merkle.h"
 #include "uint256.h"
+
 
 namespace energi {
 
