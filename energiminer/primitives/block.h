@@ -120,6 +120,7 @@ struct Block : public BlockHeader
         bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();
         auto const superblock_proposals = gbt["superblock"];
         txoutBackbone = outTransaction(gbt["backbone"]);
+        coinbaseTransaction.vout.push_back(txoutBackbone);
         if (masternode_payments_started) {
             txoutMasternode = outTransaction(gbt["masternode"]);
             coinbaseTransaction.vout.push_back(txoutBackbone);
@@ -133,7 +134,7 @@ struct Block : public BlockHeader
         for (const auto& tx : voutSuperblock) {
             coinbaseTransaction.vout.push_back(tx);
         }
-
+        vtx.push_back(coinbaseTransaction);
         auto transactions = gbt["transactions"];
         for (const auto& txn : transactions) {
             CTransaction trans;
