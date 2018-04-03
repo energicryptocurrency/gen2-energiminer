@@ -65,6 +65,15 @@ struct Work : public Block
 
     void incrementExtraNonce(unsigned int& nExtraNonce);
 
+    ADD_SERIALIZE_METHODS
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        READWRITE(*(Block*)this);
+    }
+
+
     //!TODO keep only this part
     std::string             m_jobName;
     arith_uint256           hashTarget;
