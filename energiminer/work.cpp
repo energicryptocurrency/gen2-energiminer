@@ -31,7 +31,7 @@ void Work::incrementExtraNonce(unsigned int& nExtraNonce)
     ++nExtraNonce;
     CMutableTransaction txCoinbase(this->vtx[0]);
     //! TODO investigte crash
-    //txCoinbase.vin[0].scriptSig = (CScript() << this->nHeight << CScriptNum(nExtraNonce)) + COINBASE_FLAGS;
+    txCoinbase.vin[0].scriptSig = (CScript() << this->nHeight << CScriptNum(nExtraNonce)) + COINBASE_FLAGS;
 
    this->vtx[0] = txCoinbase;
    this->hashMerkleRoot = BlockMerkleRoot(*this);

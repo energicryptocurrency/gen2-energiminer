@@ -103,6 +103,7 @@ struct Block : public BlockHeader
     {
         //! first transaction
         CTransaction coinbaseTransaction;
+        coinbaseTransaction.vin.push_back(CTxIn());
         auto coinbaseValue = gbt["coinbasevalue"].asInt64();
         CKeyID keyID;
         if (!CBitcoinAddress(coinbaseAddress).GetKeyID(keyID)) {
