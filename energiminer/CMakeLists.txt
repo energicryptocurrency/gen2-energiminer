@@ -37,7 +37,6 @@ set(SOURCES
   primitives/amount.cpp
   common/serialize.h
   common/common.h
-  common/common.cpp
   common/Log.h
   common/Log.cpp
   common/Terminal.h
@@ -50,7 +49,6 @@ set(SOURCES
   egihash/keccak-tiny.h
   egihash/keccak-tiny.c
   egihash/secure_memzero.h
-  sha2.c
 )
 
 
