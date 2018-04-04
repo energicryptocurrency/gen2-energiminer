@@ -110,18 +110,12 @@ struct Block : public BlockHeader
         if (!CBitcoinAddress(coinbaseAddress).GetKeyID(keyID)) {
             throw WorkException("Could not get KeyID for address");
         }
-        coinbaseTransaction.vout.push_back(CTxOut(coinbaseValue, GetScriptForDestination(keyID)));
-        vtx.push_back(coinbaseTransaction);
-        vtx.back().UpdateHash();
         //! end coinbase transaction
 
         //!Backbone transaction
-        CTransaction backboneTransaction;
-        backboneTransaction.vin.push_back(CTxIn());
         txoutBackbone = outTransaction(gbt["backbone"]);
-        backboneTransaction.vout.push_back(txoutBackbone);
-        vtx.push_back(backboneTransaction);
-        vtx.back().UpdateHash();
+        coinbaseTransaction.vout.push_back(txoutBackbone);
+        coinbaseTransaction.vout.push_back(CTxOut(coinbaseValue - txoutBackbone.nValue, GetScriptForDestination(keyID)));
         //! end Backbone transaction
 
         ////! masternode payment
@@ -129,12 +123,8 @@ struct Block : public BlockHeader
         bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
         //bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool(); // not used currently
         if (masternode_payments_started) {
-            CTransaction masternodeTransaction;
-            masternodeTransaction.vin.push_back(CTxIn());
             txoutMasternode = outTransaction(gbt["masternode"]);
-            masternodeTransaction.vout.push_back(txoutMasternode);
-            vtx.push_back(masternodeTransaction);
-            vtx.back().UpdateHash();
+            coinbaseTransaction.vout.push_back(txoutMasternode);
         }
         //! end masternode transaction
 
@@ -144,15 +134,15 @@ struct Block : public BlockHeader
         if (superblocks_enabled) {
             const auto superblock = gbt["superblock"];
             if (superblock.size()  > 0) {
-                CTransaction superblockTransaction;
                 for (const auto& proposal_payee : superblock) {
                     auto trans = outTransaction(proposal_payee);
                     voutSuperblock.push_back(trans);
-                    superblockTransaction.vout.push_back(trans);
+                    coinbaseTransaction.vout.push_back(trans);
                 }
-                vtx.push_back(superblockTransaction);
             }
         }
+        vtx.push_back(coinbaseTransaction);
+        vtx[0].UpdateHash();
 
         auto transactions = gbt["transactions"];
         for (const auto& txn : transactions) {
