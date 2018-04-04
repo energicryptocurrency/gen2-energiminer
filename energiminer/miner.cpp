@@ -14,7 +14,7 @@
 
 using namespace energi;
 
-bool Miner::InitEgiHashDag()
+bool Miner::LoadNrgHashDAG()
 {
     // initialize the DAG
     InitDAG([](::std::size_t step, ::std::size_t max, int phase) -> bool {
@@ -66,7 +66,7 @@ uint256 Miner::GetPOWHash(const BlockHeader& header)
 
     egihash::result_t ret;
     const auto& dag = ActiveDAG();
-    if (dag && ((egihash::constants::EPOCH_LENGTH) == dag->epoch())) {
+    if (dag && (header.nHeight / egihash::constants::EPOCH_LENGTH) == dag->epoch()) {
         ret = egihash::full::hash(*dag, headerHash, header.nNonce);
     } else {
         ret = egihash::light::hash(egihash::cache_t(header.nHeight), headerHash, header.nNonce);
@@ -136,10 +136,6 @@ void Miner::InitDAG(egihash::progress_callback_type callback)
             ActiveDAG(move(new_dag));
             printf("\nDAG file \"%s\" loaded successfully. \n\n\n", epoch_file.string().c_str());
 
-            egihash::dag_t::data_type data = dag->data();
-            for ( int i = 0; i < 16; ++i ) {
-                std::cout << "NODE " << std::dec << i << std::hex << " " << data[0][i].hword << std::endl;
-            }
             return;
         } catch (hash_exception const & e) {
             printf("\nDAG file \"%s\" not loaded, will be generated instead. Message: %s\n", epoch_file.string().c_str(), e.what());
