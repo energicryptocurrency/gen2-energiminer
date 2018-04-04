@@ -218,6 +218,8 @@ class CTransaction
 private:
     /** Memory only. */
     const uint256 hash;
+
+public:
     void UpdateHash() const;
 
 public:

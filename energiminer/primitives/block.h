@@ -101,7 +101,8 @@ struct Block : public BlockHeader
 
     void fillTransactions(const Json::Value& gbt, const std::string& coinbaseAddress)
     {
-        //! first transaction
+        //! first transaction for coinbase output
+        //! CoinbaseTransaction
         CTransaction coinbaseTransaction;
         coinbaseTransaction.vin.push_back(CTxIn());
         auto coinbaseValue = gbt["coinbasevalue"].asInt64();
@@ -109,33 +110,50 @@ struct Block : public BlockHeader
         if (!CBitcoinAddress(coinbaseAddress).GetKeyID(keyID)) {
             throw WorkException("Could not get KeyID for address");
         }
-        CScript script = GetScriptForDestination(keyID);
-        CTxOut out = CTxOut(coinbaseValue, script);
-        coinbaseTransaction.vout.push_back(out);
+        coinbaseTransaction.vout.push_back(CTxOut(coinbaseValue, GetScriptForDestination(keyID)));
+        vtx.push_back(coinbaseTransaction);
+        vtx.back().UpdateHash();
+        //! end coinbase transaction
 
-        // masternode payment
+        //!Backbone transaction
+        CTransaction backboneTransaction;
+        backboneTransaction.vin.push_back(CTxIn());
+        txoutBackbone = outTransaction(gbt["backbone"]);
+        backboneTransaction.vout.push_back(txoutBackbone);
+        vtx.push_back(backboneTransaction);
+        vtx.back().UpdateHash();
+        //! end Backbone transaction
+
+        ////! masternode payment
+        ////! masternaode transaction
         bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
         //bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool(); // not used currently
-
-        // superblock payments
-        bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();
-        auto const superblock_proposals = gbt["superblock"];
-        txoutBackbone = outTransaction(gbt["backbone"]);
-        coinbaseTransaction.vout.push_back(txoutBackbone);
         if (masternode_payments_started) {
+            CTransaction masternodeTransaction;
+            masternodeTransaction.vin.push_back(CTxIn());
             txoutMasternode = outTransaction(gbt["masternode"]);
-            coinbaseTransaction.vout.push_back(txoutBackbone);
+            masternodeTransaction.vout.push_back(txoutMasternode);
+            vtx.push_back(masternodeTransaction);
+            vtx.back().UpdateHash();
         }
+        //! end masternode transaction
+
+        //! superblock payments
+        //! superblock transactions
+        bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();
         if (superblocks_enabled) {
             const auto superblock = gbt["superblock"];
-            for (const auto& proposal_payee : superblock) {
-                voutSuperblock.push_back(outTransaction(proposal_payee));
+            if (superblock.size()  > 0) {
+                CTransaction superblockTransaction;
+                for (const auto& proposal_payee : superblock) {
+                    auto trans = outTransaction(proposal_payee);
+                    voutSuperblock.push_back(trans);
+                    superblockTransaction.vout.push_back(trans);
+                }
+                vtx.push_back(superblockTransaction);
             }
         }
-        for (const auto& tx : voutSuperblock) {
-            coinbaseTransaction.vout.push_back(tx);
-        }
-        vtx.push_back(coinbaseTransaction);
+
         auto transactions = gbt["transactions"];
         for (const auto& txn : transactions) {
             CTransaction trans;
