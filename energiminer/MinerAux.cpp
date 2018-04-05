@@ -216,7 +216,7 @@ void MinerCLI::doSimulation(int difficulty)
 
     SolutionFoundCallback solution_found_cb = [&solution_found, &mutex_solution, &solution](const energi::Solution& found_solution)
     {
-        MutexLGuard l(mutex_solution);
+        std::lock_guard<std::mutex> lock(mutex_solution);
         solution = found_solution;
         solution_found = true;
     };
@@ -240,7 +240,7 @@ void MinerCLI::doSimulation(int difficulty)
             cnote << "Mining on difficulty " << difficulty << " " << mp;
         }
 
-        MutexLGuard l(mutex_solution);
+        std::lock_guard<std::mutex> lock(mutex_solution);
         std::cout << "Solution found!!" << std::endl;
     }
 
@@ -263,7 +263,7 @@ void MinerCLI::doSimulation(int difficulty)
             cnote << "Mining on difficulty " << difficulty << " " << mp;
         }
 
-        MutexLGuard l(mutex_solution);
+        std::lock_guard<std::mutex> lock(mutex_solution);
         std::cout << "Solution found!!" << std::endl;
     }
 }
@@ -279,7 +279,7 @@ void MinerCLI::doMiner()
     // its safe to not lock the access
     SolutionFoundCallback solution_found_cb = [&solution_found, &mutex_solution, &solution](const energi::Solution& found_solution)
     {
-        MutexLGuard l(mutex_solution);
+        std::lock_guard<std::mutex> lock(mutex_solution);
         solution = found_solution;
         solution_found = true;
     };
@@ -341,7 +341,7 @@ void MinerCLI::doMiner()
             // 7. Since solution was found, before submit stop all miners
             plant.stopAllWork();
             // 8. Now submit
-            MutexLGuard l(mutex_solution);
+            std::lock_guard<std::mutex> lock(mutex_solution);
             client->submit(solution);
             current_work.reset();
             solution_found = false;

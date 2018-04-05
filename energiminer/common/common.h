@@ -112,9 +112,6 @@ inline std::string to_string(EnumMinerEngine minerEngine)
 
 namespace energi {
 
-using MutexLGuard = std::lock_guard<std::mutex>;
-using MutexRLGuard = std::lock_guard<std::recursive_mutex>;
-
 inline void setBuffer(const uint8_t* ptr, uint32_t value)
 {
     *reinterpret_cast<uint32_t*>(const_cast<uint8_t*>(ptr)) = value;

@@ -64,7 +64,7 @@ public:
         :solution_found_cb_(solution_found_cb)
     {
         std::random_device engine;
-        nonce_scumbler_ = std::uniform_int_distribution<uint64_t>()(engine);
+        m_nonceScumbler = std::uniform_int_distribution<uint64_t>()(engine);
     }
     ~MinePlant()
     {
@@ -76,40 +76,43 @@ public:
 
     uint64_t get_nonce_scumbler() const override
     {
-        return nonce_scumbler_;
+        return m_nonceScumbler;
     }
 
-    inline bool isStarted(){ return started_; }
+    inline bool isStarted(){ return m_started; }
     //bool solutionFound() const override;
 
     bool setWork(const Work& work);
     void stopAllWork();
     void submit(const Solution &sol) const override;
-    WorkingProgress const& miningProgress() const;
+    const WorkingProgress& miningProgress() const;
 
 private:
     void collectHashRate();
 
-    bool                    started_   = false;
-    mutable std::atomic<bool>       solutionFound_;
-    SolutionFoundCallback   solution_found_cb_;
-    Miners                  miners_;
-    Work                    work_;
-    mutable std::mutex      mutex_work_;
+private:
+    bool      m_started   = false;
+    bool      m_continueHashTimer = true;
+    int       m_hashrateSmoothInterval = 10000;
+    uint64_t  m_nonceScumbler;
 
-    std::chrono::steady_clock::time_point lastStart_;
-    std::vector<WorkingProgress>          lastProgresses_;
-    SolutionStats                         solutionStats_;
-    int                                   hashrateSmoothInterval_ = 10000;
-    std::unique_ptr<std::thread>          tHashrateTimer_;
-    bool                                  continueHashTimer_ = true;
+    mutable std::atomic<bool>  m_solutionFound;
+    SolutionFoundCallback      solution_found_cb_;
+    Miners                     m_miners;
+    Work                       m_work;
 
-    mutable std::mutex                    mutex_progress_;
-    mutable WorkingProgress               progress_;
-    uint64_t                              nonce_scumbler_;
+    mutable std::mutex      m_mutexWork;
+    mutable std::mutex      m_mutexProgress;
+
+    std::chrono::steady_clock::time_point m_lastStart;
+    SolutionStats                         m_solutionStats;
+    std::unique_ptr<std::thread>          m_tHashrateTimer;
+
+    mutable WorkingProgress      m_progress;
+    std::vector<WorkingProgress> m_lastProgresses;
 
 };
 
-} /* namespace energi */
+} //! namespace energi
 
 #endif /* ENERGIMINER_MINEPLANT_H_ */

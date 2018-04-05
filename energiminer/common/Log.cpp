@@ -64,7 +64,7 @@ namespace energi
     m_autospacing(_autospacing),
     m_verbosity(_v)
   {
-    MutexLGuard l(x_logOverride);
+    std::lock_guard<std::mutex> lock(x_logOverride);
     auto it = s_logOverride.find(_info);
     if ((it != s_logOverride.end() && it->second) || (it == s_logOverride.end() && (int)_v <= g_logVerbosity))
     {
