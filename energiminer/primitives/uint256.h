@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "energiminer/egihash/egihash.h"
+
 /**
  * @class base_blob
  **/
@@ -103,6 +105,17 @@ public:
         return sizeof(data);
     }
     /// }
+    template<typename Stream>
+    void Serialize(Stream& s, int/* nType*/, int/* nVersion*/) const
+    {
+        s.write((char*)data, sizeof(data));
+    }
+
+    template<typename Stream>
+    void Unserialize(Stream& s, int/* nType*/, int/* nVersion*/)
+    {
+        s.read((char*)data, sizeof(data));
+    }
 };
 
 /**
@@ -149,9 +162,37 @@ public:
     {
     }
 
+    explicit uint256(const egihash::h256_t & h)
+        : base_blob<256>()
+    {
+        memcpy(data, h.b, h.hash_size);
+    }
+
     /**
      * @brief A more secure, salted hash function.
      * @note This hash is not stable between little and big endian.
      */
     uint64_t GetHash(const uint256& salt) const;
 };
+
+/* uint256 from const char *.
+ * This is a separate function because the constructor uint256(const char*) can result
+ * in dangerously catching uint256(0).
+ */
+inline uint256 uint256S(const char *str)
+{
+    uint256 rv;
+    rv.SetHex(str);
+    return rv;
+}
+
+/* uint256 from std::string.
+ * This is a separate function because the constructor uint256(const std::string &str) can result
+ * in dangerously catching uint256(0) via std::string(const char*).
+ */
+inline uint256 uint256S(const std::string& str)
+{
+    uint256 rv;
+    rv.SetHex(str);
+    return rv;
+}

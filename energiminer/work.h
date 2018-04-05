@@ -8,14 +8,17 @@
 #ifndef ENERGIMINER_WORK_H_
 #define ENERGIMINER_WORK_H_
 
-#include "energiminer/common.h"
+#include "energiminer/common/common.h"
+#include "energiminer/common/merkle.h"
+#include "energiminer/primitives/uint256.h"
+#include "energiminer/primitives/arith_uint256.h"
+#include "energiminer/primitives/block.h"
 
 #include <limits>
 #include <cstdint>
 #include <cstring>
 #include <sstream>
 #include <string>
-#include <json/json.h>
 
 
 namespace energi
@@ -24,7 +27,7 @@ namespace energi
 // After parsing it builds the block to be mined and passes to miners
 // after finding POW, creates solution
 // Block -> block header + raw transaction data ( txncount + raw transactions )
-struct Work
+struct Work : public Block
 {
     Work()
     {}
@@ -37,7 +40,7 @@ struct Work
 
     bool operator==(const Work& other) const
     {
-        return previousblockhash == other.previousblockhash && this->height == other.height;
+        return (hashPrevBlock == other.hashPrevBlock) && (nHeight == other.nHeight);
     }
 
     bool operator!=(const Work& other) const
@@ -47,38 +50,41 @@ struct Work
 
     void reset()
     {
-        height = 0;
-        previousblockhash = "";
+        SetNull();
     }
 
     bool isValid() const
     {
-        return this->height > 0;
+        return this->nHeight > 0;
     }
 
     inline const std::string& getJobName() const
     {
-        return jobName;
+        return m_jobName;
     }
 
-    uint32_t                height  = 0;
-    std::string             bits;
-    uint32_t                bitsNum = 0;
-    vuint32                 blockHeader;
-    std::string             targetStr;
-    std::string             previousblockhash;
-    target                  targetBin;
-    std::string             rawTransactionData;
-    std::string             jobName;
+    void incrementExtraNonce(unsigned int& nExtraNonce);
+
+    ADD_SERIALIZE_METHODS
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        READWRITE(*(Block*)this);
+    }
+
+
+    //!TODO keep only this part
+    std::string             m_jobName;
+    arith_uint256           hashTarget;
 
     std::string ToString() const
     {
         std::stringstream ss;
-        ss << "Height: " << height << " "
-            << "Bits: " << bits << " "
-            << "Target: " << targetStr << " "
-            << "PrevBlockHash: " << previousblockhash << " ";
-
+        ss << "Height: " << this->nNonce << " "
+           << "Bits: "   << this->nBits << " "
+           << "Target: " << this->hashTarget.ToString()
+           << "PrevBlockHash: " << this->hashPrevBlock.ToString();
         return ss.str();
     }
 };

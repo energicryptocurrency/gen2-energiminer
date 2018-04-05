@@ -10,7 +10,8 @@
 #include <stdlib.h>
 
 #if (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) || defined(__APPLE__)
-    #include "endian.h"
+    #include "energiminer/common/portable_endian.h"
+//#include "endian.h"
 #endif
 
 /**
@@ -32,55 +33,5 @@ public:
     void Finalize(unsigned char hash[OUTPUT_SIZE]);
     CSHA256& Reset();
 };
-
-uint16_t inline ReadLE16(const unsigned char* ptr)
-{
-    return le16toh(*((uint16_t*)ptr));
-}
-
-uint32_t inline ReadLE32(const unsigned char* ptr)
-{
-    return le32toh(*((uint32_t*)ptr));
-}
-
-uint64_t inline ReadLE64(const unsigned char* ptr)
-{
-    return le64toh(*((uint64_t*)ptr));
-}
-
-void inline WriteLE16(unsigned char* ptr, uint16_t x)
-{
-    *((uint16_t*)ptr) = htole16(x);
-}
-
-void inline WriteLE32(unsigned char* ptr, uint32_t x)
-{
-    *((uint32_t*)ptr) = htole32(x);
-}
-
-void inline WriteLE64(unsigned char* ptr, uint64_t x)
-{
-    *((uint64_t*)ptr) = htole64(x);
-}
-
-uint32_t inline ReadBE32(const unsigned char* ptr)
-{
-    return be32toh(*((uint32_t*)ptr));
-}
-
-uint64_t inline ReadBE64(const unsigned char* ptr)
-{
-    return be64toh(*((uint64_t*)ptr));
-}
-
-void inline WriteBE32(unsigned char* ptr, uint32_t x)
-{
-    *((uint32_t*)ptr) = htobe32(x);
-}
-
-void inline WriteBE64(unsigned char* ptr, uint64_t x)
-{
-    *((uint64_t*)ptr) = htobe64(x);
-}
 
 #endif // BITCOIN_CRYPTO_SHA256_H

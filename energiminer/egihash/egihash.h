@@ -438,6 +438,14 @@ namespace egihash
 		*/
 		h256_t seedhash() const;
 
+		/** \brief Unload cache.
+		*
+		*	To actually free a cache from memory, call this function on a cache.
+		*	The cache will then be released from the internal cache.
+		*	Once all references to the cache for this epoch are destroyed, it will be freed.
+		*/
+		void unload() const;
+
 		/** \brief Get the size of the cache data in bytes.
 		*
 		*	\param block_number is the block number for which cache size to compute.
@@ -451,6 +459,19 @@ namespace egihash
 		*	\return An h256_t keccak-256 seed hash for the given block number.
 		*/
 		static h256_t get_seedhash(uint64_t const block_number);
+
+		/** \brief Determine whether the cache_t for this epoch is already loaded
+		*
+		*	\param epoch is the epoch number for which to determine if a cache_t is already loaded.
+		*	\return bool true if we have this cache_t epoch loaded, false otherwise.
+		*/
+		static bool is_loaded(uint64_t const epoch);
+
+		/** \brief Get the epoch numbers for which we already have a cache_t loaded.
+		*
+		*	\return ::std::vector containing epoch numbers for cache_t's that are already loaded.
+		*/
+		static ::std::vector<uint64_t> get_loaded();
 
 		/** \brief cache_t internal implementation.
 		*/
@@ -584,6 +605,19 @@ namespace egihash
 		*	\return size_type representing the size of the DAG data in bytes.
 		*/
 		static size_type get_full_size(uint64_t const block_number) noexcept;
+
+		/** \brief Determine whether the DAG for this epoch is already loaded
+		*
+		*	\param epoch is the epoch number for which to determine if a DAG is already loaded.
+		*	\return bool true if we have this DAG epoch loaded, false otherwise.
+		*/
+		static bool is_loaded(uint64_t const epoch);
+
+		/** \brief Get the epoch numbers for which we already have a DAG loaded.
+		*
+		*	\return ::std::vector containing epoch numbers for DAGs that are already loaded.
+		*/
+		static ::std::vector<uint64_t> get_loaded();
 
 		/** \brief dag_t private implementation.
 		*/

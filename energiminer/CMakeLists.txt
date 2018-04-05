@@ -25,13 +25,30 @@ set(SOURCES
   primitives/uint256.h
   primitives/uint256.cpp
   primitives/byteswap.h
-  primitives/endian.h
+  primitives/block.h
+  primitives/arith_uint256.h
+  primitives/arith_uint256.cpp
+  primitives/script.h
+  primitives/script.cpp
+  primitives/prevector.h
+  primitives/transaction.h
+  primitives/transaction.cpp
+  primitives/amount.h
+  primitives/amount.cpp
+  common/serialize.h
+  common/common.h
+  common/Log.h
+  common/Log.cpp
+  common/Terminal.h
+  common/utilstrencodings.h
+  common/utilstrencodings.cpp
+  common/merkle.h
+  common/merkle.cpp
   egihash/egihash.cpp
   egihash/egihash.h
   egihash/keccak-tiny.h
   egihash/keccak-tiny.c
   egihash/secure_memzero.h
-  sha2.c
 )
 
 

@@ -36,7 +36,7 @@ public:
     {
         // First time init egi hash dag
         // We got to do for every epoch change below
-        InitEgiHashDag();
+        LoadNrgHashDAG();
     }
 
     Miner(Miner && m) = default;
@@ -73,11 +73,10 @@ public:
 
     //! static interfaces
 public:
-    static bool InitEgiHashDag();
+    static bool LoadNrgHashDAG();
     static boost::filesystem::path GetDataDir();
-    static egihash::h256_t GetHeaderHash(const void *input);
     static void InitDAG(egihash::progress_callback_type callback);
-    static egihash::result_t GetPOWHash(uint32_t height, uint32_t nonce, const void *input);
+    static uint256 GetPOWHash(const BlockHeader& header);
 
     static std::unique_ptr<egihash::dag_t> const & ActiveDAG(std::unique_ptr<egihash::dag_t> next_dag  = std::unique_ptr<egihash::dag_t>());
 

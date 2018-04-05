@@ -1,4 +1,5 @@
 #include <assert.h>
+#include "energiminer/common/utilstrencodings.h"
 
 #include "uint256.h"
 
@@ -46,29 +47,6 @@ static void inline HashFinal(uint32_t& a, uint32_t& b, uint32_t& c)
     c -= ((b << 24) | (b >> 8));
 }
 
-const signed char p_util_hexdigit[256] =
-{ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  0,1,2,3,4,5,6,7,8,9,-1,-1,-1,-1,-1,-1,
-  -1,0xa,0xb,0xc,0xd,0xe,0xf,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,0xa,0xb,0xc,0xd,0xe,0xf,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, };
-
-} //! unnamed namespace
-
-signed char HexDigit(char c)
-{
-    return p_util_hexdigit[(unsigned char)c];
 }
 
 template <unsigned int BITS>
@@ -151,3 +129,17 @@ uint64_t uint256::GetHash(const uint256& salt) const
 
     return ((((uint64_t)b) << 32) | c);
 }
+
+// Explicit instantiations for base_blob<160>
+template base_blob<160>::base_blob(const std::vector<unsigned char>&);
+template std::string base_blob<160>::GetHex() const;
+template std::string base_blob<160>::ToString() const;
+template void base_blob<160>::SetHex(const char*);
+template void base_blob<160>::SetHex(const std::string&);
+
+// Explicit instantiations for base_blob<256>
+template base_blob<256>::base_blob(const std::vector<unsigned char>&);
+template std::string base_blob<256>::GetHex() const;
+template std::string base_blob<256>::ToString() const;
+template void base_blob<256>::SetHex(const char*);
+template void base_blob<256>::SetHex(const std::string&);

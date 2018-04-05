@@ -14,7 +14,7 @@
 
 using namespace energi;
 
-bool Miner::InitEgiHashDag()
+bool Miner::LoadNrgHashDAG()
 {
     // initialize the DAG
     InitDAG([](::std::size_t step, ::std::size_t max, int phase) -> bool {
@@ -59,32 +59,20 @@ bool Miner::InitEgiHashDag()
     return true;
 }
 
-egihash::result_t Miner::GetPOWHash(uint32_t height, uint32_t nonce, const void *input)
+uint256 Miner::GetPOWHash(const BlockHeader& header)
 {
-    energi::CBlockHeaderTruncatedLE truncatedBlockHeader(input);
+    energi::CBlockHeaderTruncatedLE truncatedBlockHeader(header);
     egihash::h256_t headerHash(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
+
     egihash::result_t ret;
-    // if we have a DAG loaded, use it
-    auto const & dag = ActiveDAG();
-
-    if (dag && ((height / egihash::constants::EPOCH_LENGTH) == dag->epoch())) {
-        ret = egihash::full::hash(*dag, headerHash, nonce);
+    const auto& dag = ActiveDAG();
+    if (dag && (header.nHeight / egihash::constants::EPOCH_LENGTH) == dag->epoch()) {
+        ret = egihash::full::hash(*dag, headerHash, header.nNonce);
     } else {
-        // otherwise all we can do is generate a light hash
-        ret = egihash::light::hash(egihash::cache_t(height), headerHash, nonce);
+        ret = egihash::light::hash(egihash::cache_t(header.nHeight), headerHash, header.nNonce);
     }
-
-    auto hashMix = ret.mixhash;
-    if (std::memcmp(hashMix.b, egihash::empty_h256.b, egihash::empty_h256.hash_size) == 0) {
-        throw WorkException("Can not produce a valid mixhash");
-    }
-    return ret;
-}
-
-egihash::h256_t Miner::GetHeaderHash(const void *input)
-{
-    energi::CBlockHeaderTruncatedLE truncatedBlockHeader(input);
-    return egihash::h256_t(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
+    const_cast<BlockHeader&>(header).hashMix = uint256(ret.mixhash);
+    return uint256(ret.value);
 }
 
 std::unique_ptr<egihash::dag_t> const & Miner::ActiveDAG(std::unique_ptr<egihash::dag_t> next_dag)
@@ -148,10 +136,6 @@ void Miner::InitDAG(egihash::progress_callback_type callback)
             ActiveDAG(move(new_dag));
             printf("\nDAG file \"%s\" loaded successfully. \n\n\n", epoch_file.string().c_str());
 
-            egihash::dag_t::data_type data = dag->data();
-            for ( int i = 0; i < 16; ++i ) {
-                std::cout << "NODE " << std::dec << i << std::hex << " " << data[0][i].hword << std::endl;
-            }
             return;
         } catch (hash_exception const & e) {
             printf("\nDAG file \"%s\" not loaded, will be generated instead. Message: %s\n", epoch_file.string().c_str(), e.what());

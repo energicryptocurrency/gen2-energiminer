@@ -10,7 +10,7 @@
 #include "../libegihash-cl/CL/cl2.hpp"
 #include "energiminer/egihash/egihash.h"
 #include "CLMiner_kernel.h"
-#include "energiminer/Log.h"
+#include "energiminer/common/Log.h"
 #include "energiminer/CpuMiner.h"
 
 #include <vector>
@@ -362,6 +362,7 @@ void OpenCLMiner::trun()
     uint32_t startNonce = 0;
     Work current_work; // Here we need current work as to initialize gpu
     try {
+        unsigned int nExtraNonce = 0;
         while (true) {
             Work work = this->work(); // This work is a copy of last assigned work the worker was provided by plant
             if ( !work.isValid() ) {
@@ -374,28 +375,23 @@ void OpenCLMiner::trun()
             } else {
                 //cnote << "Valid work.";
             }
-            uint32_t _ALIGN(128) endiandata[29];
-            uint32_t *pdata     = work.blockHeader.data();
-            // we dont use mixHash part to calculate hash but fill it later (below)
-            for (int k=0; k < 20; k++) {
-                be32enc(&endiandata[k], pdata[k]);
-            }
+            work.incrementExtraNonce(nExtraNonce);
             if ( current_work != work ) {
-                cllog << "Bits:" << work.bitsNum << " " << work.bits;
+                cllog << "Bits:" << " " << work.nBits;
                 auto localSwitchStart = std::chrono::high_resolution_clock::now();
 
                 if (!dagLoaded_) {
                     init_dag();
                     dagLoaded_ = true;
                 }
-                energi::CBlockHeaderTruncatedLE truncatedBlockHeader(endiandata);
+                energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
                 egihash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
                 // Update header constant buffer.
                 cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_FALSE, 0, sizeof(hash_header), hash_header.b);
                 cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
-                cllog << "Target Buffer ..." << sizeof(work.targetBin);
-                cl->queue_.enqueueWriteBuffer(cl->bufferTarget_, CL_FALSE, 0, sizeof(work.targetBin), work.targetBin.data());
+                cllog << "Target Buffer ..." << sizeof(work.hashTarget);
+                cl->queue_.enqueueWriteBuffer(cl->bufferTarget_, CL_FALSE, 0, sizeof(work.hashTarget), work.hashTarget.ToString().c_str());
                 cllog << "Loaded";
 
                 cl->kernelSearch_.setArg(0, cl->searchBuffer_);  // Supply output buffer to kernel.
@@ -428,16 +424,10 @@ void OpenCLMiner::trun()
             // Report results while the kernel is running.
             // It takes some time because ethash must be re-evaluated on CPU.
             if (nonce != 0) {
-                auto hash_res = Miner::GetPOWHash(work.height, nonce, endiandata);
-                uint32_t arr[8] = {0};
-                memcpy(arr, hash_res.mixhash.b, sizeof(hash_res.mixhash));
-                for (int i = 0; i < 8; i++) {
-                    pdata[i + 20] = be32dec(&arr[i]);
-                }
-                auto nonceForHash = be32dec(&nonce);
-                pdata[28] = nonceForHash;
+                work.nNonce = nonce;
+                GetPOWHash(work);
                 addHashCount(globalWorkSize_);
-                Solution solution(work, nonce, hash_res.mixhash);
+                Solution solution(work, nonce, work.hashMix);
                 plant_.submit(solution);
             }
             current_work = work;

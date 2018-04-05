@@ -42,3 +42,7 @@ struct ZeroAfterFreeAllocator : public std::allocator<T>
         std::allocator<T>::deallocate(p, n);
     }
 };
+
+
+// Byte-vector that clears its contents before deletion.
+typedef std::vector<char, ZeroAfterFreeAllocator<char> > CSerializeData;

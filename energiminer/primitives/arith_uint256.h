@@ -226,13 +226,11 @@ public:
     friend inline bool operator==(const base_uint& a, uint64_t b) { return a.EqualTo(b); }
     friend inline bool operator!=(const base_uint& a, uint64_t b) { return !a.EqualTo(b); }
 
-/*    std::string GetHex() const;*/
-/*
+    std::string GetHex() const;
     void SetHex(const char* psz);
     void SetHex(const std::string& str);
-*/
-    /*std::string ToString() const;
-*/
+    std::string ToString() const;
+
     unsigned int size() const
     {
         return sizeof(pn);

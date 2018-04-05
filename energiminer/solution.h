@@ -12,6 +12,7 @@
 #include <iostream>
 
 #include "energiminer/egihash/egihash.h"
+#include "energiminer/primitives/uint256.h"
 #include "energiminer/work.h"
 
 namespace utility {
@@ -37,7 +38,7 @@ public:
     Solution()
     {}
 
-    Solution(Work work, uint32_t nonce, const egihash::h256_t& mixhash)
+    Solution(Work work, uint32_t nonce, const uint256& mixhash)
         : m_nonce(nonce)
         , m_mixhash(mixhash)
         , m_work(work)
@@ -59,7 +60,7 @@ public:
 
 public:
     uint32_t m_nonce;
-    egihash::h256_t m_mixhash;
+    uint256 m_mixhash;
 
 private:
     Work m_work;

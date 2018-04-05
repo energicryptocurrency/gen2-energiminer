@@ -205,7 +205,7 @@ namespace
 			}
 		}
 
- 		inline deserialized_hash_t deserialize() const
+		inline deserialized_hash_t deserialize() const
 		{
 			return data;
 		}
@@ -559,6 +559,11 @@ namespace egihash
 	// ensures single threaded construction
 	cache_t::impl_t::cache_cache_map & cache_cache = get_cache_cache();
 
+	void cache_t::unload() const
+	{
+		get_cache_cache().erase(epoch());
+	}
+
 	::std::shared_ptr<cache_t::impl_t> get_cache_from_cache(uint64_t const block_number, progress_callback_type callback)
 	{
 		using namespace std;
@@ -641,6 +646,28 @@ namespace egihash
 	h256_t cache_t::get_seedhash(uint64_t const block_number)
 	{
 		return impl_t::get_seedhash(block_number);
+	}
+
+	bool cache_t::is_loaded(uint64_t const epoch)
+	{
+		using namespace std;
+		lock_guard<recursive_mutex> lock(get_cache_cache_mutex());
+		auto const & cache_cache = get_cache_cache();
+		return (cache_cache.find(epoch) != cache_cache.end());
+	}
+
+	::std::vector<uint64_t> cache_t::get_loaded()
+	{
+		using namespace std;
+		lock_guard<recursive_mutex> lock(get_cache_cache_mutex());
+		auto const & cache_cache = get_cache_cache();
+		::std::vector<uint64_t> loaded_epochs;
+		loaded_epochs.reserve(cache_cache.size());
+		for (auto const & i : cache_cache)
+		{
+			loaded_epochs.push_back(i.first);
+		}
+		return loaded_epochs;
 	}
 
 	struct dag_t::impl_t
@@ -1009,11 +1036,34 @@ namespace egihash
 		{
 			throw hash_exception("Can not unload DAG - not loaded.");
 		}
+		get_cache().unload();
 	}
 
 	dag_t::size_type dag_t::get_full_size(uint64_t const block_number) noexcept
 	{
 		return impl_t::get_full_size(block_number);
+	}
+
+	bool dag_t::is_loaded(uint64_t const epoch)
+	{
+		using namespace std;
+		lock_guard<recursive_mutex> lock(get_dag_cache_mutex());
+		auto const & dag_cache = get_dag_cache();
+		return (dag_cache.find(epoch) != dag_cache.end());
+	}
+
+	::std::vector<uint64_t> dag_t::get_loaded()
+	{
+		using namespace std;
+		lock_guard<recursive_mutex> lock(get_dag_cache_mutex());
+		auto const & dag_cache = get_dag_cache();
+		::std::vector<uint64_t> loaded_epochs;
+		loaded_epochs.reserve(dag_cache.size());
+		for (auto const & i : dag_cache)
+		{
+			loaded_epochs.push_back(i.first);
+		}
+		return loaded_epochs;
 	}
 
 	// TODO: unify light & full implementation
