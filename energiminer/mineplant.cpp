@@ -185,5 +185,4 @@ WorkingProgress const& MinePlant::miningProgress() const
     return progress_;
 }
 
-}
-/* namespace energi */
+} //! namespace energi

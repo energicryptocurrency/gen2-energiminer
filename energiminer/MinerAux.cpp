@@ -344,6 +344,7 @@ void MinerCLI::doMiner()
             MutexLGuard l(mutex_solution);
             client->submit(solution);
             current_work.reset();
+            solution_found = false;
         } catch(WorkException &we) {
             if (max_retries_ == 0) {
                 cerr << "Work decode problem, will exit now" << endl;

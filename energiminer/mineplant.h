@@ -22,10 +22,11 @@
 #include <random>
 
 
-namespace energi
+namespace energi {
+
+class SolutionStats
 {
-  class SolutionStats {
-  public:
+public:
     void accepted() { accepts++;  }
     void rejected() { rejects++;  }
     void failed()   { failures++; }
@@ -41,24 +42,24 @@ namespace energi
     unsigned getFailures()      { return failures; }
     unsigned getAcceptedStales()  { return acceptedStales; }
     unsigned getRejectedStales()  { return rejectedStales; }
-  private:
+private:
     unsigned accepts  = 0;
     unsigned rejects  = 0;
     unsigned failures = 0;
 
     unsigned acceptedStales = 0;
     unsigned rejectedStales = 0;
-  };
+};
 
-  inline std::ostream& operator<<(std::ostream& os, SolutionStats s)
-  {
+inline std::ostream& operator<<(std::ostream& os, SolutionStats s)
+{
     return os << "[A" << s.getAccepts() << "+" << s.getAcceptedStales() << ":R" << s.getRejects() << "+" << s.getRejectedStales() << ":F" << s.getFailures() << "]";
-  }
+}
 
 
-  class MinePlant : public Plant
-  {
-  public:
+class MinePlant : public Plant
+{
+public:
     MinePlant(SolutionFoundCallback& solution_found_cb)
         :solution_found_cb_(solution_found_cb)
     {
@@ -67,7 +68,7 @@ namespace energi
     }
     ~MinePlant()
     {
-      stop();
+        stop();
     }
 
     bool start(const std::vector<EnumMinerEngine> &vMinerEngine);
@@ -86,7 +87,7 @@ namespace energi
     void submit(const Solution &sol) const override;
     WorkingProgress const& miningProgress() const;
 
-  private:
+private:
     void collectHashRate();
 
     bool                    started_   = false;
@@ -107,7 +108,7 @@ namespace energi
     mutable WorkingProgress               progress_;
     uint64_t                              nonce_scumbler_;
 
-  };
+};
 
 } /* namespace energi */
 

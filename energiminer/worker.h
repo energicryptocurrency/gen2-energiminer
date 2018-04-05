@@ -17,23 +17,23 @@
 #include "energiminer/common/common.h"
 #include "energiminer/work.h"
 
-namespace energi
+namespace energi {
+
+class Worker
 {
-  class Worker
-  {
-  public:
+public:
     enum class State : unsigned char
     {
-      Starting = 0,
-      Started = 1,
-      Stopping = 2,
-      Stopped = 3,
-      Killing = 4
+        Starting = 0,
+        Started = 1,
+        Stopping = 2,
+        Stopped = 3,
+        Killing = 4
     };
 
-  public:
+public:
     Worker(const std::string& name)
-    : name_(name)
+        : m_name(name)
     {}
 
     Worker& operator=(const Worker &) = default;
@@ -45,23 +45,24 @@ namespace energi
 
     bool shouldStop() const
     {
-      return state_ == State::Stopping || state_ == State::Stopped;
+        return m_state == State::Stopping || m_state == State::Stopped;
     }
 
     // Since work is assigned to the worked by the plant and Worker is doing the real
     // work in a thread, protect the data carefully.
     void setWork(const Work& work);
+
     Work work()
     {
-      MutexRLGuard l(mutex_work_);
-      return work_;
+        std::lock_guard<std::recursive_mutex> lock(m_mutex);
+        return m_work;
     }
 
     std::string name() const
     {
-      return name_;
+        return m_name;
     }
-  protected:
+protected:
 
     virtual void onSetWork(){}
     // run in a thread
@@ -70,15 +71,15 @@ namespace energi
 
     virtual void trun(){}
 
-  private:
+private:
 
-    std::string                   name_;
-    Work                          work_; // Dont expose this, instead allow it to be copied
-    State                         state_ { State::Starting };
-    mutable std::recursive_mutex  mutex_work_; // protext work since its actually used in a thread
-    std::unique_ptr<std::thread>  tworker_;
-  };
+    std::string                   m_name;
+    Work                          m_work; // Dont expose this, instead allow it to be copied
+    State                         m_state { State::Starting };
+    mutable std::recursive_mutex  m_mutex; // protext work since its actually used in a thread
+    std::unique_ptr<std::thread>  m_threadWorker;
+};
 
-} /* namespace energi */
+} //! namespace energi
 
 #endif /* ENERGIMINER_WORKER_H_ */

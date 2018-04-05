@@ -26,13 +26,13 @@ namespace energi {
 class Miner : public Worker
 {
 public:
-    Miner(std::string const& name, const Plant &plant, int index)
+    Miner(const std::string& name, const Plant &plant, int index)
         : Worker(name + std::to_string(index))
-        , index_(index)
-        , plant_(plant)
-        , nonceStart_(0)
-        , nonceEnd_(0)
-        , hashCount_(0)
+        , m_index(index)
+        , m_plant(plant)
+        , m_nonceStart(0)
+        , m_nonceEnd(0)
+        , m_hashCount(0)
     {
         // First time init egi hash dag
         // We got to do for every epoch change below
@@ -46,15 +46,15 @@ public:
     void setWork(const Work& work, uint32_t nonceStart, uint32_t nonceEnd)
     {
         Worker::setWork(work);
-        nonceStart_ = nonceStart;
-        nonceEnd_ = nonceEnd;
+        m_nonceStart = nonceStart;
+        m_nonceEnd = nonceEnd;
         resetHashCount();
     }
 
     uint64_t get_start_nonce() const
     {
         // Each GPU is given a non-overlapping 2^40 range to search
-        return plant_.get_nonce_scumbler() + ((uint64_t) index_ << 40);
+        return m_plant.get_nonce_scumbler() + ((uint64_t) m_index << 40);
     }
 
     void stopMining()
@@ -64,11 +64,11 @@ public:
 
     uint32_t hashCount() const
     {
-        return hashCount_.load();
+        return m_hashCount.load();
     }
     void resetHashCount()
     {
-        hashCount_ = 0;
+        m_hashCount = 0;
     }
 
     //! static interfaces
@@ -83,17 +83,17 @@ public:
 protected:
     void addHashCount(uint32_t _n)
     {
-        hashCount_ += _n;
+        m_hashCount += _n;
     }
 
-    int index_ = 0;
-    const Plant &plant_;
+    int m_index = 0;
+    const Plant &m_plant;
 
-    std::atomic<uint32_t> nonceStart_;
-    std::atomic<uint32_t> nonceEnd_;
+    std::atomic<uint32_t> m_nonceStart;
+    std::atomic<uint32_t> m_nonceEnd;
 
 private:
-    std::atomic<uint32_t> hashCount_;
+    std::atomic<uint32_t> m_hashCount;
     std::chrono::high_resolution_clock::time_point workSwitchStart_;
 };
 

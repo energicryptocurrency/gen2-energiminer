@@ -107,120 +107,119 @@ constexpr const char* StrMinerEngine[] = { "CPU", "CL", "Test" };
 
 inline std::string to_string(EnumMinerEngine minerEngine)
 {
-    return StrMinerEngine[static_cast<int>(minerEngine)];
+        return StrMinerEngine[static_cast<int>(minerEngine)];
 }
 
-namespace energi
+namespace energi {
+
+using MutexLGuard = std::lock_guard<std::mutex>;
+using MutexRLGuard = std::lock_guard<std::recursive_mutex>;
+
+inline void setBuffer(const uint8_t* ptr, uint32_t value)
 {
-  using target    = std::array<uint32_t, 8>;
-  using vchar     = std::vector<char>;
-  using vbyte     = std::vector<uint8_t>;
-  using vuint32   = std::vector<uint32_t>;
+    *reinterpret_cast<uint32_t*>(const_cast<uint8_t*>(ptr)) = value;
+}
 
-  inline void setBuffer(const uint8_t* ptr, uint32_t value) { *reinterpret_cast<uint32_t*>(const_cast<uint8_t*>(ptr)) = value; }
 
-  using MutexLGuard = std::lock_guard<std::mutex>;
-  using MutexRLGuard = std::lock_guard<std::recursive_mutex>;
+inline std::string strToHex(const std::string& str)
+{
+    std::ostringstream result;
+    for (const auto& item : str) {
+        result << std::hex
+              << std::setfill('0')
+              << std::setw(2)
+              << std::nouppercase
+              << static_cast<unsigned int>(static_cast<unsigned char>(item));
+    }
+    return result.str();
+}
 
-  inline std::string strToHex(const std::string& str)
-  {
-      std::ostringstream result;
-      for (const auto& item : str) {
-          result << std::hex
-                 << std::setfill('0')
-                 << std::setw(2)
-                 << std::nouppercase
-                 << static_cast<unsigned int>(static_cast<unsigned char>(item));
-      }
-      return result.str();
-  }
-
-  inline bool setenv(const char name[], const char value[], bool over = false)
-  {
-  #if _WIN32
+inline bool setenv(const char name[], const char value[], bool over = false)
+{
+#if _WIN32
     if (!over && std::getenv(name) != nullptr)
-      return true;
+        return true;
 
     return ::_putenv_s(name, value) == 0;
-  #else
+#else
     return ::setenv(name, value, over ? 1 : 0) == 0;
-  #endif
-  }
+#endif
+}
 
-  class WorkException : public std::exception
-  {
-  public:
-    WorkException(const std::string &reason):m_reason(reason){}
-      const char* what() const noexcept override
-      {
-          return m_reason.c_str();
-      }
-  private:
-      std::string m_reason;
-  };
+class WorkException : public std::exception
+{
+public:
+    WorkException(const std::string &reason)
+        : m_reason(reason)
+    {
+    }
+    const char* what() const noexcept override
+    {
+        return m_reason.c_str();
+    }
+private:
+    std::string m_reason;
+};
 
-  inline std::string GetHex(const uint8_t* data, unsigned int size)
-  {
-      std::string psz(size * 2 + 1, '\0');
-      for (unsigned int i = 0; i < size; i++)
-          sprintf(const_cast<char*>(psz.data()) + i * 2, "%02x", data[size - i - 1]);
-      return std::string(const_cast<char*>(psz.data()), const_cast<char*>(psz.data()) + size * 2);
-  }
-
-  /// Describes the progress of a mining operation.
-  struct WorkingProgress
-  {
+/// Describes the progress of a mining operation.
+struct WorkingProgress
+{
     uint64_t hashes = 0;    ///< Total number of hashes computed.
     uint64_t ms = 0;        ///< Total number of milliseconds of mining thus far.
     uint64_t rate() const { return ms == 0 ? 0 : hashes * 1000 / ms; }
 
     std::map<std::string, uint64_t> minersHashes; // maps a miner's device name to it's hash count
-    uint64_t minerRate(const uint64_t hashCount) const { return ms == 0 ? 0 : hashCount * 1000 / ms; }
-  };
 
-  inline std::ostream& operator<<(std::ostream& _out, WorkingProgress _p)
-  {
+    uint64_t minerRate(const uint64_t hashCount) const
+    {
+        return ms == 0 ? 0 : hashCount * 1000 / ms;
+    }
+};
+
+inline std::ostream& operator<<(std::ostream& _out, WorkingProgress _p)
+{
     float mh = _p.rate() / 1000.0f;
     _out << "Speed "
-       << EthTealBold << std::fixed << std::setw(6) << std::setprecision(2) << mh << EthReset
-       << " Kh/s    ";
+        << EthTealBold << std::fixed << std::setw(6) << std::setprecision(2) << mh << EthReset
+        << " Kh/s    ";
 
     for (auto const & i : _p.minersHashes)
     {
-      mh = _p.minerRate(i.second) / 1000.0f;
-      _out << i.first << " " << EthTeal << std::fixed << std::setw(5) << std::setprecision(2) << mh << EthReset << "  ";
+        mh = _p.minerRate(i.second) / 1000.0f;
+        _out << i.first << " " << EthTeal << std::fixed << std::setw(5) << std::setprecision(2) << mh << EthReset << "  ";
     }
 
     return _out;
-  }
+}
 
-  static inline bool is_windows(void) {
-  #ifdef WIN32
-    return 1;
-  #else
-    return 0;
-  #endif
-  }
+inline std::string GetHex(const uint8_t* data, unsigned int size)
+{
+    std::string psz(size * 2 + 1, '\0');
+    for (unsigned int i = 0; i < size; i++)
+        sprintf(const_cast<char*>(psz.data()) + i * 2, "%02x", data[size - i - 1]);
+    return std::string(const_cast<char*>(psz.data()), const_cast<char*>(psz.data()) + size * 2);
+}
 
-  #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
-  #define WANT_BUILTIN_BSWAP
-  #else
-  #define bswap_32(x) ((((x) << 24) & 0xff000000u) | (((x) << 8) & 0x00ff0000u) \
-                     | (((x) >> 8) & 0x0000ff00u) | (((x) >> 24) & 0x000000ffu))
-  #endif
 
-  static inline uint32_t swab32(uint32_t v)
-  {
-  #ifdef WANT_BUILTIN_BSWAP
+#if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
+#define WANT_BUILTIN_BSWAP
+#else
+#define bswap_32(x) ((((x) << 24) & 0xff000000u) | (((x) << 8) & 0x00ff0000u) \
+        | (((x) >> 8) & 0x0000ff00u) | (((x) >> 24) & 0x000000ffu))
+#endif
+
+static inline uint32_t swab32(uint32_t v)
+{
+#ifdef WANT_BUILTIN_BSWAP
     return __builtin_bswap32(v);
-  #else
+#else
     return bswap_32(v);
-  #endif
-  }
+#endif
+}
 
-  #ifdef HAVE_SYS_ENDIAN_H
-  #include <sys/endian.h>
-  #endif
+#ifdef HAVE_SYS_ENDIAN_H
+#include <sys/endian.h>
+#endif
 
 }
 

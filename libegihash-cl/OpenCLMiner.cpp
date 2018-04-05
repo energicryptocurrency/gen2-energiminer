@@ -428,7 +428,7 @@ void OpenCLMiner::trun()
                 GetPOWHash(work);
                 addHashCount(globalWorkSize_);
                 Solution solution(work, nonce, work.hashMix);
-                plant_.submit(solution);
+                m_plant.submit(solution);
             }
             current_work = work;
 
