@@ -34,9 +34,6 @@ public:
         , m_nonceEnd(0)
         , m_hashCount(0)
     {
-        // First time init egi hash dag
-        // We got to do for every epoch change below
-        LoadNrgHashDAG();
     }
 
     Miner(Miner && m) = default;

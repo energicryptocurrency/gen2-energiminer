@@ -14,6 +14,9 @@ using namespace energi;
 CpuMiner::CpuMiner(const Plant &plant, int index)
     :Miner("CPU/", plant, index)
 {
+    // First time init egi hash dag
+    // We got to do for every epoch change below
+    LoadNrgHashDAG();
 }
 
 void CpuMiner::trun()

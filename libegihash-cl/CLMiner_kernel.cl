@@ -32,9 +32,13 @@
 
 // Either 8, 4, 2, or 1
 #ifndef THREADS_PER_HASH
-    #define THREADS_PER_HASH 1
+    #define THREADS_PER_HASH 2
 #endif
 #define HASHES_PER_LOOP (GROUP_SIZE / THREADS_PER_HASH)
+
+#ifdef cl_clang_storage_class_specifiers
+    #pragma OPENCL EXTENSION cl_clang_storage_class_specifiers : enable
+#endif
 
 // Check for valid THREADS_PER_HASH param
 #if THREADS_PER_HASH == 1
@@ -270,8 +274,8 @@ __kernel void ethash_search(
     __global volatile uint* restrict g_output,
     __constant hash32_t const* g_header,
     __global hash128_t const* g_dag,
-    uint start_nonce,
-    __constant hash32_t const* g_target,
+    ulong start_nonce,
+    ulong target,
     uint isolate
     )
 {
@@ -405,35 +409,11 @@ __kernel void ethash_search(
  
     keccak_f1600(state, 1);
 
-/*
     if (as_ulong(as_uchar8(state[0]).s76543210) < target)
     {
         uint slot = min(MAX_OUTPUTS, atomic_inc(&g_output[0]) + 1);
         g_output[slot] = gid;
     }
-*/
-    uint* hash_    = ((uint*)state);
-    __constant uint* target_  = ((__constant uint*)g_target);
-    uint rc = 1;
-    for (uint i = 7; i != 0; --i) 
-    {
-      if (hash_[i] > target_[i]) {
-        rc = 0;
-        break;
-      }
-      if (hash_[i] < target_[i]) 
-      {
-        rc = 1;
-        break;
-      }
-    }
-    
-    if (hash_[7] <= target_[7] && rc > 0)
-    {
-        uint slot = min(MAX_OUTPUTS, atomic_inc(&g_output[0]) + 1);
-        g_output[slot] = gid;
-    }
-    
 }
 
 __kernel void ethash_calculate_dag_item(uint start, __global hash64_t const* g_light, __global hash64_t * g_dag, uint isolate)
