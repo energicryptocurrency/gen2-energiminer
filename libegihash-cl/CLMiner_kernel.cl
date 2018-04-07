@@ -271,12 +271,12 @@ typedef union {
 __attribute__((reqd_work_group_size(GROUP_SIZE, 1, 1)))
 #endif
 __kernel void ethash_search(
-    __global volatile uint* restrict g_output,
-    __constant hash32_t const* g_header,
-    __global hash128_t const* g_dag,
-    ulong start_nonce,
-    ulong target,
-    uint isolate
+    __global volatile uint* restrict g_output,      // 0 (trun) cl->searchBuffer_
+    __constant hash32_t const* g_header,            // 1 (initdag) cl->bufferHeader_
+    __global hash128_t const* g_dag,                // 2 (initdag) cl->bufferDag_
+    uint start_nonce,                               // 3 (trun) startNonce
+    __constant hash32_t const* g_target,            // 4 (trun) cl->bufferTarget_
+    uint isolate                                    // 5 (initdag) ~0u
     )
 {
 
