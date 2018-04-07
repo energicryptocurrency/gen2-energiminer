@@ -15,6 +15,9 @@
 #include <vector>
 #include <iostream>
 
+// uncomment the following for being able to print in a useful way
+//#define DEBUG_SINGLE_THREADED_OPENCL
+
 namespace {
 
 const char* strClError(cl_int err)
@@ -423,7 +426,11 @@ void OpenCLMiner::trun()
             }
             // Run the kernel.
             cl->kernelSearch_.setArg(3, startNonce);
+            #ifdef DEBUG_SINGLE_THREADED_OPENCL
+            cl->queue_.enqueueTask(cl->kernelSearch_);
+            #else
             cl->queue_.enqueueNDRangeKernel(cl->kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
+            #endif
             // Report results while the kernel is running.
             // It takes some time because ethash must be re-evaluated on CPU.
             if (nonce != 0) {
@@ -550,7 +557,11 @@ bool OpenCLMiner::init_dag(uint32_t height)
         addDefinition(code, "MAX_OUTPUTS", c_maxSearchResults);
         addDefinition(code, "PLATFORM", std::get<2>(deviceResult));
         addDefinition(code, "COMPUTE", std::get<3>(deviceResult));
+        #ifdef DEBUG_SINGLE_THREADED_OPENCL
+        addDefinition(code, "THREADS_PER_HASH", 1);
+        #else
         addDefinition(code, "THREADS_PER_HASH", s_threadsPerHash);
+        #endif
 
         cnote << "DAG GROUP_SIZE=" << workgroupSize_;
         cnote << "DAG_SIZE=" << dagSize;
@@ -560,7 +571,11 @@ bool OpenCLMiner::init_dag(uint32_t height)
         cnote << "MAX_OUTPUTS=" << c_maxSearchResults;
         cnote << "PLATTFORM=" << std::get<2>(deviceResult);
         cnote << "COMPUTE=" << std::get<3>(deviceResult);
+        #ifdef DEBUG_SINGLE_THREADED_OPENCL
+        cnote << "THREADS_PER_HASH=1";
+        #else
         cnote << "THREADS_PER_HASH=" << s_threadsPerHash;
+        #endif
 
         // create miner OpenCL program
         cl::Program::Sources sources{{code.data(), code.size()}};
