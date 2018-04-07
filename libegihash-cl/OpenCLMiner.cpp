@@ -388,8 +388,8 @@ void OpenCLMiner::trun()
                 egihash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
                 // Update header constant buffer.
-                cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_FALSE, 0, sizeof(hash_header), hash_header.b);
-                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
+                cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_TRUE, 0, sizeof(hash_header), &hash_header.b[0]);
+                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(c_zero), &c_zero);
                 cllog << "Target Buffer ..." << sizeof(work.hashTarget);
                // cllog << "Loaded";
 
@@ -410,6 +410,10 @@ void OpenCLMiner::trun()
             cl->queue_.enqueueReadBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(results), &results);
             //cllog << "results[0]: " << results[0] << " [1]: " << results[1];
 
+            if (cl->queue_.enqueueWriteBuffer(cl->bufferTarget_, CL_TRUE, 0, 32, work.hashTarget.data()) != CL_SUCCESS)
+            {
+                throw std::runtime_error("enqueueWriteBuffer failed");
+            }
             uint32_t nonce = 0;
             if (results[0] > 0) {
                 // Ignore results except the first one.
