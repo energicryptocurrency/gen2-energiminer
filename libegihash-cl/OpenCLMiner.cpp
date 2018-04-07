@@ -559,11 +559,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
         addDefinition(code, "MAX_OUTPUTS", c_maxSearchResults);
         addDefinition(code, "PLATFORM", std::get<2>(deviceResult));
         addDefinition(code, "COMPUTE", std::get<3>(deviceResult));
-        #ifdef DEBUG_SINGLE_THREADED_OPENCL
-        addDefinition(code, "THREADS_PER_HASH", 1);
-        #else
-        addDefinition(code, "THREADS_PER_HASH", s_threadsPerHash);
-        #endif
+        addDefinition(code, "THREADS_PER_HASH", 8); // going to be set to 8 by the kernel either way , kernel only supports 8
 
         cnote << "DAG GROUP_SIZE=" << workgroupSize_;
         cnote << "DAG_SIZE=" << dagSize;
@@ -573,11 +569,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
         cnote << "MAX_OUTPUTS=" << c_maxSearchResults;
         cnote << "PLATTFORM=" << std::get<2>(deviceResult);
         cnote << "COMPUTE=" << std::get<3>(deviceResult);
-        #ifdef DEBUG_SINGLE_THREADED_OPENCL
-        cnote << "THREADS_PER_HASH=1";
-        #else
-        cnote << "THREADS_PER_HASH=" << s_threadsPerHash;
-        #endif
+        cnote << "THREADS_PER_HASH=8";
 
         // create miner OpenCL program
         cl::Program::Sources sources{{code.data(), code.size()}};
