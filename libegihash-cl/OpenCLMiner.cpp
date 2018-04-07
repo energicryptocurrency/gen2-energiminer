@@ -17,6 +17,8 @@
 
 // uncomment the following for being able to print in a useful way
 //#define DEBUG_SINGLE_THREADED_OPENCL
+// uncomment the following to skip DAG generation for faster debugging
+//#define DEBUG_SKIP_DAG_GENERATION
 
 namespace {
 
@@ -646,11 +648,13 @@ bool OpenCLMiner::init_dag(uint32_t height)
         cl->kernelDag_.setArg(2, cl->bufferDag_);
         cl->kernelDag_.setArg(3, ~0u);
 
+        #ifndef DEBUG_SKIP_DAG_GENERATION
         for (uint32_t i = 0; i < fullRuns; ++i) {
             cl->kernelDag_.setArg(0, i * globalWorkSize_);
             cl->queue_.enqueueNDRangeKernel(cl->kernelDag_, cl::NullRange, globalWorkSize_, workgroupSize_);
             cl->queue_.finish();
         }
+        #endif
 
         cllog << "DAG Loaded" ;
 
