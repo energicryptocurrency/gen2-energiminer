@@ -363,7 +363,7 @@ void OpenCLMiner::trun()
 {
     // Memory for zero-ing buffers. Cannot be static because crashes on macOS.
     uint32_t const c_zero = 0;
-    uint64_t startNonce = 0;
+    uint32_t startNonce = 0;
     Work current_work; // Here we need current work as to initialize gpu
     try {
         unsigned int nExtraNonce = 0;
