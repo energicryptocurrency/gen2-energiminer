@@ -409,11 +409,36 @@ __kernel void ethash_search(
  
     keccak_f1600(state, 1);
 
+/*
     if (as_ulong(as_uchar8(state[0]).s76543210) < target)
     {
         uint slot = min(MAX_OUTPUTS, atomic_inc(&g_output[0]) + 1);
         g_output[slot] = gid;
     }
+*/
+
+    uint* hash_    = ((uint*)state);
+    __constant uint* target_  = ((__constant uint*)g_target);
+    uint rc = 1;
+    for (uint i = 7; i != 0; --i)
+    {
+      if (hash_[i] > target_[i]) {
+        rc = 0;
+        break;
+      }
+      if (hash_[i] < target_[i])
+      {
+        rc = 1;
+        break;
+      }
+    }
+
+    if (hash_[7] <= target_[7] && rc > 0)
+    {
+        uint slot = min(MAX_OUTPUTS, atomic_inc(&g_output[0]) + 1);
+        g_output[slot] = gid;
+    }
+
 }
 
 __kernel void ethash_calculate_dag_item(uint start, __global hash64_t const* g_light, __global hash64_t * g_dag, uint isolate)

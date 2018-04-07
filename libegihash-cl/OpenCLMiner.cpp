@@ -394,7 +394,7 @@ void OpenCLMiner::trun()
                // cllog << "Loaded";
 
                 cl->kernelSearch_.setArg(0, cl->searchBuffer_);  // Supply output buffer to kernel.
-                cl->kernelSearch_.setArg(4, (uint64_t)work.nBits);
+                cl->kernelSearch_.setArg(4, cl->bufferTarget_);
 
                 startNonce  = m_nonceStart.load();
                 cllog << "Nonce loaded" << startNonce;
