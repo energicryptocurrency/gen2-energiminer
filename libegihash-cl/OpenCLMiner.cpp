@@ -367,7 +367,7 @@ void OpenCLMiner::trun()
     Work current_work; // Here we need current work as to initialize gpu
     try {
         unsigned int nExtraNonce = 0;
-        while (true) {
+        while (!shouldStop()) {
             Work work = this->work(); // This work is a copy of last assigned work the worker was provided by plant
             if ( !work.isValid() ) {
                 cdebug << "No work received. Pause for 1 s.";
@@ -379,6 +379,7 @@ void OpenCLMiner::trun()
             } else {
                 //cnote << "Valid work.";
             }
+
             work.incrementExtraNonce(nExtraNonce);
             if ( current_work != work ) {
                 cllog << "Bits:" << " " << work.nBits;
@@ -454,18 +455,15 @@ void OpenCLMiner::trun()
                 }
             }
             current_work = work;
-
-            addHashCount(globalWorkSize_);
             // Increase start nonce for following kernel execution.
             startNonce += globalWorkSize_;
-            // Check if we should stop.
-            if (shouldStop()) {
-                // Make sure the last buffer write has finished --
-                // it reads local variable.
-                cl->queue_.finish();
-                break;
-            }
+            addHashCount(globalWorkSize_);
+
+            // Make sure the last buffer write has finished --
+            // it reads local variable.
+            cl->queue_.finish();
         }
+        cl->queue_.finish();
     } catch (cl::Error const& _e) {
         cwarn << "OpenCL Error:" << CLErrorHelper(_e);
     }
