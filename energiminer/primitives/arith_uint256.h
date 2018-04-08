@@ -247,6 +247,8 @@ public:
         assert(WIDTH >= 2);
         return pn[0] | (uint64_t)pn[1] << 32;
     }
+
+    void const * data() const { return &pn[0]; }
 };
 
 /** 256-bit unsigned big integer. */
@@ -279,8 +281,6 @@ public:
      */
     arith_uint256& SetCompact(uint32_t nCompact, bool *pfNegative = NULL, bool *pfOverflow = NULL);
     uint32_t GetCompact(bool fNegative = false) const;
-
-    void const * data() const { return &pn[0]; }
 
     friend uint256 ArithToUint256(const arith_uint256 &);
     friend arith_uint256 UintToArith256(const uint256 &);
