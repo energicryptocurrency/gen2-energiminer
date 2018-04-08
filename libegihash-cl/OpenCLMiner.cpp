@@ -251,7 +251,6 @@ struct OpenCLMiner::clInfo
     cl::Buffer              bufferDag_;
     cl::Buffer              bufferLight_;
     cl::Buffer              bufferHeader_;
-    cl::Buffer              bufferTarget_;
     cl::Buffer              searchBuffer_;
 };
 
@@ -393,6 +392,12 @@ void OpenCLMiner::trun()
                 energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
                 egihash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
+                // Upper 64 bits of the boundary.
+                const uint64_t target = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
+                assert(target > 0);
+                cnote << "target is " << std::setw(32) << std::setfill('0') << std::hex << target;
+
+
                 // Update header constant buffer.
                 cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_TRUE, 0, sizeof(hash_header), &hash_header.b[0]);
                 cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(c_zero), &c_zero);
@@ -400,7 +405,7 @@ void OpenCLMiner::trun()
                // cllog << "Loaded";
 
                 cl->kernelSearch_.setArg(0, cl->searchBuffer_);  // Supply output buffer to kernel.
-                cl->kernelSearch_.setArg(4, cl->bufferTarget_);
+                cl->kernelSearch_.setArg(4, target);
 
                 startNonce  = m_nonceStart.load();
                 cllog << "Nonce loaded" << startNonce;
@@ -416,11 +421,6 @@ void OpenCLMiner::trun()
             cl->queue_.enqueueReadBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(results), &results);
             //cllog << "results[0]: " << results[0] << " [1]: " << results[1];
 
-            // Upper 64 bits of the boundary.
-            const uint64_t target = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
-            assert(target > 0);
-
-
             uint32_t nonce = 0;
             if (results[0] > 0) {
                 // Ignore results except the first one.
@@ -430,7 +430,6 @@ void OpenCLMiner::trun()
             }
             // Run the kernel.
             cl->kernelSearch_.setArg(3, startNonce);
-            cl->kernelSearch_.setArg(4, target);
 
             #ifdef DEBUG_SINGLE_THREADED_OPENCL
             cl->queue_.enqueueTask(cl->kernelSearch_);
@@ -634,7 +633,6 @@ bool OpenCLMiner::init_dag(uint32_t height)
         // create mining buffers
         ETHCL_LOG("Creating mining buffer");
         cl->searchBuffer_ = cl::Buffer(cl->context_, CL_MEM_WRITE_ONLY, (c_maxSearchResults + 1) * sizeof(uint32_t));
-        cl->bufferTarget_ = cl::Buffer(cl->context_, CL_MEM_READ_ONLY, 32);
 
         cllog << "Generating DAG";
 
