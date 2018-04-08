@@ -404,8 +404,6 @@ void OpenCLMiner::trun()
                 // Update header constant buffer.
                 cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_TRUE, 0, 32, h2.data());
                 cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(c_zero), &c_zero);
-                cllog << "Target Buffer ..." << sizeof(work.hashTarget);
-               // cllog << "Loaded";
 
                 cl->kernelSearch_.setArg(0, cl->searchBuffer_);  // Supply output buffer to kernel.
                 cl->kernelSearch_.setArg(4, target);
@@ -440,7 +438,7 @@ void OpenCLMiner::trun()
             cl->queue_.enqueueNDRangeKernel(cl->kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
             #endif
             // Report results while the kernel is running.
-            // It takes some time because ethash must be re-evaluated on CPU.
+            // It takes some time because proof of work must be re-evaluated on CPU.
             if (nonce != 0) {
                 work.nNonce = nonce;
                 auto const powHash = GetPOWHash(work);
@@ -452,7 +450,7 @@ void OpenCLMiner::trun()
                 }
                 else
                 {
-                    cwarn << "CL Miner proposed invalid solution (this is normal).";
+                    cwarn << "CL Miner proposed invalid solution" << powHash.ToString();
                     continue;
                 }
             }
