@@ -415,10 +415,11 @@ void OpenCLMiner::trun()
             cl->queue_.enqueueReadBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(results), &results);
             //cllog << "results[0]: " << results[0] << " [1]: " << results[1];
 
-            if (cl->queue_.enqueueWriteBuffer(cl->bufferTarget_, CL_TRUE, 0, 32, work.hashTarget.data()) != CL_SUCCESS)
-            {
-                throw std::runtime_error("enqueueWriteBuffer failed");
-            }
+            // Upper 64 bits of the boundary.
+            const uint64_t target = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
+            assert(target > 0);
+
+
             uint32_t nonce = 0;
             if (results[0] > 0) {
                 // Ignore results except the first one.
@@ -428,6 +429,8 @@ void OpenCLMiner::trun()
             }
             // Run the kernel.
             cl->kernelSearch_.setArg(3, startNonce);
+            cl->kernelSearch_.setArg(4, target);
+
             #ifdef DEBUG_SINGLE_THREADED_OPENCL
             cl->queue_.enqueueTask(cl->kernelSearch_);
             #else
