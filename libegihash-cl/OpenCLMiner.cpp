@@ -440,10 +440,17 @@ void OpenCLMiner::trun()
             // It takes some time because ethash must be re-evaluated on CPU.
             if (nonce != 0) {
                 work.nNonce = nonce;
-                GetPOWHash(work);
-                addHashCount(globalWorkSize_);
-                Solution solution(work, nonce, work.hashMix);
-                m_plant.submit(solution);
+                auto const powHash = GetPOWHash(work);
+                if (UintToArith256(powHash) <= work.hashTarget)
+                {
+                    addHashCount(globalWorkSize_);
+                    Solution solution(work, nonce, work.hashMix);
+                    m_plant.submit(solution);
+                }
+                else
+                {
+                    continue;
+                }
             }
 //            current_work = work;
 
