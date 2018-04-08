@@ -449,6 +449,7 @@ void OpenCLMiner::trun()
                 }
                 else
                 {
+                    cwarn << "CL Miner proposed invalid solution (this is normal).";
                     continue;
                 }
             }
