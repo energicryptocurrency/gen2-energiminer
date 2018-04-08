@@ -11,10 +11,14 @@
 #include "energiminer/egihash/egihash.h"
 #include "CLMiner_kernel.h"
 #include "energiminer/common/Log.h"
-#include "energiminer/CpuMiner.h"
 
 #include <vector>
 #include <iostream>
+
+// uncomment the following for being able to print in a useful way
+//#define DEBUG_SINGLE_THREADED_OPENCL
+// uncomment the following to skip DAG generation for faster debugging
+//#define DEBUG_SKIP_DAG_GENERATION
 
 namespace {
 
@@ -363,7 +367,7 @@ void OpenCLMiner::trun()
     Work current_work; // Here we need current work as to initialize gpu
     try {
         unsigned int nExtraNonce = 0;
-        while (true) {
+        while (!shouldStop()) {
             Work work = this->work(); // This work is a copy of last assigned work the worker was provided by plant
             if ( !work.isValid() ) {
                 cdebug << "No work received. Pause for 1 s.";
@@ -375,29 +379,30 @@ void OpenCLMiner::trun()
             } else {
                 //cnote << "Valid work.";
             }
+
             work.incrementExtraNonce(nExtraNonce);
             if ( current_work != work ) {
                 cllog << "Bits:" << " " << work.nBits;
                 auto localSwitchStart = std::chrono::high_resolution_clock::now();
 
-                if (!dagLoaded_) {
-                    init_dag();
+                if (!dagLoaded_ || (egihash::cache_t::get_seedhash(current_work.nHeight) != egihash::cache_t::get_seedhash(work.nHeight))) {
+                    init_dag(work.nHeight);
                     dagLoaded_ = true;
                 }
+                current_work = work;
                 energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
                 egihash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
                 // Update header constant buffer.
-                cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_FALSE, 0, sizeof(hash_header), hash_header.b);
-                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
+                cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_TRUE, 0, sizeof(hash_header), &hash_header.b[0]);
+                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(c_zero), &c_zero);
                 cllog << "Target Buffer ..." << sizeof(work.hashTarget);
-                cl->queue_.enqueueWriteBuffer(cl->bufferTarget_, CL_FALSE, 0, sizeof(work.hashTarget), work.hashTarget.ToString().c_str());
-                cllog << "Loaded";
+               // cllog << "Loaded";
 
                 cl->kernelSearch_.setArg(0, cl->searchBuffer_);  // Supply output buffer to kernel.
                 cl->kernelSearch_.setArg(4, cl->bufferTarget_);
 
-                startNonce  = get_start_nonce();
+                startNonce  = m_nonceStart.load();
                 cllog << "Nonce loaded" << startNonce;
 
                 auto switchEnd = std::chrono::high_resolution_clock::now();
@@ -411,6 +416,11 @@ void OpenCLMiner::trun()
             cl->queue_.enqueueReadBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(results), &results);
             //cllog << "results[0]: " << results[0] << " [1]: " << results[1];
 
+            // Upper 64 bits of the boundary.
+            const uint64_t target = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
+            assert(target > 0);
+
+
             uint32_t nonce = 0;
             if (results[0] > 0) {
                 // Ignore results except the first one.
@@ -420,29 +430,40 @@ void OpenCLMiner::trun()
             }
             // Run the kernel.
             cl->kernelSearch_.setArg(3, startNonce);
+            cl->kernelSearch_.setArg(4, target);
+
+            #ifdef DEBUG_SINGLE_THREADED_OPENCL
+            cl->queue_.enqueueTask(cl->kernelSearch_);
+            #else
             cl->queue_.enqueueNDRangeKernel(cl->kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
+            #endif
             // Report results while the kernel is running.
             // It takes some time because ethash must be re-evaluated on CPU.
             if (nonce != 0) {
                 work.nNonce = nonce;
-                GetPOWHash(work);
-                addHashCount(globalWorkSize_);
-                Solution solution(work, nonce, work.hashMix);
-                plant_.submit(solution);
+                auto const powHash = GetPOWHash(work);
+                if (UintToArith256(powHash) <= work.hashTarget)
+                {
+                    addHashCount(globalWorkSize_);
+                    Solution solution(work, nonce, work.hashMix);
+                    m_plant.submit(solution);
+                }
+                else
+                {
+                    cwarn << "CL Miner proposed invalid solution (this is normal).";
+                    continue;
+                }
             }
             current_work = work;
-
-            addHashCount(globalWorkSize_);
             // Increase start nonce for following kernel execution.
             startNonce += globalWorkSize_;
-            // Check if we should stop.
-            if (shouldStop()) {
-                // Make sure the last buffer write has finished --
-                // it reads local variable.
-                cl->queue_.finish();
-                break;
-            }
+            addHashCount(globalWorkSize_);
+
+            // Make sure the last buffer write has finished --
+            // it reads local variable.
+            cl->queue_.finish();
         }
+        cl->queue_.finish();
     } catch (cl::Error const& _e) {
         cwarn << "OpenCL Error:" << CLErrorHelper(_e);
     }
@@ -479,8 +500,9 @@ std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::clInfo::getDevi
     }
 
     // use selected device
-    unsigned deviceId = s_devices[index] > -1 ? s_devices[index] : index;
-    cl::Device& device = devices[std::min<unsigned>(deviceId, devices.size() - 1)];
+    int idx = index / devices.size();
+    unsigned deviceId = s_devices[idx] > -1 ? s_devices[idx] : index;
+    cl::Device& device = devices[deviceId % devices.size()];
     std::string device_version = device.getInfo<CL_DEVICE_VERSION>();
     ETHCL_LOG("Device:   " << device.getInfo<CL_DEVICE_NAME>() << " / " << device_version);
 
@@ -513,9 +535,8 @@ std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::clInfo::getDevi
     return std::make_tuple(true, device, platformId, computeCapability, std::string(options));
 }
 
-bool OpenCLMiner::init_dag()
+bool OpenCLMiner::init_dag(uint32_t height)
 {
-    const auto& dag = ActiveDAG();
     // get all platforms
     try {
         auto deviceResult = cl->getDeviceInfo(index_);
@@ -530,9 +551,10 @@ bool OpenCLMiner::init_dag()
         if (globalWorkSize_ % workgroupSize_ != 0) {
             globalWorkSize_ = ((globalWorkSize_ / workgroupSize_) + 1) * workgroupSize_;
         }
-        uint64_t dagSize = dag->size();
+        egihash::cache_t  cache = egihash::cache_t(height);
+        uint64_t dagSize = egihash::dag_t::get_full_size(height);//dag->size();
         uint32_t dagSize128 = (unsigned)(dagSize / egihash::constants::MIX_BYTES);
-        uint32_t lightSize64 = dag->get_cache().data().size();
+        uint32_t lightSize64 = (unsigned)(cache.data().size()); //dag->get_cache().data().size();
         // patch source code
         // note: CLMiner_kernel is simply ethash_cl_miner_kernel.cl compiled
         // into a byte array by bin2h.cmake. There is no need to load the file by hand in runtime
@@ -546,7 +568,7 @@ bool OpenCLMiner::init_dag()
         addDefinition(code, "MAX_OUTPUTS", c_maxSearchResults);
         addDefinition(code, "PLATFORM", std::get<2>(deviceResult));
         addDefinition(code, "COMPUTE", std::get<3>(deviceResult));
-        addDefinition(code, "THREADS_PER_HASH", s_threadsPerHash);
+        addDefinition(code, "THREADS_PER_HASH", 8); // going to be set to 8 by the kernel either way , kernel only supports 8
 
         cnote << "DAG GROUP_SIZE=" << workgroupSize_;
         cnote << "DAG_SIZE=" << dagSize;
@@ -556,7 +578,7 @@ bool OpenCLMiner::init_dag()
         cnote << "MAX_OUTPUTS=" << c_maxSearchResults;
         cnote << "PLATTFORM=" << std::get<2>(deviceResult);
         cnote << "COMPUTE=" << std::get<3>(deviceResult);
-        cnote << "THREADS_PER_HASH=" << s_threadsPerHash;
+        cnote << "THREADS_PER_HASH=8";
 
         // create miner OpenCL program
         cl::Program::Sources sources{{code.data(), code.size()}};
@@ -572,7 +594,7 @@ bool OpenCLMiner::init_dag()
 
         // create buffer for dag
         std::vector<uint32_t> vData;
-        for (auto &d : dag->get_cache().data()) {
+        for (auto &d : cache.data()) {
             for ( auto &dv : d) {
                 vData.push_back(dv.hword);
             }
@@ -619,17 +641,21 @@ bool OpenCLMiner::init_dag()
         uint32_t const work = (uint32_t)(dagSize / sizeof(egihash::node));
         uint32_t fullRuns = work / globalWorkSize_;
         uint32_t const restWork = work % globalWorkSize_;
-        if (restWork > 0) fullRuns++;
+        if (restWork > 0) {
+            fullRuns++;
+        }
 
         cl->kernelDag_.setArg(1, cl->bufferLight_);
         cl->kernelDag_.setArg(2, cl->bufferDag_);
         cl->kernelDag_.setArg(3, ~0u);
 
+        #ifndef DEBUG_SKIP_DAG_GENERATION
         for (uint32_t i = 0; i < fullRuns; ++i) {
             cl->kernelDag_.setArg(0, i * globalWorkSize_);
             cl->queue_.enqueueNDRangeKernel(cl->kernelDag_, cl::NullRange, globalWorkSize_, workgroupSize_);
             cl->queue_.finish();
         }
+        #endif
 
         cllog << "DAG Loaded" ;
 

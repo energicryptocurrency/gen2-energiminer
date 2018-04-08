@@ -247,6 +247,8 @@ public:
         assert(WIDTH >= 2);
         return pn[0] | (uint64_t)pn[1] << 32;
     }
+
+    void const * data() const { return &pn[0]; }
 };
 
 /** 256-bit unsigned big integer. */

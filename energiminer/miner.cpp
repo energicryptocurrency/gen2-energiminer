@@ -80,7 +80,7 @@ std::unique_ptr<egihash::dag_t> const & Miner::ActiveDAG(std::unique_ptr<egihash
     using namespace std;
 
     static std::mutex m;
-    MutexLGuard lock(m);
+    std::lock_guard<std::mutex> lock(m);
     static std::unique_ptr<egihash::dag_t> active; // only keep one DAG in memory at once
 
     // if we have a next_dag swap it

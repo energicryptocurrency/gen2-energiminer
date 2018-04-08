@@ -14,6 +14,9 @@ using namespace energi;
 CpuMiner::CpuMiner(const Plant &plant, int index)
     :Miner("CPU/", plant, index)
 {
+    // First time init egi hash dag
+    // We got to do for every epoch change below
+    LoadNrgHashDAG();
 }
 
 void CpuMiner::trun()
@@ -33,8 +36,8 @@ void CpuMiner::trun()
                 //cnote << "Valid work.";
             }
             work.incrementExtraNonce(nExtraNonce);
-            const uint32_t first_nonce = nonceStart_.load();
-            const uint32_t max_nonce = nonceEnd_.load();
+            const uint32_t first_nonce = m_nonceStart.load();
+            const uint32_t max_nonce = m_nonceEnd.load();
 
             work.nNonce = first_nonce;
             uint32_t last_nonce = first_nonce;
@@ -45,7 +48,7 @@ void CpuMiner::trun()
                     addHashCount(work.nNonce + 1 - last_nonce);
 
                     Solution solution(work, work.nNonce, work.hashMix);
-                    plant_.submit(solution);
+                    m_plant.submit(solution);
                     return;
                 }
                 ++work.nNonce;

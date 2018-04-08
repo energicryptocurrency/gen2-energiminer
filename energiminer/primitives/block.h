@@ -161,7 +161,7 @@ struct Block : public BlockHeader
             }
             auto data = ParseHex(scriptStr);
             CScript transScript(data.begin(), data.end());
-            CTxOut trans(json["amount"].asUInt(), transScript);
+            CTxOut trans(json["amount"].asUInt64(), transScript);
             return trans;
         }
         return CTxOut();

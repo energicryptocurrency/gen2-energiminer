@@ -39,25 +39,25 @@ bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
     if (isStarted()) {
         return true;
     }
-    started_ = true;
+    m_started = true;
     for ( auto &minerEngine : vMinerEngine) {
         unsigned int num_threads_for_cpu = std::thread::hardware_concurrency() - 1;
         auto count = EnumMinerEngine::kCL  == minerEngine ? OpenCLMiner::instances() : ( EnumMinerEngine::kTest  == minerEngine ? 2 : num_threads_for_cpu );
         for ( decltype(count) i = 0; i < count; ++i ) {
             auto miner = createMiner(minerEngine, i, *this);
-            started_ &= miner->start();
-            if ( started_ ) {
-                miners_.push_back(miner);
+            m_started &= miner->start();
+            if ( m_started ) {
+                m_miners.push_back(miner);
             }
         }
     }
 
-    if (tHashrateTimer_) {
+    if (m_tHashrateTimer) {
         std::cerr << "Hash Rate Thread active !, weird" << std::endl;
         return false;
     } else {
-        tHashrateTimer_.reset(new std::thread([&]() {
-            while( continueHashTimer_ ) {
+        m_tHashrateTimer.reset(new std::thread([&]() {
+            while(m_continueHashTimer) {
                 collectHashRate();
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             }
@@ -65,21 +65,21 @@ bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
     }
 
     // Failure ? return right away
-    return started_;
+    return m_started;
 }
 
 void MinePlant::stop()
 {
-    for (auto &miner : miners_) {
+    for (auto &miner : m_miners) {
         miner->stop();
     }
 
-    if( tHashrateTimer_ ) {
-        continueHashTimer_ = false;
-        tHashrateTimer_->join();
-        tHashrateTimer_.reset();
+    if(m_tHashrateTimer) {
+        m_continueHashTimer = false;
+        m_tHashrateTimer->join();
+        m_tHashrateTimer.reset();
     }
-    started_ = false;
+    m_started = false;
 }
 
 bool MinePlant::setWork(const Work& work)
@@ -87,22 +87,22 @@ bool MinePlant::setWork(const Work& work)
     //Collect hashrate before miner reset their work
     collectHashRate();
     // if new work hasnt changed, then ignore
-    MutexLGuard l(mutex_work_);
-    if (work == work_) {
+    std::lock_guard<std::mutex> lock(m_mutexWork);
+    if (work == m_work) {
         return false;
     }
     cnote << "New Work assigned: Height: "
           << work.nHeight << "Target:"
           << work.hashTarget.ToString()
           << "PrevHash:" << work.hashPrevBlock.ToString();
-    work_ = work;
+    m_work = work;
 
     // Propagate to all miners
-    const auto minersCount = miners_.size();
+    const auto minersCount = m_miners.size();
     const auto kLimitPerThread = std::numeric_limits<uint32_t>::max() / minersCount;
     uint32_t index = 0;
-    solutionFound_ = false;
-    for (auto &miner: miners_) {
+    m_solutionFound = false;
+    for (auto &miner: m_miners) {
         auto first  = index * kLimitPerThread;
         auto end    = first + kLimitPerThread;
         cdebug << "first:" << first << "end: " << end;
@@ -114,8 +114,8 @@ bool MinePlant::setWork(const Work& work)
 
 void MinePlant::stopAllWork()
 {
-    MutexLGuard l(mutex_work_);
-    for (auto &miner: miners_) {
+    std::lock_guard<std::mutex> lock(m_mutexWork);
+    for (auto &miner: m_miners) {
         miner->stopMining();
     }
 }
@@ -128,32 +128,32 @@ void MinePlant::submit(const Solution &solution) const
 void MinePlant::collectHashRate()
 {
     WorkingProgress p;
-    MutexLGuard l(mutex_work_);
-    p.ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - lastStart_).count();
+    std::lock_guard<std::mutex> lock(m_mutexWork);
+    p.ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - m_lastStart).count();
 
     //Collect
-    for (auto const& miner : miners_) {
+    for (auto const& miner : m_miners) {
         auto minerHashCount = miner->hashCount();
         p.hashes += minerHashCount;
         p.minersHashes.insert(std::make_pair<std::string, uint64_t>(miner->name(), minerHashCount));
     }
 
     //Reset miner hashes
-    for (auto const& miner : miners_) {
+    for (auto const& miner : m_miners) {
         miner->resetHashCount();
     }
-    lastStart_ = std::chrono::steady_clock::now();
+    m_lastStart = std::chrono::steady_clock::now();
     if (p.hashes > 0) {
-        lastProgresses_.push_back(p);
+        m_lastProgresses.push_back(p);
     }
     // We smooth the hashrate over the last x seconds
     int allMs = 0;
-    for (auto const& cp : lastProgresses_) {
+    for (auto const& cp : m_lastProgresses) {
         allMs += cp.ms;
     }
 
-    if (allMs > hashrateSmoothInterval_) {
-        lastProgresses_.erase(lastProgresses_.begin());
+    if (allMs > m_hashrateSmoothInterval) {
+        m_lastProgresses.erase(m_lastProgresses.begin());
     }
 }
 
@@ -167,11 +167,11 @@ WorkingProgress const& MinePlant::miningProgress() const
     p.ms = 0;
     p.hashes = 0;
     {
-        MutexLGuard l(mutex_work_);
-        for (auto const& miner : miners_) {
+        std::lock_guard<std::mutex> lock(m_mutexWork);
+        for (auto const& miner : m_miners) {
             p.minersHashes.insert(std::make_pair<std::string, uint64_t>(miner->name(), 0));
         }
-        for (auto const& cp : lastProgresses_) {
+        for (auto const& cp : m_lastProgresses) {
             p.ms += cp.ms;
             p.hashes += cp.hashes;
             for (auto const & i : cp.minersHashes) {
@@ -180,10 +180,9 @@ WorkingProgress const& MinePlant::miningProgress() const
         }
     }
 
-    MutexLGuard l(mutex_progress_);
-    progress_ = p;
-    return progress_;
+    std::lock_guard<std::mutex> lock(m_mutexProgress);
+    m_progress = p;
+    return m_progress;
 }
 
-}
-/* namespace energi */
+} //! namespace energi

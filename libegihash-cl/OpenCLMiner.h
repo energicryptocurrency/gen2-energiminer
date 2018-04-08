@@ -88,7 +88,7 @@ namespace energi
     void trun() override;
     void onSetWork() override {}
 
-    bool init_dag();
+    bool init_dag(uint32_t height);
 
     bool                    dagLoaded_ = false;
     int                     index_ = 0;
