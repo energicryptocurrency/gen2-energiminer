@@ -453,7 +453,7 @@ void OpenCLMiner::trun()
                     continue;
                 }
             }
-//            current_work = work;
+            current_work = work;
 
             addHashCount(globalWorkSize_);
             // Increase start nonce for following kernel execution.
