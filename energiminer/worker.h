@@ -8,6 +8,7 @@
 #ifndef ENERGIMINER_WORKER_H_
 #define ENERGIMINER_WORKER_H_
 
+#include <atomic>
 #include <string>
 #include <mutex>
 #include <thread>
@@ -22,7 +23,7 @@ namespace energi {
 class Worker
 {
 public:
-    enum class State : unsigned char
+    enum class State : int
     {
         Starting = 0,
         Started = 1,
@@ -75,7 +76,7 @@ private:
 
     std::string                   m_name;
     Work                          m_work; // Dont expose this, instead allow it to be copied
-    State                         m_state { State::Starting };
+    std::atomic<State>            m_state { State::Starting };
     mutable std::recursive_mutex  m_mutex; // protext work since its actually used in a thread
     std::unique_ptr<std::thread>  m_threadWorker;
 };
