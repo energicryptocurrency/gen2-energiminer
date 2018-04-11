@@ -35,6 +35,8 @@
 //⊳⊲◀▶■▣▢□▷◁▧▨▩▲◆◉◈◇◎●◍◌○◼☑☒☎☢☣☰☀♽♥♠✩✭❓✔✓✖✕✘✓✔✅⚒⚡⦸⬌∅⁕«««»»»⚙
 namespace energi
 {
+  static std::recursive_mutex cerrMutex;
+
   // Logging
   int g_logVerbosity = 5;
   std::mutex x_logOverride;
@@ -159,6 +161,8 @@ namespace energi
 
   void simpleDebugOut(std::string const& _s)
   {
+
+    std::lock_guard<std::recursive_mutex> lock(cerrMutex);
     std::cerr << _s << '\n';
   }
 
