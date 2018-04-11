@@ -315,12 +315,12 @@ __kernel void ethash_search(
 	state[8] = 0x8000000000000000;
 
 	keccak_f1600_no_absorb((uint2*)state, 8, isolate);
-	
+
 	// Threads work together in this phase in groups of 8.
 	uint const thread_id = gid & 7;
 	uint const hash_id = (gid % GROUP_SIZE) >> 3;
 
-	for (int i = 0; i < THREADS_PER_HASH; i++)
+	for (uint i = 0; i < THREADS_PER_HASH; i++)
 	{
 		// share init with other threads
 		if (i == thread_id)
