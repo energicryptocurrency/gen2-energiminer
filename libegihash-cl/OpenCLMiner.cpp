@@ -418,7 +418,7 @@ void OpenCLMiner::trun()
             }
             // Read results.
             // TODO: could use pinned host pointer instead.
-            uint32_t results[c_maxSearchResults + 1];
+            uint32_t results[c_maxSearchResults + 1] = { 0 };
             cl->queue_.enqueueReadBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(results), &results);
             //cllog << "results[0]: " << results[0] << " [1]: " << results[1];
 
