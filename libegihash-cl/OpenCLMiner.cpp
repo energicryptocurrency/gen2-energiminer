@@ -402,8 +402,8 @@ void OpenCLMiner::trun()
                 cnote << "target is " << std::setw(32) << std::setfill('0') << std::hex << target;
 
                 // Update header constant buffer.
-                cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_TRUE, 0, 32, h2.data());
-                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(c_zero), &c_zero);
+                cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_FALSE, 0, 32, h2.data());
+                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
 
                 cl->kernelSearch_.setArg(0, cl->searchBuffer_);  // Supply output buffer to kernel.
                 cl->kernelSearch_.setArg(4, target);
