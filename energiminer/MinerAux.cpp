@@ -318,6 +318,7 @@ void MinerCLI::doMiner()
         try {
             solution_found = false;
             // Keep checking for new work and mine
+            unsigned int i = 0;
             while(!solution_found) {
                 energi::Work new_work = client->getWork();
                 // check if current work is no different, then skip
@@ -334,8 +335,14 @@ void MinerCLI::doMiner()
                 }
                 auto mp = plant.miningProgress();
                 mp.rate();
+                // should output about once a minute
+                if ((++i % 1200) == 0)
+                {
+                    i = 0;
+                    cnote << mp;
+                }
 
-                this_thread::sleep_for(chrono::milliseconds(500));
+                this_thread::sleep_for(chrono::milliseconds(50));
             }
             // 7. Since solution was found, before submit stop all miners
             plant.stopAllWork();
