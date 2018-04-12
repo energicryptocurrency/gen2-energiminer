@@ -334,9 +334,8 @@ void MinerCLI::doMiner()
                 }
                 auto mp = plant.miningProgress();
                 mp.rate();
-                cnote << "Mining on difficulty " << " " << mp;
 
-                this_thread::sleep_for(chrono::milliseconds(6000));
+                this_thread::sleep_for(chrono::milliseconds(500));
             }
             // 7. Since solution was found, before submit stop all miners
             plant.stopAllWork();
