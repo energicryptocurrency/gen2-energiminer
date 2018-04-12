@@ -15,6 +15,11 @@
 #include <vector>
 #include <iostream>
 
+// uncomment the following for being able to print in a useful way
+//#define DEBUG_SINGLE_THREADED_OPENCL
+// uncomment the following to skip DAG generation for faster debugging
+//#define DEBUG_SKIP_DAG_GENERATION
+
 namespace {
 
 const char* strClError(cl_int err)
@@ -425,8 +430,12 @@ void OpenCLMiner::trun()
             }
             // Run the kernel.
             cl->kernelSearch_.setArg(3, startNonce);
-            cl->queue_.enqueueNDRangeKernel(cl->kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
 
+            #ifdef DEBUG_SINGLE_THREADED_OPENCL
+            cl->queue_.enqueueTask(cl->kernelSearch_);
+            #else
+            cl->queue_.enqueueNDRangeKernel(cl->kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
+            #endif
             // Report results while the kernel is running.
             // It takes some time because proof of work must be re-evaluated on CPU.
             if (nonce != 0) {
@@ -637,11 +646,13 @@ bool OpenCLMiner::init_dag(uint32_t height)
         cl->kernelDag_.setArg(2, cl->bufferDag_);
         cl->kernelDag_.setArg(3, ~0u);
 
+        #ifndef DEBUG_SKIP_DAG_GENERATION
         for (uint32_t i = 0; i < fullRuns; ++i) {
             cl->kernelDag_.setArg(0, i * globalWorkSize_);
             cl->queue_.enqueueNDRangeKernel(cl->kernelDag_, cl::NullRange, globalWorkSize_, workgroupSize_);
             cl->queue_.finish();
         }
+        #endif
 
         cllog << "DAG Loaded" ;
 
