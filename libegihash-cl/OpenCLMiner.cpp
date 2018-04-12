@@ -362,7 +362,7 @@ void OpenCLMiner::trun()
 {
     // Memory for zero-ing buffers. Cannot be static because crashes on macOS.
     uint32_t const c_zero = 0;
-    uint32_t startNonce = 0;
+    uint64_t startNonce = 0;
     Work current_work; // Here we need current work as to initialize gpu
     try {
         unsigned int nExtraNonce = 0;
@@ -421,7 +421,7 @@ void OpenCLMiner::trun()
             cl->queue_.enqueueReadBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(results), &results);
             //cllog << "results[0]: " << results[0] << " [1]: " << results[1];
 
-            uint32_t nonce = 0;
+            uint64_t nonce = 0;
             if (results[0] > 0) {
                 // Ignore results except the first one.
                 nonce = startNonce + results[1];
@@ -443,15 +443,13 @@ void OpenCLMiner::trun()
                 auto const powHash = GetPOWHash(work);
                 if (UintToArith256(powHash) <= work.hashTarget)
                 {
-                    cnote << "Submitting block powhash: " << powHash.ToString();
-                    addHashCount(globalWorkSize_);
+                    cnote << "Submitting block powhash: " << powHash.ToString() << "nonce: " << nonce;
                     Solution solution(work, nonce, work.hashMix);
                     m_plant.submit(solution);
                 }
                 else
                 {
-                    cwarn << "CL Miner proposed invalid solution" << powHash.ToString();
-                    continue;
+                    cwarn << "CL Miner proposed invalid solution" << powHash.ToString() << "nonce: " << nonce;
                 }
             }
             current_work = work;

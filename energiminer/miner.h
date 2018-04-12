@@ -40,7 +40,7 @@ public:
     virtual ~Miner() = default;
 
 public:
-    void setWork(const Work& work, uint32_t nonceStart, uint32_t nonceEnd)
+    void setWork(const Work& work, uint64_t nonceStart, uint64_t nonceEnd)
     {
         Worker::setWork(work);
         m_nonceStart = nonceStart;
@@ -86,8 +86,8 @@ protected:
     int m_index = 0;
     const Plant &m_plant;
 
-    std::atomic<uint32_t> m_nonceStart;
-    std::atomic<uint32_t> m_nonceEnd;
+    std::atomic<uint64_t> m_nonceStart;
+    std::atomic<uint64_t> m_nonceEnd;
 
 private:
     std::atomic<uint32_t> m_hashCount;
