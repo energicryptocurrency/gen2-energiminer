@@ -399,7 +399,6 @@ void OpenCLMiner::trun()
                 // Upper 64 bits of the boundary.
                 const uint64_t target = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
                 assert(target > 0);
-                cnote << "target is " << std::setw(32) << std::setfill('0') << std::hex << target;
 
                 // Update header constant buffer.
                 cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_FALSE, 0, 32, h2.data());
@@ -444,6 +443,7 @@ void OpenCLMiner::trun()
                 auto const powHash = GetPOWHash(work);
                 if (UintToArith256(powHash) <= work.hashTarget)
                 {
+                    cnote << "Submitting block powhash: " << powHash.ToString();
                     addHashCount(globalWorkSize_);
                     Solution solution(work, nonce, work.hashMix);
                     m_plant.submit(solution);
