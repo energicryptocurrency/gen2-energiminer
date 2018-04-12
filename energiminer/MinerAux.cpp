@@ -273,7 +273,7 @@ void MinerCLI::doMiner()
     // Start plant now with given miners
     // start plant full of miners
     std::mutex mutex_solution;
-    bool solution_found = false;
+    std::atomic_bool solution_found(false);
     energi::Solution solution;
     // Note, this is mostly called from a miner thread, but since solution is consumed in main thread after set
     // its safe to not lock the access
@@ -334,9 +334,8 @@ void MinerCLI::doMiner()
                 }
                 auto mp = plant.miningProgress();
                 mp.rate();
-                cnote << "Mining on difficulty " << " " << mp;
 
-                this_thread::sleep_for(chrono::milliseconds(6000));
+                this_thread::sleep_for(chrono::milliseconds(500));
             }
             // 7. Since solution was found, before submit stop all miners
             plant.stopAllWork();

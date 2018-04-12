@@ -23,7 +23,7 @@ struct BlockHeader
     uint32_t nBits;
     uint32_t nHeight;
     uint256 hashMix;
-    uint32_t nNonce;
+    uint64_t nNonce;
 
     BlockHeader()
     {

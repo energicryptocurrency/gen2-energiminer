@@ -251,7 +251,6 @@ struct OpenCLMiner::clInfo
     cl::Buffer              bufferDag_;
     cl::Buffer              bufferLight_;
     cl::Buffer              bufferHeader_;
-    cl::Buffer              bufferTarget_;
     cl::Buffer              searchBuffer_;
 };
 
@@ -363,7 +362,7 @@ void OpenCLMiner::trun()
 {
     // Memory for zero-ing buffers. Cannot be static because crashes on macOS.
     uint32_t const c_zero = 0;
-    uint32_t startNonce = 0;
+    uint64_t startNonce = 0;
     Work current_work; // Here we need current work as to initialize gpu
     try {
         unsigned int nExtraNonce = 0;
@@ -393,14 +392,20 @@ void OpenCLMiner::trun()
                 energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
                 egihash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
+                std::vector<uint8_t> h2;
+                h2.reserve(32);
+                std::reverse_copy(&hash_header.b[0], &hash_header.b[32], h2.begin());
+
+                // Upper 64 bits of the boundary.
+                const uint64_t target = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
+                assert(target > 0);
+
                 // Update header constant buffer.
-                cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_TRUE, 0, sizeof(hash_header), &hash_header.b[0]);
-                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(c_zero), &c_zero);
-                cllog << "Target Buffer ..." << sizeof(work.hashTarget);
-               // cllog << "Loaded";
+                cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_FALSE, 0, 32, h2.data());
+                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
 
                 cl->kernelSearch_.setArg(0, cl->searchBuffer_);  // Supply output buffer to kernel.
-                cl->kernelSearch_.setArg(4, cl->bufferTarget_);
+                cl->kernelSearch_.setArg(4, target);
 
                 startNonce  = m_nonceStart.load();
                 cllog << "Nonce loaded" << startNonce;
@@ -412,16 +417,11 @@ void OpenCLMiner::trun()
             }
             // Read results.
             // TODO: could use pinned host pointer instead.
-            uint32_t results[c_maxSearchResults + 1];
+            uint32_t results[c_maxSearchResults + 1] = { 0 };
             cl->queue_.enqueueReadBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(results), &results);
             //cllog << "results[0]: " << results[0] << " [1]: " << results[1];
 
-            // Upper 64 bits of the boundary.
-            const uint64_t target = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
-            assert(target > 0);
-
-
-            uint32_t nonce = 0;
+            uint64_t nonce = 0;
             if (results[0] > 0) {
                 // Ignore results except the first one.
                 nonce = startNonce + results[1];
@@ -430,7 +430,6 @@ void OpenCLMiner::trun()
             }
             // Run the kernel.
             cl->kernelSearch_.setArg(3, startNonce);
-            cl->kernelSearch_.setArg(4, target);
 
             #ifdef DEBUG_SINGLE_THREADED_OPENCL
             cl->queue_.enqueueTask(cl->kernelSearch_);
@@ -438,20 +437,19 @@ void OpenCLMiner::trun()
             cl->queue_.enqueueNDRangeKernel(cl->kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
             #endif
             // Report results while the kernel is running.
-            // It takes some time because ethash must be re-evaluated on CPU.
+            // It takes some time because proof of work must be re-evaluated on CPU.
             if (nonce != 0) {
                 work.nNonce = nonce;
                 auto const powHash = GetPOWHash(work);
                 if (UintToArith256(powHash) <= work.hashTarget)
                 {
-                    addHashCount(globalWorkSize_);
+                    cnote << "Submitting block powhash: " << powHash.ToString() << "nonce: " << nonce;
                     Solution solution(work, nonce, work.hashMix);
                     m_plant.submit(solution);
                 }
                 else
                 {
-                    cwarn << "CL Miner proposed invalid solution (this is normal).";
-                    continue;
+                    cwarn << "CL Miner proposed invalid solution" << powHash.ToString() << "nonce: " << nonce;
                 }
             }
             current_work = work;
@@ -634,7 +632,6 @@ bool OpenCLMiner::init_dag(uint32_t height)
         // create mining buffers
         ETHCL_LOG("Creating mining buffer");
         cl->searchBuffer_ = cl::Buffer(cl->context_, CL_MEM_WRITE_ONLY, (c_maxSearchResults + 1) * sizeof(uint32_t));
-        cl->bufferTarget_ = cl::Buffer(cl->context_, CL_MEM_READ_ONLY, 32);
 
         cllog << "Generating DAG";
 

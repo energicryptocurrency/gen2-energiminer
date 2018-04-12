@@ -38,7 +38,7 @@ bool Worker::start()
                     if ( m_state == State::Killing ) {// Pre check: what if we directly kill, we want to break then
                         break;
                     }
-                    cnote << " Last State " << (int)m_state << name();
+                    cnote << " Last State " << static_cast<int>(m_state.load()) << name();
                 }
                 // Its like waiting to be woken up, unless killed
                 while (m_state == State::Stopped) {
@@ -58,11 +58,11 @@ bool Worker::stop()
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     if (m_threadWorker) {
-        cnote << " State now" << m_name << (int)m_state;
+        cnote << " State now" << m_name << static_cast<int>(m_state.load());
         if ( m_state != State::Stopped ) {
             m_state = State::Stopping;
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-            cnote << " Waiting here" << m_name << (int)m_state;
+            cnote << " Waiting here" << m_name << static_cast<int>(m_state.load());
             m_state = State::Stopped;
         }
     }

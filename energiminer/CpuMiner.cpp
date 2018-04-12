@@ -36,11 +36,11 @@ void CpuMiner::trun()
                 //cnote << "Valid work.";
             }
             work.incrementExtraNonce(nExtraNonce);
-            const uint32_t first_nonce = m_nonceStart.load();
-            const uint32_t max_nonce = m_nonceEnd.load();
+            const uint64_t first_nonce = m_nonceStart.load();
+            const uint64_t max_nonce = m_nonceEnd.load();
 
             work.nNonce = first_nonce;
-            uint32_t last_nonce = first_nonce;
+            uint64_t last_nonce = first_nonce;
             // we dont use mixHash part to calculate hash but fill it later (below)
             do {
                 auto hash = GetPOWHash(work);
