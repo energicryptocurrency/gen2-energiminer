@@ -150,13 +150,13 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
                 }
             }
         }
-    } else if ((arg == "-t" || arg == "--mining-threads") && i + 1 < argc) {
-        try {
-            m_miningThreads = stol(argv[++i]);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
+    //} else if ((arg == "-t" || arg == "--mining-threads") && i + 1 < argc) {
+    //    try {
+    //        m_miningThreads = stol(argv[++i]);
+    //    } catch (...) {
+    //        cerr << "Bad " << arg << " option: " << argv[i] << endl;
+    //        throw;
+    //    }
     } else {
         return false;
     }
