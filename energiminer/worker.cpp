@@ -73,6 +73,7 @@ void Worker::setWork(const Work& work)
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     m_work = work;
+    m_work.incrementExtraNonce();
     m_state = State::Starting;
 
     onSetWork();
