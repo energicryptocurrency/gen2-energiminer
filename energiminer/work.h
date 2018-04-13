@@ -63,6 +63,7 @@ struct Work : public Block
         return m_jobName;
     }
 
+    void incrementExtraNonce();
     void incrementExtraNonce(unsigned int& nExtraNonce);
 
     ADD_SERIALIZE_METHODS

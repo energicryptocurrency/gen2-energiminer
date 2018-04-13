@@ -65,17 +65,17 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
                 break;
             }
         }
-    } else if(arg == "--cl-parallel-hash" && i + 1 < argc) {
-        try {
-            m_openclThreadsPerHash = stol(argv[++i]);
-            if(m_openclThreadsPerHash != 1 && m_openclThreadsPerHash != 2 &&
-                    m_openclThreadsPerHash != 4 && m_openclThreadsPerHash != 8) {
-                throw;
-            }
-        } catch(...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
+    //} else if(arg == "--cl-parallel-hash" && i + 1 < argc) {
+    //    try {
+    //        m_openclThreadsPerHash = stol(argv[++i]);
+    //        if(m_openclThreadsPerHash != 1 && m_openclThreadsPerHash != 2 &&
+    //                m_openclThreadsPerHash != 4 && m_openclThreadsPerHash != 8) {
+    //            throw;
+    //        }
+    //    } catch(...) {
+    //        cerr << "Bad " << arg << " option: " << argv[i] << endl;
+    //        throw;
+    //    }
     } else if ((arg == "--cl-global-work" || arg == "--cuda-grid-size")  && i + 1 < argc) {
         try {
             m_globalWorkSizeMultiplier = stol(argv[++i]);
@@ -150,13 +150,13 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
                 }
             }
         }
-    } else if ((arg == "-t" || arg == "--mining-threads") && i + 1 < argc) {
-        try {
-            m_miningThreads = stol(argv[++i]);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
+    //} else if ((arg == "-t" || arg == "--mining-threads") && i + 1 < argc) {
+    //    try {
+    //        m_miningThreads = stol(argv[++i]);
+    //    } catch (...) {
+    //        cerr << "Bad " << arg << " option: " << argv[i] << endl;
+    //        throw;
+    //    }
     } else {
         return false;
     }
@@ -318,6 +318,7 @@ void MinerCLI::doMiner()
         try {
             solution_found = false;
             // Keep checking for new work and mine
+            unsigned int i = 0;
             while(!solution_found) {
                 energi::Work new_work = client->getWork();
                 // check if current work is no different, then skip
@@ -334,8 +335,14 @@ void MinerCLI::doMiner()
                 }
                 auto mp = plant.miningProgress();
                 mp.rate();
+                // should output about once every 30 seconds
+                if (((++i % 600) == 0) && (mp.hashes > 0))
+                {
+                    i = 0;
+                    cnote << mp;
+                }
 
-                this_thread::sleep_for(chrono::milliseconds(500));
+                this_thread::sleep_for(chrono::milliseconds(50));
             }
             // 7. Since solution was found, before submit stop all miners
             plant.stopAllWork();

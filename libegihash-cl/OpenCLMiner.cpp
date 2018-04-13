@@ -15,11 +15,6 @@
 #include <vector>
 #include <iostream>
 
-// uncomment the following for being able to print in a useful way
-//#define DEBUG_SINGLE_THREADED_OPENCL
-// uncomment the following to skip DAG generation for faster debugging
-//#define DEBUG_SKIP_DAG_GENERATION
-
 namespace {
 
 const char* strClError(cl_int err)
@@ -353,7 +348,7 @@ bool OpenCLMiner::configureGPU(
         cwarn << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>() << " has insufficient GPU memory." << result <<
             " bytes of memory found < " << dagSize << " bytes of memory required";
     }
-    cllog << "No GPU device with sufficient memory was found. Can't GPU mine. Remove the -G argument" ;
+    cllog << "No GPU device with sufficient memory was found, unable to mine Energi." ;
     return false;
 }
 
@@ -365,9 +360,8 @@ void OpenCLMiner::trun()
     uint64_t startNonce = 0;
     Work current_work; // Here we need current work as to initialize gpu
     try {
-        unsigned int nExtraNonce = 0;
         while (!shouldStop()) {
-            Work work = this->work(); // This work is a copy of last assigned work the worker was provided by plant
+            Work work = this->getWork(); // This work is a copy of last assigned work the worker was provided by plant
             if ( !work.isValid() ) {
                 cdebug << "No work received. Pause for 1 s.";
                 std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -379,10 +373,8 @@ void OpenCLMiner::trun()
                 //cnote << "Valid work.";
             }
 
-            work.incrementExtraNonce(nExtraNonce);
             if ( current_work != work ) {
                 cllog << "Bits:" << " " << work.nBits;
-                auto localSwitchStart = std::chrono::high_resolution_clock::now();
 
                 if (!dagLoaded_ || (egihash::cache_t::get_seedhash(current_work.nHeight) != egihash::cache_t::get_seedhash(work.nHeight))) {
                     init_dag(work.nHeight);
@@ -392,50 +384,38 @@ void OpenCLMiner::trun()
                 energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
                 egihash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
-                std::vector<uint8_t> h2;
-                h2.reserve(32);
-                std::reverse_copy(&hash_header.b[0], &hash_header.b[32], h2.begin());
-
                 // Upper 64 bits of the boundary.
                 const uint64_t target = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
                 assert(target > 0);
 
                 // Update header constant buffer.
-                cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_FALSE, 0, 32, h2.data());
-                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
+                cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_TRUE, 0, hash_header.hash_size, &hash_header.b[0]);
+                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(c_zero), &c_zero);
 
                 cl->kernelSearch_.setArg(0, cl->searchBuffer_);  // Supply output buffer to kernel.
                 cl->kernelSearch_.setArg(4, target);
 
                 startNonce  = m_nonceStart.load();
-                cllog << "Nonce loaded" << startNonce;
-
-                auto switchEnd = std::chrono::high_resolution_clock::now();
-                auto globalSwitchTime = std::chrono::duration_cast<std::chrono::milliseconds>(switchEnd - workSwitchStart).count();
-                auto localSwitchTime = std::chrono::duration_cast<std::chrono::microseconds>(switchEnd - localSwitchStart).count();
-                cllog << "Switch time" << globalSwitchTime << "ms /" << localSwitchTime << "us";
+                //cllog << "Nonce loaded" << startNonce;
             }
+
+            // Run the kernel.
+            cl->kernelSearch_.setArg(3, startNonce);
+            cl->queue_.enqueueNDRangeKernel(cl->kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
+
             // Read results.
             // TODO: could use pinned host pointer instead.
             uint32_t results[c_maxSearchResults + 1] = { 0 };
             cl->queue_.enqueueReadBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(results), &results);
-            //cllog << "results[0]: " << results[0] << " [1]: " << results[1];
 
             uint64_t nonce = 0;
             if (results[0] > 0) {
                 // Ignore results except the first one.
                 nonce = startNonce + results[1];
                 // Reset search buffer if any solution found.
-                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
+                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(c_zero), &c_zero);
             }
-            // Run the kernel.
-            cl->kernelSearch_.setArg(3, startNonce);
 
-            #ifdef DEBUG_SINGLE_THREADED_OPENCL
-            cl->queue_.enqueueTask(cl->kernelSearch_);
-            #else
-            cl->queue_.enqueueNDRangeKernel(cl->kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
-            #endif
             // Report results while the kernel is running.
             // It takes some time because proof of work must be re-evaluated on CPU.
             if (nonce != 0) {
@@ -646,17 +626,14 @@ bool OpenCLMiner::init_dag(uint32_t height)
         cl->kernelDag_.setArg(2, cl->bufferDag_);
         cl->kernelDag_.setArg(3, ~0u);
 
-        #ifndef DEBUG_SKIP_DAG_GENERATION
         for (uint32_t i = 0; i < fullRuns; ++i) {
             cl->kernelDag_.setArg(0, i * globalWorkSize_);
             cl->queue_.enqueueNDRangeKernel(cl->kernelDag_, cl::NullRange, globalWorkSize_, workgroupSize_);
             cl->queue_.finish();
         }
-        #endif
 
         cllog << "DAG Loaded" ;
 
-        std::this_thread::sleep_for(std::chrono::seconds(10));
     } catch (cl::Error const& err) {
         cwarn << err.what() << "(" << err.err() << ")";
         return false;

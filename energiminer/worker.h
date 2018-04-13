@@ -53,7 +53,7 @@ public:
     // work in a thread, protect the data carefully.
     void setWork(const Work& work);
 
-    Work work()
+    Work getWork()
     {
         std::lock_guard<std::recursive_mutex> lock(m_mutex);
         return m_work;

@@ -33,7 +33,7 @@ struct BlockHeader
     BlockHeader(const Json::Value& gbt)
     {
         nVersion         = gbt["version"].asInt();
-        hashPrevBlock.SetHex(gbt["previousblockhash"].asString());
+        hashPrevBlock = uint256S(gbt["previousblockhash"].asString());
         hashMerkleRoot.SetNull();
         nTime            = gbt["curtime"].asInt();
         std::string bits = gbt["bits"].asString();

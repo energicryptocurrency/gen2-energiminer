@@ -98,14 +98,14 @@ public:
 			<< "Simulation mode:" << endl
 			<< "    -Z [<n>],--simulation [<n>] Mining test mode. Used to validate kernel optimizations. Optionally specify block number." << endl
 			<< "Mining configuration:" << endl
-			<< "    --opencl-platform <n>  When mining using -G/--opencl use OpenCL platform n (default: 0)." << endl
-			<< "    --opencl-device <n>  When mining using -G/--opencl use OpenCL device n (default: 0)." << endl
+			<< "    --opencl-platform <n>  When mining use OpenCL platform n (default: 0)." << endl
+			<< "    --opencl-device <n>  When mining use OpenCL device n (default: 0)." << endl
 			<< "    --opencl-devices <0 1 ..n> Select which OpenCL devices to mine on. Default is to use all" << endl
-			<< "    -t, --mining-threads <n> Limit number of CPU/GPU miners to n (default: use everything available on selected platform)" << endl
-			<< "    --list-devices List the detected OpenCL/CUDA devices and exit. Should be combined with -G or -U flag" << endl
+			//<< "    -t, --mining-threads <n> Limit number of CPU/GPU miners to n (default: use everything available on selected platform)" << endl
+			<< "    --list-devices List the detected OpenCL/CUDA devices and exit." << endl
 			<< "    --cl-local-work Set the OpenCL local work size. Default is " << OpenCLMiner::c_defaultLocalWorkSize << endl
 			<< "    --cl-global-work Set the OpenCL global work size as a multiple of the local work size. Default is " << OpenCLMiner::c_defaultGlobalWorkSizeMultiplier << " * " << OpenCLMiner::c_defaultLocalWorkSize << endl
-			<< "    --cl-parallel-hash <1 2 ..8> Define how many threads to associate per hash. Default=8" << endl
+			//<< "    --cl-parallel-hash <1 2 ..8> Define how many threads to associate per hash. Default=8" << endl
 			;
 	}
 
@@ -146,10 +146,10 @@ private:
 
 	/// Mining options
 	bool should_mine = true;
-	MinerExecutionMode m_minerExecutionMode = MinerExecutionMode::kCPU;
+	MinerExecutionMode m_minerExecutionMode = MinerExecutionMode::kCL;
 
 	unsigned m_openclPlatform = 0;
-	unsigned m_miningThreads = UINT_MAX;
+	unsigned m_miningThreads = 1;
 	bool m_shouldListDevices = false;
 
 	unsigned m_openclDeviceCount = 0;
