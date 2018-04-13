@@ -360,7 +360,6 @@ void OpenCLMiner::trun()
     uint64_t startNonce = 0;
     Work current_work; // Here we need current work as to initialize gpu
     try {
-        unsigned int nExtraNonce = 0;
         while (!shouldStop()) {
             Work work = this->getWork(); // This work is a copy of last assigned work the worker was provided by plant
             if ( !work.isValid() ) {
@@ -374,7 +373,6 @@ void OpenCLMiner::trun()
                 //cnote << "Valid work.";
             }
 
-            work.incrementExtraNonce(nExtraNonce);
             if ( current_work != work ) {
                 cllog << "Bits:" << " " << work.nBits;
 
