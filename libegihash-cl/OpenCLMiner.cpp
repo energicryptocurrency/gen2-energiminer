@@ -377,7 +377,6 @@ void OpenCLMiner::trun()
             work.incrementExtraNonce(nExtraNonce);
             if ( current_work != work ) {
                 cllog << "Bits:" << " " << work.nBits;
-                auto localSwitchStart = std::chrono::high_resolution_clock::now();
 
                 if (!dagLoaded_ || (egihash::cache_t::get_seedhash(current_work.nHeight) != egihash::cache_t::get_seedhash(work.nHeight))) {
                     init_dag(work.nHeight);
@@ -400,11 +399,6 @@ void OpenCLMiner::trun()
 
                 startNonce  = m_nonceStart.load();
                 //cllog << "Nonce loaded" << startNonce;
-
-                auto switchEnd = std::chrono::high_resolution_clock::now();
-                auto globalSwitchTime = std::chrono::duration_cast<std::chrono::milliseconds>(switchEnd - workSwitchStart).count();
-                auto localSwitchTime = std::chrono::duration_cast<std::chrono::microseconds>(switchEnd - localSwitchStart).count();
-                //cllog << "Switch time" << globalSwitchTime << "ms /" << localSwitchTime << "us";
             }
 
             // Run the kernel.
