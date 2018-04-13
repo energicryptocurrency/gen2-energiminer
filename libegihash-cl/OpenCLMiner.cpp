@@ -411,27 +411,24 @@ void OpenCLMiner::trun()
                 auto localSwitchTime = std::chrono::duration_cast<std::chrono::microseconds>(switchEnd - localSwitchStart).count();
                 cllog << "Switch time" << globalSwitchTime << "ms /" << localSwitchTime << "us";
             }
+
+            // Run the kernel.
+            cl->kernelSearch_.setArg(3, startNonce);
+            cl->queue_.enqueueNDRangeKernel(cl->kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
+
             // Read results.
             // TODO: could use pinned host pointer instead.
             uint32_t results[c_maxSearchResults + 1] = { 0 };
             cl->queue_.enqueueReadBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(results), &results);
-            //cllog << "results[0]: " << results[0] << " [1]: " << results[1];
 
             uint64_t nonce = 0;
             if (results[0] > 0) {
                 // Ignore results except the first one.
                 nonce = startNonce + results[1];
                 // Reset search buffer if any solution found.
-                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
+                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(c_zero), &c_zero);
             }
-            // Run the kernel.
-            cl->kernelSearch_.setArg(3, startNonce);
 
-            #ifdef DEBUG_SINGLE_THREADED_OPENCL
-            cl->queue_.enqueueTask(cl->kernelSearch_);
-            #else
-            cl->queue_.enqueueNDRangeKernel(cl->kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
-            #endif
             // Report results while the kernel is running.
             // It takes some time because proof of work must be re-evaluated on CPU.
             if (nonce != 0) {
