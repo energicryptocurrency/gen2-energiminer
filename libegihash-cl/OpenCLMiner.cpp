@@ -353,7 +353,7 @@ bool OpenCLMiner::configureGPU(
         cwarn << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>() << " has insufficient GPU memory." << result <<
             " bytes of memory found < " << dagSize << " bytes of memory required";
     }
-    cllog << "No GPU device with sufficient memory was found. Can't GPU mine. Remove the -G argument" ;
+    cllog << "No GPU device with sufficient memory was found, unable to mine Energi." ;
     return false;
 }
 
