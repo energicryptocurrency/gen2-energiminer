@@ -392,17 +392,13 @@ void OpenCLMiner::trun()
                 energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
                 egihash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
-                std::vector<uint8_t> h2;
-                h2.reserve(32);
-                std::reverse_copy(&hash_header.b[0], &hash_header.b[32], h2.begin());
-
                 // Upper 64 bits of the boundary.
                 const uint64_t target = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
                 assert(target > 0);
 
                 // Update header constant buffer.
-                cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_FALSE, 0, 32, h2.data());
-                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_FALSE, 0, sizeof(c_zero), &c_zero);
+                cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_TRUE, 0, hash_header.hash_size, &hash_header.b[0]);
+                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(c_zero), &c_zero);
 
                 cl->kernelSearch_.setArg(0, cl->searchBuffer_);  // Supply output buffer to kernel.
                 cl->kernelSearch_.setArg(4, target);
