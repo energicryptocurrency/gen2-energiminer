@@ -399,12 +399,12 @@ void OpenCLMiner::trun()
                 cl->kernelSearch_.setArg(4, target);
 
                 startNonce  = m_nonceStart.load();
-                cllog << "Nonce loaded" << startNonce;
+                //cllog << "Nonce loaded" << startNonce;
 
                 auto switchEnd = std::chrono::high_resolution_clock::now();
                 auto globalSwitchTime = std::chrono::duration_cast<std::chrono::milliseconds>(switchEnd - workSwitchStart).count();
                 auto localSwitchTime = std::chrono::duration_cast<std::chrono::microseconds>(switchEnd - localSwitchStart).count();
-                cllog << "Switch time" << globalSwitchTime << "ms /" << localSwitchTime << "us";
+                //cllog << "Switch time" << globalSwitchTime << "ms /" << localSwitchTime << "us";
             }
 
             // Run the kernel.
