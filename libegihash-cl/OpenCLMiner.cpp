@@ -12,6 +12,7 @@
 #include "CLMiner_kernel.h"
 #include "energiminer/common/Log.h"
 
+#include <algorithm>
 #include <vector>
 #include <iostream>
 
@@ -181,10 +182,18 @@ inline void addDefinition(std::string& _source, char const* _id, unsigned _value
 std::vector<cl::Platform> getPlatforms()
 {
     std::vector<cl::Platform> platforms;
-    try {
+    try
+    {
         cl::Platform::get(&platforms);
-    } catch(cl::Error const& err) {
-        throw err;
+    }
+    catch(cl::Error const& err)
+    {
+#if defined(CL_PLATFORM_NOT_FOUND_KHR)
+        if (err.err() == CL_PLATFORM_NOT_FOUND_KHR)
+            cwarn << "No OpenCL platforms found";
+        else
+#endif
+            throw err;
     }
     return platforms;
 }
@@ -195,7 +204,10 @@ std::vector<cl::Device> getDevices(std::vector<cl::Platform> const& _platforms, 
     size_t platform_num = std::min<size_t>(_platformId, _platforms.size() - 1);
     try
     {
-        _platforms[platform_num].getDevices( CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR, &devices );
+        _platforms[platform_num].getDevices(
+            CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR,
+            &devices
+        );
     }
     catch (cl::Error const& err)
     {
