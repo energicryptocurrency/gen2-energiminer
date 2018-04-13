@@ -36,4 +36,10 @@ void Work::incrementExtraNonce(unsigned int& nExtraNonce)
    this->hashMerkleRoot = BlockMerkleRoot(*this);
 }
 
+void Work::incrementExtraNonce()
+{
+    unsigned int extraNonce=0;
+    incrementExtraNonce(extraNonce);
+}
+
 } //! namespace energi
