@@ -24,7 +24,7 @@ void CpuMiner::trun()
     try {
         unsigned int nExtraNonce = 0;
         while (true) {
-            Work work = this->work(); // This work is a copy of last assigned work the worker was provided by plant
+            Work work = this->getWork(); // This work is a copy of last assigned work the worker was provided by plant
             if ( !work.isValid() ) {
                 cnote << "No work received. Pause for 1 s.";
                 std::this_thread::sleep_for(std::chrono::seconds(1));
