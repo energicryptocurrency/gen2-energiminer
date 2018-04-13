@@ -65,17 +65,17 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
                 break;
             }
         }
-    } else if(arg == "--cl-parallel-hash" && i + 1 < argc) {
-        try {
-            m_openclThreadsPerHash = stol(argv[++i]);
-            if(m_openclThreadsPerHash != 1 && m_openclThreadsPerHash != 2 &&
-                    m_openclThreadsPerHash != 4 && m_openclThreadsPerHash != 8) {
-                throw;
-            }
-        } catch(...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
+    //} else if(arg == "--cl-parallel-hash" && i + 1 < argc) {
+    //    try {
+    //        m_openclThreadsPerHash = stol(argv[++i]);
+    //        if(m_openclThreadsPerHash != 1 && m_openclThreadsPerHash != 2 &&
+    //                m_openclThreadsPerHash != 4 && m_openclThreadsPerHash != 8) {
+    //            throw;
+    //        }
+    //    } catch(...) {
+    //        cerr << "Bad " << arg << " option: " << argv[i] << endl;
+    //        throw;
+    //    }
     } else if ((arg == "--cl-global-work" || arg == "--cuda-grid-size")  && i + 1 < argc) {
         try {
             m_globalWorkSizeMultiplier = stol(argv[++i]);
