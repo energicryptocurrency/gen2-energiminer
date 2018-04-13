@@ -655,8 +655,6 @@ bool OpenCLMiner::init_dag(uint32_t height)
         #endif
 
         cllog << "DAG Loaded" ;
-
-        std::this_thread::sleep_for(std::chrono::seconds(10));
     } catch (cl::Error const& err) {
         cwarn << err.what() << "(" << err.err() << ")";
         return false;
