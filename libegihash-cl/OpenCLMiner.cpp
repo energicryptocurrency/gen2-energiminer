@@ -351,25 +351,23 @@ bool OpenCLMiner::configureGPU(
     if (_platformId >= platforms.size())
         return false;
 
+    bool devices_valid = true;
     std::vector<cl::Device> devices = getDevices(platforms, _platformId);
     for (size_t i = 0; i < devices.size(); i++)
     {
         if ((s_devices[i] < 0) || (s_devices[i] >= static_cast<int64_t>(devices.size()))) continue;
         auto const & device = devices[s_devices[i]];
-        s_devices[i] = -1;
-        cl_ulong result = 0;
-        device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &result);
-        if (result >= dagSize) {
-            cllog << "Found suitable OpenCL device ["
-                  << device.getInfo<CL_DEVICE_NAME>()
-                  << "] with " << result << " bytes of GPU memory";
-            return true;
-        }
-        cwarn << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>() << " has insufficient GPU memory." << result <<
+        cl_ulong gpu_mem_size = 0;
+        device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &gpu_mem_size);
+
+        if (gpu_mem_size < dagSize)
+        {
+            devices_valid = false;
+            cwarn << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>() << " has insufficient GPU memory." << gpu_mem_size <<
             " bytes of memory found < " << dagSize << " bytes of memory required";
+        }
     }
-    cllog << "No GPU device with sufficient memory was found, unable to mine Energi." ;
-    return false;
+    return devices_valid;
 }
 
 
