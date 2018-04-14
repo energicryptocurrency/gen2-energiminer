@@ -390,11 +390,11 @@ void OpenCLMiner::trun()
                 }
                 continue;
             } else {
-                //cllog << "GPU/" << m_index << "Valid work.";
+                //cllog << name() << "Valid work.";
             }
 
             if ( current_work != work ) {
-                cllog << "GPU/" << m_index << "Bits:" << " " << work.nBits;
+                cllog << name() << "Bits:" << " " << work.nBits;
 
                 if (!dagLoaded_ || (egihash::cache_t::get_seedhash(current_work.nHeight) != egihash::cache_t::get_seedhash(work.nHeight))) {
                     init_dag(work.nHeight);
@@ -416,7 +416,7 @@ void OpenCLMiner::trun()
                 cl->kernelSearch_.setArg(4, target);
 
                 startNonce  = m_nonceStart.load();
-                //cllog << "GPU/" << m_index << "Nonce loaded" << startNonce;
+                //cllog << name() << "Nonce loaded" << startNonce;
             }
 
             // Run the kernel.
@@ -443,13 +443,13 @@ void OpenCLMiner::trun()
                 auto const powHash = GetPOWHash(work);
                 if (UintToArith256(powHash) <= work.hashTarget)
                 {
-                    cllog << "GPU/" << m_index << "Submitting block powhash: " << powHash.ToString() << "nonce: " << nonce;
+                    cllog << name() << "Submitting block powhash: " << powHash.ToString() << "nonce: " << nonce;
                     Solution solution(work, nonce, work.hashMix);
                     m_plant.submit(solution);
                 }
                 else
                 {
-                    cwarn << "GPU/" << m_index << "CL Miner proposed invalid solution" << powHash.ToString() << "nonce: " << nonce;
+                    cwarn << name() << "CL Miner proposed invalid solution" << powHash.ToString() << "nonce: " << nonce;
                 }
             }
             current_work = work;
@@ -463,7 +463,7 @@ void OpenCLMiner::trun()
         }
         cl->queue_.finish();
     } catch (cl::Error const& _e) {
-        cwarn << "GPU/" << m_index << "OpenCL Error:" << CLErrorHelper(_e);
+        cwarn << name() << "OpenCL Error:" << CLErrorHelper(_e);
     }
 }
 
@@ -568,25 +568,25 @@ bool OpenCLMiner::init_dag(uint32_t height)
         addDefinition(code, "COMPUTE", std::get<3>(deviceResult));
         addDefinition(code, "THREADS_PER_HASH", 8); // going to be set to 8 by the kernel either way , kernel only supports 8
 
-        cllog << "GPU/" << m_index << "DAG GROUP_SIZE=" << workgroupSize_;
-        cllog << "GPU/" << m_index << "DAG_SIZE=" << dagSize;
-        cllog << "GPU/" << m_index << "DAG_SIZE(128)=" << dagSize128;
-        cllog << "GPU/" << m_index << "LIGHT_SIZE=" << lightSize64;
-        cllog << "GPU/" << m_index << "ACCESSES=" << egihash::constants::ACCESSES;
-        cllog << "GPU/" << m_index << "MAX_OUTPUTS=" << c_maxSearchResults;
-        cllog << "GPU/" << m_index << "PLATTFORM=" << std::get<2>(deviceResult);
-        cllog << "GPU/" << m_index << "COMPUTE=" << std::get<3>(deviceResult);
-        cllog << "GPU/" << m_index << "THREADS_PER_HASH=8";
+        cllog << name() << "DAG GROUP_SIZE=" << workgroupSize_;
+        cllog << name() << "DAG_SIZE=" << dagSize;
+        cllog << name() << "DAG_SIZE(128)=" << dagSize128;
+        cllog << name() << "LIGHT_SIZE=" << lightSize64;
+        cllog << name() << "ACCESSES=" << egihash::constants::ACCESSES;
+        cllog << name() << "MAX_OUTPUTS=" << c_maxSearchResults;
+        cllog << name() << "PLATTFORM=" << std::get<2>(deviceResult);
+        cllog << name() << "COMPUTE=" << std::get<3>(deviceResult);
+        cllog << name() << "THREADS_PER_HASH=8";
 
         // create miner OpenCL program
         cl::Program::Sources sources{{code.data(), code.size()}};
         cl::Program program(cl->context_, sources);
         try {
             program.build({device}, std::get<4>(deviceResult).c_str());
-            cllog << "GPU/" << m_index << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
+            cllog << name() << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
         } catch (cl::Error const&) {
-            cwarn << "GPU/" << m_index << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
-            cwarn << "GPU/" << m_index << " Failed" ;
+            cwarn << name() << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
+            cwarn << name() << " Failed" ;
             return false;
         }
 
@@ -601,7 +601,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
         cl_ulong result = 0;
         device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &result);
         if (result < dagSize) {
-            cllog << "GPU/" << m_index << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>()
+            cllog << name() << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>()
                 << " has insufficient GPU memory." << result
                 << " bytes of memory found < " << dagSize << " bytes of memory required";
             return false;
@@ -617,7 +617,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
 
             cl->queue_.enqueueWriteBuffer(cl->bufferLight_, CL_TRUE, 0, sizeof(uint32_t) * vData.size(), vData.data());
         } catch (cl::Error const& err) {
-            cwarn << "GPU/" << m_index << "Creating DAG buffer failed:" << err.what() << err.err();
+            cwarn << name() << "Creating DAG buffer failed:" << err.what() << err.err();
             return false;
         }
 
@@ -633,7 +633,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
         ETHCL_LOG("Creating mining buffer");
         cl->searchBuffer_ = cl::Buffer(cl->context_, CL_MEM_WRITE_ONLY, (c_maxSearchResults + 1) * sizeof(uint32_t));
 
-        cllog << "GPU/" << m_index << "Generating DAG";
+        cllog << name() << "Generating DAG";
 
         uint32_t const work = (uint32_t)(dagSize / sizeof(egihash::node));
         uint32_t fullRuns = work / globalWorkSize_;
@@ -652,10 +652,10 @@ bool OpenCLMiner::init_dag(uint32_t height)
             cl->queue_.finish();
         }
 
-        cllog << "GPU/" << m_index << "DAG Loaded" ;
+        cllog << name() << "DAG Loaded" ;
 
     } catch (cl::Error const& err) {
-        cwarn << "GPU/" << m_index << err.what() << "(" << err.err() << ")";
+        cwarn << name() << err.what() << "(" << err.err() << ")";
         return false;
     }
     return true;
