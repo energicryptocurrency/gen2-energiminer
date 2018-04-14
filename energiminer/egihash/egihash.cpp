@@ -1066,6 +1066,76 @@ namespace egihash
 		return loaded_epochs;
 	}
 
+// TODO: reference code, remove me
+#if 0
+	// TODO: unit tests / validation
+	result_t hashimoto(sha3_256_t::deserialized_hash_t const & header, uint64_t const nonce, size_t const full_size, ::std::function<sha3_512_t::deserialized_hash_t (size_t const)> lookup)
+	{
+		auto const n = full_size / constants::HASH_BYTES;
+		auto const w = constants::MIX_BYTES / constants::WORD_BYTES;
+		auto const mixhashes = constants::MIX_BYTES / constants::HASH_BYTES;
+
+		sha3_256_t::deserialized_hash_t header_seed(header);
+		for (size_t i = 0; i < 8; i++)
+		{
+			// TODO: nonce is big endian, this converts to little endian (do something sensible for big endian)
+			header_seed.push_back(reinterpret_cast<uint8_t const *>(&nonce)[7 - i]);
+		}
+		auto s = sha3_512(header_seed);
+		decltype(s) mix;
+		for (size_t i = 0; i < (constants::MIX_BYTES / constants::HASH_BYTES); i++)
+		{
+			mix.insert(mix.end(), s.begin(), s.end());
+		}
+
+		for (size_t i = 0; i < constants::ACCESSES; i++)
+		{
+			auto p = fnv(i ^ s[0], mix[i % w]) % (n / mixhashes) * mixhashes;
+			decltype(s) newdata;
+			for (size_t j = 0; j < (constants::MIX_BYTES / constants::HASH_BYTES); j++)
+			{
+				auto const & h = lookup(p + j);
+				newdata.insert(newdata.end(), h.begin(), h.end());
+			}
+			for (auto j = mix.begin(), jEnd = mix.end(), k = newdata.begin(), kEnd = newdata.end(); j != jEnd && k != kEnd; j++, k++)
+			{
+				*j = fnv(*j, *k);
+			}
+		}
+
+		decltype(s) cmix;
+		for (size_t i = 0; i < mix.size(); i += 4)
+		{
+			cmix.push_back(fnv(fnv(fnv(mix[i], mix[i+1]), mix[i+2]), mix[i+3]));
+		}
+
+		auto v = sha3_256(s);
+		result_t out;
+		::std::memcpy(&out.value.b[0], &v[0], ::std::min(sizeof(out.value.b), v.size()));
+		::std::memcpy(&out.mixhash.b[0], &cmix[0], ::std::min(sizeof(out.mixhash.b), cmix.size()));
+		return out;
+
+		//::std::shared_ptr<decltype(s)> shared_mix(::std::make_shared<decltype(s)>(std::move(cmix)));
+		//::std::map<::std::string, decltype(shared_mix)> out;
+		//out.insert(decltype(out)::value_type(::std::string("mix digest"), shared_mix));
+		//s.insert(s.end(), shared_mix->begin(), shared_mix->end());
+		//out.insert(decltype(out)::value_type(::std::string("result"), ::std::make_shared<decltype(s)>(sha3_256(s))));
+		//return out;
+	}
+
+	// TODO: unit tests / validation
+	result_t hashimoto_light(size_t const full_size, cache_t const & c, sha3_256_t::deserialized_hash_t const & header, uint64_t const nonce)
+	{
+		return hashimoto(header, nonce, full_size, [c](size_t const x){return dag_t::impl_t::calc_dataset_item(c.data(), x);});
+	}
+
+	// TODO: unit tests / validation
+	result_t hashimoto_full(size_t const full_size, dag_t const & dataset, sha3_256_t::deserialized_hash_t const & header, uint64_t const nonce)
+	{
+		return hashimoto(header, nonce, full_size, [dataset](size_t const x){return dataset.data()[x];});
+	}
+#endif // 0
+
 	// TODO: unify light & full implementation
 	namespace hashimoto
 	{
@@ -1192,6 +1262,44 @@ namespace egihash
 		};
 
 		bool success = true;
+		#if 0 // don't do anything yet
+		for (size_t i = 0; i < sixtyfour_results.size(); i++)
+		{
+			if (string(*sixtyfour_results[i]) != sixtyfour_expected[i])
+			{
+				cerr << "sha3_512 tests failed" << endl;
+				success = false;
+				break;
+			}
+		}
+
+		for (size_t i = 0; i < thirtytwo_results.size(); i++)
+		{
+			if (string(*thirtytwo_results[i]) != thirtytwo_expected[i])
+			{
+				cerr << "sha3_256 tests failed" << endl;
+				success = false;
+				break;
+			}
+		}
+
+		cout << "hash is " << std::string(*sixtyfour_results[0]) << endl;
+		auto h = sixtyfour_results[0]->deserialize();
+		cout << "deserialized is ";
+		for (auto i = h.begin(), iEnd = h.end(); i != iEnd; i++)
+		{
+			cout << ::std::hex << ::std::setw(2) << ::std::setfill('0') << *i;
+		}
+		cout << endl;
+
+		cout << "encode_int(41) == " << encode_int(41) << endl;
+		vector<uint32_t> v = {0x41, 0x42};
+		cout << "serialize_hash({41, 42}) == " << sha3_512_t::serialize(v) << endl;
+		if (success)
+		{
+			cout << dec << "all tests passed" << endl;
+		}
+		#endif
 
 		auto progress = [](::std::size_t step, ::std::size_t max, int phase) -> bool
 		{
