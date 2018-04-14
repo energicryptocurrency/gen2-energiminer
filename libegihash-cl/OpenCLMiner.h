@@ -18,6 +18,7 @@
 #include "energiminer/miner.h"
 
 #include <cstdint>
+#include <mutex>
 #include <tuple>
 
 // macOS OpenCL fix:
@@ -77,6 +78,7 @@ namespace energi
 
     static void setDevices(unsigned * _devices, unsigned _selectedDeviceCount)
     {
+      std::lock_guard<std::mutex> lock(m_device_mutex);
       for (unsigned i = 0; i < _selectedDeviceCount; i++)
       {
         s_devices[i] = _devices[i];
@@ -97,6 +99,8 @@ namespace energi
 
     unsigned                globalWorkSize_ = 0;
     unsigned                workgroupSize_ = 0;
+
+    static std::mutex       m_device_mutex;
 
     static unsigned         s_platformId;
     static unsigned         s_numInstances;

@@ -223,6 +223,9 @@ std::vector<cl::Device> getDevices(std::vector<cl::Platform> const& _platforms, 
 
 using namespace energi;
 
+
+std::mutex OpenCLMiner::m_device_mutex;
+
 unsigned OpenCLMiner::s_workgroupSize = OpenCLMiner::c_defaultLocalWorkSize;
 unsigned OpenCLMiner::s_initialGlobalWorkSize = OpenCLMiner::c_defaultGlobalWorkSizeMultiplier * OpenCLMiner::c_defaultLocalWorkSize;
 unsigned OpenCLMiner::s_threadsPerHash = 8;
@@ -333,6 +336,7 @@ bool OpenCLMiner::configureGPU(
         uint64_t _currentBlock
         )
 {
+    std::lock_guard<std::mutex> lock(m_device_mutex);
     s_platformId = _platformId;
     _localWorkSize = ((_localWorkSize + 7) / 8) * 8;
     s_workgroupSize = _localWorkSize;
@@ -348,7 +352,11 @@ bool OpenCLMiner::configureGPU(
         return false;
 
     std::vector<cl::Device> devices = getDevices(platforms, _platformId);
-    for (auto const& device: devices) {
+    for (size_t i = 0; i < devices.size(); i++)
+    {
+        if ((s_devices[i] < 0) || (s_devices[i] >= static_cast<int64_t>(devices.size()))) continue;
+        auto const & device = devices[s_devices[i]];
+        s_devices[i] = -1;
         cl_ulong result = 0;
         device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &result);
         if (result >= dagSize) {
