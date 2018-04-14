@@ -12,6 +12,7 @@
 #include "CLMiner_kernel.h"
 #include "energiminer/common/Log.h"
 
+#include <algorithm>
 #include <vector>
 #include <iostream>
 
@@ -181,10 +182,18 @@ inline void addDefinition(std::string& _source, char const* _id, unsigned _value
 std::vector<cl::Platform> getPlatforms()
 {
     std::vector<cl::Platform> platforms;
-    try {
+    try
+    {
         cl::Platform::get(&platforms);
-    } catch(cl::Error const& err) {
-        throw err;
+    }
+    catch(cl::Error const& err)
+    {
+#if defined(CL_PLATFORM_NOT_FOUND_KHR)
+        if (err.err() == CL_PLATFORM_NOT_FOUND_KHR)
+            cwarn << "No OpenCL platforms found";
+        else
+#endif
+            throw err;
     }
     return platforms;
 }
@@ -195,7 +204,10 @@ std::vector<cl::Device> getDevices(std::vector<cl::Platform> const& _platforms, 
     size_t platform_num = std::min<size_t>(_platformId, _platforms.size() - 1);
     try
     {
-        _platforms[platform_num].getDevices( CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR, &devices );
+        _platforms[platform_num].getDevices(
+            CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR,
+            &devices
+        );
     }
     catch (cl::Error const& err)
     {
@@ -210,6 +222,9 @@ std::vector<cl::Device> getDevices(std::vector<cl::Platform> const& _platforms, 
 } //unnamed namespace
 
 using namespace energi;
+
+
+std::mutex OpenCLMiner::m_device_mutex;
 
 unsigned OpenCLMiner::s_workgroupSize = OpenCLMiner::c_defaultLocalWorkSize;
 unsigned OpenCLMiner::s_initialGlobalWorkSize = OpenCLMiner::c_defaultGlobalWorkSizeMultiplier * OpenCLMiner::c_defaultLocalWorkSize;
@@ -321,6 +336,7 @@ bool OpenCLMiner::configureGPU(
         uint64_t _currentBlock
         )
 {
+    std::lock_guard<std::mutex> lock(m_device_mutex);
     s_platformId = _platformId;
     _localWorkSize = ((_localWorkSize + 7) / 8) * 8;
     s_workgroupSize = _localWorkSize;
@@ -336,7 +352,11 @@ bool OpenCLMiner::configureGPU(
         return false;
 
     std::vector<cl::Device> devices = getDevices(platforms, _platformId);
-    for (auto const& device: devices) {
+    for (size_t i = 0; i < devices.size(); i++)
+    {
+        if ((s_devices[i] < 0) || (s_devices[i] >= static_cast<int64_t>(devices.size()))) continue;
+        auto const & device = devices[s_devices[i]];
+        s_devices[i] = -1;
         cl_ulong result = 0;
         device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &result);
         if (result >= dagSize) {
@@ -370,11 +390,11 @@ void OpenCLMiner::trun()
                 }
                 continue;
             } else {
-                //cnote << "Valid work.";
+                //cllog << name() << "Valid work.";
             }
 
             if ( current_work != work ) {
-                cllog << "Bits:" << " " << work.nBits;
+                cllog << name() << "Bits:" << " " << work.nBits;
 
                 if (!dagLoaded_ || (egihash::cache_t::get_seedhash(current_work.nHeight) != egihash::cache_t::get_seedhash(work.nHeight))) {
                     init_dag(work.nHeight);
@@ -396,7 +416,7 @@ void OpenCLMiner::trun()
                 cl->kernelSearch_.setArg(4, target);
 
                 startNonce  = m_nonceStart.load();
-                //cllog << "Nonce loaded" << startNonce;
+                //cllog << name() << "Nonce loaded" << startNonce;
             }
 
             // Run the kernel.
@@ -423,13 +443,13 @@ void OpenCLMiner::trun()
                 auto const powHash = GetPOWHash(work);
                 if (UintToArith256(powHash) <= work.hashTarget)
                 {
-                    cnote << "Submitting block powhash: " << powHash.ToString() << "nonce: " << nonce;
+                    cllog << name() << "Submitting block powhash: " << powHash.ToString() << "nonce: " << nonce;
                     Solution solution(work, nonce, work.hashMix);
                     m_plant.submit(solution);
                 }
                 else
                 {
-                    cwarn << "CL Miner proposed invalid solution" << powHash.ToString() << "nonce: " << nonce;
+                    cwarn << name() << "CL Miner proposed invalid solution" << powHash.ToString() << "nonce: " << nonce;
                 }
             }
             current_work = work;
@@ -443,7 +463,7 @@ void OpenCLMiner::trun()
         }
         cl->queue_.finish();
     } catch (cl::Error const& _e) {
-        cwarn << "OpenCL Error:" << CLErrorHelper(_e);
+        cwarn << name() << "OpenCL Error:" << CLErrorHelper(_e);
     }
 }
 
@@ -548,25 +568,25 @@ bool OpenCLMiner::init_dag(uint32_t height)
         addDefinition(code, "COMPUTE", std::get<3>(deviceResult));
         addDefinition(code, "THREADS_PER_HASH", 8); // going to be set to 8 by the kernel either way , kernel only supports 8
 
-        cnote << "DAG GROUP_SIZE=" << workgroupSize_;
-        cnote << "DAG_SIZE=" << dagSize;
-        cnote << "DAG_SIZE(128)=" << dagSize128;
-        cnote << "LIGHT_SIZE=" << lightSize64;
-        cnote << "ACCESSES=" << egihash::constants::ACCESSES;
-        cnote << "MAX_OUTPUTS=" << c_maxSearchResults;
-        cnote << "PLATTFORM=" << std::get<2>(deviceResult);
-        cnote << "COMPUTE=" << std::get<3>(deviceResult);
-        cnote << "THREADS_PER_HASH=8";
+        cllog << name() << "DAG GROUP_SIZE=" << workgroupSize_;
+        cllog << name() << "DAG_SIZE=" << dagSize;
+        cllog << name() << "DAG_SIZE(128)=" << dagSize128;
+        cllog << name() << "LIGHT_SIZE=" << lightSize64;
+        cllog << name() << "ACCESSES=" << egihash::constants::ACCESSES;
+        cllog << name() << "MAX_OUTPUTS=" << c_maxSearchResults;
+        cllog << name() << "PLATTFORM=" << std::get<2>(deviceResult);
+        cllog << name() << "COMPUTE=" << std::get<3>(deviceResult);
+        cllog << name() << "THREADS_PER_HASH=8";
 
         // create miner OpenCL program
         cl::Program::Sources sources{{code.data(), code.size()}};
         cl::Program program(cl->context_, sources);
         try {
             program.build({device}, std::get<4>(deviceResult).c_str());
-            cllog << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
+            cllog << name() << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
         } catch (cl::Error const&) {
-            cwarn << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
-            cwarn << " Failed" ;
+            cwarn << name() << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
+            cwarn << name() << " Failed" ;
             return false;
         }
 
@@ -581,7 +601,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
         cl_ulong result = 0;
         device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &result);
         if (result < dagSize) {
-            cnote << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>()
+            cllog << name() << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>()
                 << " has insufficient GPU memory." << result
                 << " bytes of memory found < " << dagSize << " bytes of memory required";
             return false;
@@ -597,7 +617,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
 
             cl->queue_.enqueueWriteBuffer(cl->bufferLight_, CL_TRUE, 0, sizeof(uint32_t) * vData.size(), vData.data());
         } catch (cl::Error const& err) {
-            cwarn << "Creating DAG buffer failed:" << err.what() << err.err();
+            cwarn << name() << "Creating DAG buffer failed:" << err.what() << err.err();
             return false;
         }
 
@@ -613,7 +633,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
         ETHCL_LOG("Creating mining buffer");
         cl->searchBuffer_ = cl::Buffer(cl->context_, CL_MEM_WRITE_ONLY, (c_maxSearchResults + 1) * sizeof(uint32_t));
 
-        cllog << "Generating DAG";
+        cllog << name() << "Generating DAG";
 
         uint32_t const work = (uint32_t)(dagSize / sizeof(egihash::node));
         uint32_t fullRuns = work / globalWorkSize_;
@@ -632,10 +652,10 @@ bool OpenCLMiner::init_dag(uint32_t height)
             cl->queue_.finish();
         }
 
-        cllog << "DAG Loaded" ;
+        cllog << name() << "DAG Loaded" ;
 
     } catch (cl::Error const& err) {
-        cwarn << err.what() << "(" << err.err() << ")";
+        cwarn << name() << err.what() << "(" << err.err() << ")";
         return false;
     }
     return true;
