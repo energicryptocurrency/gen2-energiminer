@@ -496,9 +496,7 @@ std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::clInfo::getDevi
     }
 
     // use selected device
-    int idx = index / devices.size();
-    unsigned deviceId = s_devices[idx] > -1 ? s_devices[idx] : index;
-    cl::Device& device = devices[deviceId % devices.size()];
+    cl::Device& device = devices[s_devices[index]];
     std::string device_version = device.getInfo<CL_DEVICE_VERSION>();
     ETHCL_LOG("Device:   " << device.getInfo<CL_DEVICE_NAME>() << " / " << device_version);
 
@@ -537,7 +535,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
     try {
         uint32_t const epoch = height / egihash::constants::EPOCH_LENGTH;
         cllog << name() << "Generating DAG for epoch #" << epoch;
-        auto deviceResult = cl->getDeviceInfo(s_devices[m_index]);
+        auto deviceResult = cl->getDeviceInfo(m_index);
         // create context
         auto device = std::get<1>(deviceResult);
         cl->context_  = cl::Context(std::vector<cl::Device>(&device, &device + 1));
