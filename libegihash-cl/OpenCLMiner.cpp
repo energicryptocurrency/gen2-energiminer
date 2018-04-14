@@ -535,7 +535,9 @@ bool OpenCLMiner::init_dag(uint32_t height)
 {
     // get all platforms
     try {
-        auto deviceResult = cl->getDeviceInfo(index_);
+        uint32_t const epoch = height / egihash::constants::EPOCH_LENGTH;
+        cllog << name() << "Generating DAG for epoch #" << epoch;
+        auto deviceResult = cl->getDeviceInfo(s_devices[m_index]);
         // create context
         auto device = std::get<1>(deviceResult);
         cl->context_  = cl::Context(std::vector<cl::Device>(&device, &device + 1));
@@ -566,22 +568,11 @@ bool OpenCLMiner::init_dag(uint32_t height)
         addDefinition(code, "COMPUTE", std::get<3>(deviceResult));
         addDefinition(code, "THREADS_PER_HASH", 8); // going to be set to 8 by the kernel either way , kernel only supports 8
 
-        cllog << name() << "DAG GROUP_SIZE=" << workgroupSize_;
-        cllog << name() << "DAG_SIZE=" << dagSize;
-        cllog << name() << "DAG_SIZE(128)=" << dagSize128;
-        cllog << name() << "LIGHT_SIZE=" << lightSize64;
-        cllog << name() << "ACCESSES=" << egihash::constants::ACCESSES;
-        cllog << name() << "MAX_OUTPUTS=" << c_maxSearchResults;
-        cllog << name() << "PLATTFORM=" << std::get<2>(deviceResult);
-        cllog << name() << "COMPUTE=" << std::get<3>(deviceResult);
-        cllog << name() << "THREADS_PER_HASH=8";
-
         // create miner OpenCL program
         cl::Program::Sources sources{{code.data(), code.size()}};
         cl::Program program(cl->context_, sources);
         try {
             program.build({device}, std::get<4>(deviceResult).c_str());
-            cllog << name() << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
         } catch (cl::Error const&) {
             cwarn << name() << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
             cwarn << name() << " Failed" ;
@@ -611,7 +602,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
             cl->kernelSearch_     = cl::Kernel(program, "ethash_search");
             cl->kernelDag_        = cl::Kernel(program, "ethash_calculate_dag_item");
 
-            ETHCL_LOG("Creating light buffer");
+            //ETHCL_LOG("Creating light buffer");
 
             cl->queue_.enqueueWriteBuffer(cl->bufferLight_, CL_TRUE, 0, sizeof(uint32_t) * vData.size(), vData.data());
         } catch (cl::Error const& err) {
@@ -620,7 +611,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
         }
 
         // create buffer for header
-        ETHCL_LOG("Creating buffer for header.");
+        //ETHCL_LOG("Creating buffer for header.");
         cl->bufferHeader_ = cl::Buffer(cl->context_, CL_MEM_READ_ONLY, 32);
 
         cl->kernelSearch_.setArg(1, cl->bufferHeader_);
@@ -628,10 +619,8 @@ bool OpenCLMiner::init_dag(uint32_t height)
         cl->kernelSearch_.setArg(5, ~0u);  // Pass this to stop the compiler unrolling the loops.
 
         // create mining buffers
-        ETHCL_LOG("Creating mining buffer");
+        //ETHCL_LOG("Creating mining buffer");
         cl->searchBuffer_ = cl::Buffer(cl->context_, CL_MEM_WRITE_ONLY, (c_maxSearchResults + 1) * sizeof(uint32_t));
-
-        cllog << name() << "Generating DAG";
 
         uint32_t const work = (uint32_t)(dagSize / sizeof(egihash::node));
         uint32_t fullRuns = work / globalWorkSize_;
@@ -650,7 +639,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
             cl->queue_.finish();
         }
 
-        cllog << name() << "DAG Loaded" ;
+        cllog << name() << "Generating DAG for epoch #" << epoch << "finished.";
 
     } catch (cl::Error const& err) {
         cwarn << name() << err.what() << "(" << err.err() << ")";
