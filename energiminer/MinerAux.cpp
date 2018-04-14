@@ -323,7 +323,7 @@ void MinerCLI::doMiner()
                 energi::Work new_work = client->getWork();
                 // check if current work is no different, then skip
                 if ( new_work != current_work ) {
-                    cnote << "work submitted";
+                    //cnote << "work submitted";
                     // 1. Got new work
                     // 2. Abandon current work and take new work
                     // 3. miner starts mining for new work

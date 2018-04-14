@@ -52,7 +52,19 @@ public:
         params.append(result1);
         Json::Value result = this->CallMethod("submitblock", params);
         auto resultStr = result.toStyledString();
-        std::cout << "submit result: " << resultStr << std::endl;
+        resultStr.pop_back(); // includes a newline
+        if (resultStr == "null")
+        {
+            cnote << "Block Accepted";
+        }
+        else if (resultStr == "inconclusive")
+        {
+            cnote << "Block too old";
+        }
+        else
+        {
+            cnote << "Block Rejected:" << resultStr;
+        }
         return resultStr == "null";
     }
 

@@ -392,7 +392,7 @@ void OpenCLMiner::trun()
             }
 
             if ( current_work != work ) {
-                cllog << name() << "Bits:" << " " << work.nBits;
+                //cllog << name() << "Bits:" << " " << work.nBits;
 
                 if (!dagLoaded_ || (egihash::cache_t::get_seedhash(current_work.nHeight) != egihash::cache_t::get_seedhash(work.nHeight))) {
                     init_dag(work.nHeight);
