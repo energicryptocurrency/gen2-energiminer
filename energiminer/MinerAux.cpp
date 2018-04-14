@@ -335,8 +335,7 @@ void MinerCLI::doMiner()
                 }
                 auto mp = plant.miningProgress();
                 mp.rate();
-                // should output about once every 30 seconds
-                if (((++i % 600) == 0) && (mp.hashes > 0))
+                if (((++i % 200) == 0) && (mp.hashes > 0))
                 {
                     i = 0;
                     cnote << mp;
