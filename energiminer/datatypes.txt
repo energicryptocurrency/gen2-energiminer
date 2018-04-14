@@ -1,0 +1,80 @@
+native data types
+
+uin32_t     -> 4 bytes
+uint64_t    -> 8 bytes
+
+****************  hashing datatypes ****************
+
+uint256     -> base_blob(256 bits)
+            -> uint8_t data[256/8 => 32]; -> uint8_t data[32];
+
+
+egihash::h256_t (hash_size = 32)
+            -> uint8_t b[hash_size]       -> uint8_t b[hash_size]
+
+                  
+diff b/w  uint256  & egihash::h256_t  -> h256_t also hashes the input with keccak-256
+
+
+
+**************** Target ****************************
+
+nBits       -> uint32_t
+Target
+
+
+
+
+****************
+using h256 = FixedHash<32>; => array<uint8_t, 32>
+base_uint<256/32> -> base_uint -> uint32_t * 8
+ 
+
+
+
+
+*************** conversions *************************
+le32dec -> swaps order -> 0x0 -> 01, 0x1 -> 02, 0x2 -> 05, 0x3 -> 06  => 0x06050201
+le32dec -> swaps order -> 0x0 -> 06, 0x1 -> 05, 0x2 -> 02, 0x3 -> 01  => 0x16020506
+ 
+#if !HAVE_DECL_LE32DEC
+  static inline uint32_t le32dec(const void *pp)
+  {
+    const uint8_t *p = (uint8_t const *)pp;
+    return ((uint32_t)(p[0]) + ((uint32_t)(p[1]) << 8) +
+        ((uint32_t)(p[2]) << 16) + ((uint32_t)(p[3]) << 24));
+  }
+  #endif
+
+
+ #if !HAVE_DECL_BE32DEC
+  static inline uint32_t be32dec(const void *pp)
+  {
+    const uint8_t *p = (uint8_t const *)pp;
+    return ((uint32_t)(p[3]) + ((uint32_t)(p[2]) << 8) +
+        ((uint32_t)(p[1]) << 16) + ((uint32_t)(p[0]) << 24));
+  }
+  #endif
+
+  
+  #if !HAVE_DECL_BE32ENC
+  static inline void be32enc(void *pp, uint32_t x)
+  {
+    uint8_t *p = (uint8_t *)pp;
+    p[3] = x & 0xff;
+    p[2] = (x >> 8) & 0xff;
+    p[1] = (x >> 16) & 0xff;
+    p[0] = (x >> 24) & 0xff;
+  }
+  #endif
+
+  #if !HAVE_DECL_LE32ENC
+  static inline void le32enc(void *pp, uint32_t x)
+  {
+    uint8_t *p = (uint8_t *)pp;
+    p[0] = x & 0xff;
+    p[1] = (x >> 8) & 0xff;
+    p[2] = (x >> 16) & 0xff;
+    p[3] = (x >> 24) & 0xff;
+  }
+  #endif

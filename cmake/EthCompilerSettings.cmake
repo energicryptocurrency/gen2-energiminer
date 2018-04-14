@@ -3,11 +3,11 @@
 # C++11 check and activation
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
 
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-unknown-pragmas -Wextra -Wno-error=parentheses -pedantic")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-unknown-pragmas -Wextra -Wno-error=parentheses -pedantic -Wno-unused-parameter")
 
 elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
 
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-unknown-pragmas -Wextra")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-unknown-pragmas -Wextra -Wno-unused-parameter")
 
 	if ("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -fcolor-diagnostics -Qunused-arguments")

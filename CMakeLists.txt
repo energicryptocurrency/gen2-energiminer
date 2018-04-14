@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.3)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/cmake/toolchain.cmake CACHE FILEPATH "CMake toolchain file")
-
-set(CMAKE_CONFIGURATION_TYPES Debug RelWithDebInfo Debug)
-set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type on single-configuration generators")
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CONFIGURATION_TYPES Release RelWithDebInfo Release)
+set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type on single-configuration generators")
 
 set(HUNTER_CONFIGURATION_TYPES Release)
 set(HUNTER_CACHE_SERVERS "https://github.com/ethereum/hunter-cache")
@@ -59,7 +59,7 @@ option(ETHASHCL "Build with OpenCL mining" ON)
 
 # propagates CMake configuration options to the compiler
 function(configureProject)
-    add_definitions(-DETH_ETHASHCL)
+    add_definitions(-DETH_ETHASHCL -Wno-unused-private-field -Wno-unused-function)
 endfunction()
 
 function(createBuildInfo)
@@ -121,10 +121,7 @@ include(EthCompilerSettings)
 
 createBuildInfo()
 
-add_subdirectory(libdevcore)
-add_subdirectory(libethash)
-add_subdirectory(libethash-cl)
-add_subdirectory(libethcore)
+add_subdirectory(libegihash-cl)
 add_subdirectory(energiminer)
 
 
