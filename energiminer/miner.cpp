@@ -28,25 +28,25 @@ bool Miner::LoadNrgHashDAG()
         };
 
         switch(phase) {
-        case egihash::cache_seeding:
+        case nrghash::cache_seeding:
             progress_handler("Seeding cache ... ");
             break;
-        case egihash::cache_generation:
+        case nrghash::cache_generation:
             progress_handler("Generating cache ... ");
             break;
-        case egihash::cache_saving:
+        case nrghash::cache_saving:
             progress_handler("Saving cache ... ");
             break;
-        case egihash::cache_loading:
+        case nrghash::cache_loading:
             progress_handler("Loading cache ... ");
             break;
-        case egihash::dag_generation:
+        case nrghash::dag_generation:
             progress_handler("Generating Dag ... ");
             break;
-        case egihash::dag_saving:
+        case nrghash::dag_saving:
             progress_handler("Saving Dag ... ");
             break;
-        case egihash::dag_loading:
+        case nrghash::dag_loading:
             progress_handler("Loading Dag ... ");
             break;
         default:
@@ -62,26 +62,26 @@ bool Miner::LoadNrgHashDAG()
 uint256 Miner::GetPOWHash(const BlockHeader& header)
 {
     energi::CBlockHeaderTruncatedLE truncatedBlockHeader(header);
-    egihash::h256_t headerHash(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
+    nrghash::h256_t headerHash(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
-    egihash::result_t ret;
+    nrghash::result_t ret;
     const auto& dag = ActiveDAG();
-    if (dag && (header.nHeight / egihash::constants::EPOCH_LENGTH) == dag->epoch()) {
-        ret = egihash::full::hash(*dag, headerHash, header.nNonce);
+    if (dag && (header.nHeight / nrghash::constants::EPOCH_LENGTH) == dag->epoch()) {
+        ret = nrghash::full::hash(*dag, headerHash, header.nNonce);
     } else {
-        ret = egihash::light::hash(egihash::cache_t(header.nHeight), headerHash, header.nNonce);
+        ret = nrghash::light::hash(nrghash::cache_t(header.nHeight), headerHash, header.nNonce);
     }
     const_cast<BlockHeader&>(header).hashMix = uint256(ret.mixhash);
     return uint256(ret.value);
 }
 
-std::unique_ptr<egihash::dag_t> const & Miner::ActiveDAG(std::unique_ptr<egihash::dag_t> next_dag)
+std::unique_ptr<nrghash::dag_t> const & Miner::ActiveDAG(std::unique_ptr<nrghash::dag_t> next_dag)
 {
     using namespace std;
 
     static std::mutex m;
     std::lock_guard<std::mutex> lock(m);
-    static std::unique_ptr<egihash::dag_t> active; // only keep one DAG in memory at once
+    static std::unique_ptr<nrghash::dag_t> active; // only keep one DAG in memory at once
 
     // if we have a next_dag swap it
     if (next_dag) {
@@ -116,9 +116,9 @@ boost::filesystem::path Miner::GetDataDir()
 #endif
 }
 
-void Miner::InitDAG(egihash::progress_callback_type callback)
+void Miner::InitDAG(nrghash::progress_callback_type callback)
 {
-    using namespace egihash;
+    using namespace nrghash;
 
     auto const & dag = ActiveDAG();
     if (!dag) {
