@@ -395,6 +395,12 @@ void OpenCLMiner::trun()
                 //cllog << name() << "Valid work.";
             }
 
+            // nonce overflow
+            if (startNonce >= nonceSegment)
+            {
+                this->updateWorkTimestamp();
+            }
+
             if ( current_work != work ) {
                 //cllog << name() << "Bits:" << " " << work.nBits;
 
