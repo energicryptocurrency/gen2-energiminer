@@ -351,25 +351,23 @@ bool OpenCLMiner::configureGPU(
     if (_platformId >= platforms.size())
         return false;
 
+    bool devices_valid = true;
     std::vector<cl::Device> devices = getDevices(platforms, _platformId);
     for (size_t i = 0; i < devices.size(); i++)
     {
         if ((s_devices[i] < 0) || (s_devices[i] >= static_cast<int64_t>(devices.size()))) continue;
         auto const & device = devices[s_devices[i]];
-        s_devices[i] = -1;
-        cl_ulong result = 0;
-        device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &result);
-        if (result >= dagSize) {
-            cllog << "Found suitable OpenCL device ["
-                  << device.getInfo<CL_DEVICE_NAME>()
-                  << "] with " << result << " bytes of GPU memory";
-            return true;
-        }
-        cwarn << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>() << " has insufficient GPU memory." << result <<
+        cl_ulong gpu_mem_size = 0;
+        device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &gpu_mem_size);
+
+        if (gpu_mem_size < dagSize)
+        {
+            devices_valid = false;
+            cwarn << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>() << " has insufficient GPU memory." << gpu_mem_size <<
             " bytes of memory found < " << dagSize << " bytes of memory required";
+        }
     }
-    cllog << "No GPU device with sufficient memory was found, unable to mine Energi." ;
-    return false;
+    return devices_valid;
 }
 
 
@@ -394,7 +392,7 @@ void OpenCLMiner::trun()
             }
 
             if ( current_work != work ) {
-                cllog << name() << "Bits:" << " " << work.nBits;
+                //cllog << name() << "Bits:" << " " << work.nBits;
 
                 if (!dagLoaded_ || (egihash::cache_t::get_seedhash(current_work.nHeight) != egihash::cache_t::get_seedhash(work.nHeight))) {
                     init_dag(work.nHeight);
@@ -498,9 +496,7 @@ std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::clInfo::getDevi
     }
 
     // use selected device
-    int idx = index / devices.size();
-    unsigned deviceId = s_devices[idx] > -1 ? s_devices[idx] : index;
-    cl::Device& device = devices[deviceId % devices.size()];
+    cl::Device& device = devices[s_devices[index]];
     std::string device_version = device.getInfo<CL_DEVICE_VERSION>();
     ETHCL_LOG("Device:   " << device.getInfo<CL_DEVICE_NAME>() << " / " << device_version);
 
@@ -537,7 +533,9 @@ bool OpenCLMiner::init_dag(uint32_t height)
 {
     // get all platforms
     try {
-        auto deviceResult = cl->getDeviceInfo(index_);
+        uint32_t const epoch = height / egihash::constants::EPOCH_LENGTH;
+        cllog << name() << "Generating DAG for epoch #" << epoch;
+        auto deviceResult = cl->getDeviceInfo(m_index);
         // create context
         auto device = std::get<1>(deviceResult);
         cl->context_  = cl::Context(std::vector<cl::Device>(&device, &device + 1));
@@ -568,22 +566,11 @@ bool OpenCLMiner::init_dag(uint32_t height)
         addDefinition(code, "COMPUTE", std::get<3>(deviceResult));
         addDefinition(code, "THREADS_PER_HASH", 8); // going to be set to 8 by the kernel either way , kernel only supports 8
 
-        cllog << name() << "DAG GROUP_SIZE=" << workgroupSize_;
-        cllog << name() << "DAG_SIZE=" << dagSize;
-        cllog << name() << "DAG_SIZE(128)=" << dagSize128;
-        cllog << name() << "LIGHT_SIZE=" << lightSize64;
-        cllog << name() << "ACCESSES=" << egihash::constants::ACCESSES;
-        cllog << name() << "MAX_OUTPUTS=" << c_maxSearchResults;
-        cllog << name() << "PLATTFORM=" << std::get<2>(deviceResult);
-        cllog << name() << "COMPUTE=" << std::get<3>(deviceResult);
-        cllog << name() << "THREADS_PER_HASH=8";
-
         // create miner OpenCL program
         cl::Program::Sources sources{{code.data(), code.size()}};
         cl::Program program(cl->context_, sources);
         try {
             program.build({device}, std::get<4>(deviceResult).c_str());
-            cllog << name() << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
         } catch (cl::Error const&) {
             cwarn << name() << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
             cwarn << name() << " Failed" ;
@@ -613,7 +600,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
             cl->kernelSearch_     = cl::Kernel(program, "ethash_search");
             cl->kernelDag_        = cl::Kernel(program, "ethash_calculate_dag_item");
 
-            ETHCL_LOG("Creating light buffer");
+            //ETHCL_LOG("Creating light buffer");
 
             cl->queue_.enqueueWriteBuffer(cl->bufferLight_, CL_TRUE, 0, sizeof(uint32_t) * vData.size(), vData.data());
         } catch (cl::Error const& err) {
@@ -622,7 +609,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
         }
 
         // create buffer for header
-        ETHCL_LOG("Creating buffer for header.");
+        //ETHCL_LOG("Creating buffer for header.");
         cl->bufferHeader_ = cl::Buffer(cl->context_, CL_MEM_READ_ONLY, 32);
 
         cl->kernelSearch_.setArg(1, cl->bufferHeader_);
@@ -630,10 +617,8 @@ bool OpenCLMiner::init_dag(uint32_t height)
         cl->kernelSearch_.setArg(5, ~0u);  // Pass this to stop the compiler unrolling the loops.
 
         // create mining buffers
-        ETHCL_LOG("Creating mining buffer");
+        //ETHCL_LOG("Creating mining buffer");
         cl->searchBuffer_ = cl::Buffer(cl->context_, CL_MEM_WRITE_ONLY, (c_maxSearchResults + 1) * sizeof(uint32_t));
-
-        cllog << name() << "Generating DAG";
 
         uint32_t const work = (uint32_t)(dagSize / sizeof(egihash::node));
         uint32_t fullRuns = work / globalWorkSize_;
@@ -652,7 +637,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
             cl->queue_.finish();
         }
 
-        cllog << name() << "DAG Loaded" ;
+        cllog << name() << "Generating DAG for epoch #" << epoch << "finished.";
 
     } catch (cl::Error const& err) {
         cwarn << name() << err.what() << "(" << err.err() << ")";

@@ -323,7 +323,7 @@ void MinerCLI::doMiner()
                 energi::Work new_work = client->getWork();
                 // check if current work is no different, then skip
                 if ( new_work != current_work ) {
-                    cnote << "work submitted";
+                    //cnote << "work submitted";
                     // 1. Got new work
                     // 2. Abandon current work and take new work
                     // 3. miner starts mining for new work
@@ -335,8 +335,7 @@ void MinerCLI::doMiner()
                 }
                 auto mp = plant.miningProgress();
                 mp.rate();
-                // should output about once every 30 seconds
-                if (((++i % 600) == 0) && (mp.hashes > 0))
+                if (((++i % 200) == 0) && (mp.hashes > 0))
                 {
                     i = 0;
                     cnote << mp;

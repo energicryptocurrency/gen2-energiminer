@@ -92,9 +92,9 @@ bool MinePlant::setWork(const Work& work)
         return false;
     }
     cnote << "New Work assigned: Height: "
-          << work.nHeight << "Target:"
-          << work.hashTarget.ToString()
-          << "PrevHash:" << work.hashPrevBlock.ToString();
+          << work.nHeight
+          << "PrevHash:"
+          << work.hashPrevBlock.ToString();
     m_work = work;
 
     // Propagate to all miners
