@@ -233,6 +233,7 @@ constexpr size_t c_maxSearchResults = 1;
 
 unsigned OpenCLMiner::s_platformId = 0;
 unsigned OpenCLMiner::s_numInstances = 0;
+// TODO: get smarter about how many miners we support. Why 16?
 int OpenCLMiner::s_devices[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
 
 struct CLChannel: public LogChannel
@@ -413,8 +414,9 @@ void OpenCLMiner::trun()
                 cl->kernelSearch_.setArg(0, cl->searchBuffer_);  // Supply output buffer to kernel.
                 cl->kernelSearch_.setArg(4, target);
 
-                startNonce  = m_nonceStart.load();
-                //cllog << name() << "Nonce loaded" << startNonce;
+                // this gives each miner a pretty big range of nonces, supporting up to 16 miners.
+                // TODO: get smarter about how many miners we support.
+                startNonce = static_cast<uint64_t>(m_index) << (64 - 4);
             }
 
             // Run the kernel.
