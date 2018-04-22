@@ -30,7 +30,7 @@ bool Worker::start()
                     try {
                         trun(); // real computational work happens here
                         m_state = State::Stopped;
-                        cnote << " Out of trun" << name();
+                        //cnote << " Out of trun" << name();
                     } catch (const std::exception& ex) {
                         std::cout << "Worker thread: Exception thrown: " << m_name  << ex.what();
                         std::cout.flush();
@@ -38,10 +38,11 @@ bool Worker::start()
                     if ( m_state == State::Killing ) {// Pre check: what if we directly kill, we want to break then
                         break;
                     }
-                    cnote << " Last State " << static_cast<int>(m_state.load()) << name();
+                    //cnote << " Last State " << static_cast<int>(m_state.load()) << name();
                 }
                 // Its like waiting to be woken up, unless killed
                 while (m_state == State::Stopped) {
+                    // TODO: real wait not sleep
                     std::this_thread::sleep_for(std::chrono::milliseconds(200));
                 }
             }
@@ -49,6 +50,7 @@ bool Worker::start()
     }
     // Wait for thread to switch to started state after start
     while (m_state == State::Starting) {
+        // TODO: real wait not sleep
         std::this_thread::sleep_for(std::chrono::microseconds(20));
     }
     return true;
@@ -58,11 +60,12 @@ bool Worker::stop()
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     if (m_threadWorker) {
-        cnote << " State now" << m_name << static_cast<int>(m_state.load());
+        //cnote << " State now" << m_name << static_cast<int>(m_state.load());
         if ( m_state != State::Stopped ) {
             m_state = State::Stopping;
+            // TODO: should be a proper wait/signal not a sleep
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-            cnote << " Waiting here" << m_name << static_cast<int>(m_state.load());
+            //cnote << " Waiting here" << m_name << static_cast<int>(m_state.load());
             m_state = State::Stopped;
         }
     }
