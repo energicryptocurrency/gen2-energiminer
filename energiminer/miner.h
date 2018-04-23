@@ -10,7 +10,7 @@
 
 #include "energiminer/plant.h"
 #include "energiminer/worker.h"
-#include "energiminer/egihash/egihash.h"
+#include "energiminer/nrghash/nrghash.h"
 
 #include <string>
 #include <atomic>
@@ -72,10 +72,10 @@ public:
 public:
     static bool LoadNrgHashDAG();
     static boost::filesystem::path GetDataDir();
-    static void InitDAG(egihash::progress_callback_type callback);
+    static void InitDAG(nrghash::progress_callback_type callback);
     static uint256 GetPOWHash(const BlockHeader& header);
 
-    static std::unique_ptr<egihash::dag_t> const & ActiveDAG(std::unique_ptr<egihash::dag_t> next_dag  = std::unique_ptr<egihash::dag_t>());
+    static std::unique_ptr<nrghash::dag_t> const & ActiveDAG(std::unique_ptr<nrghash::dag_t> next_dag  = std::unique_ptr<nrghash::dag_t>());
 
 protected:
     void addHashCount(uint32_t _n)

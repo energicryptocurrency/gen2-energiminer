@@ -66,6 +66,8 @@ struct Work : public Block
     void incrementExtraNonce();
     void incrementExtraNonce(unsigned int& nExtraNonce);
 
+    void updateTimestamp();
+
     ADD_SERIALIZE_METHODS
 
     template <typename Stream, typename Operation>

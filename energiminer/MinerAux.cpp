@@ -39,13 +39,6 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
             cerr << "Bad " << arg << " option: " << argv[i] << endl;
             throw;
         }
-    } else if (arg == "--farm-retries" && i + 1 < argc) {
-        try {
-            max_retries_ = stol(argv[++i]);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
     } else if (arg == "--opencl-platform" && i + 1 < argc) {
         try {
             m_openclPlatform = stol(argv[++i]);
@@ -351,25 +344,13 @@ void MinerCLI::doMiner()
             current_work.reset();
             solution_found = false;
         } catch(WorkException &we) {
-            if (max_retries_ == 0) {
-                cerr << "Work decode problem, will exit now" << endl;
-                should_mine = false;
-            } else {
-                for (auto i = 3; --i; this_thread::sleep_for(chrono::seconds(1)))
-                    cerr << we.what() << endl << "Work couldn't be decoded, possible json parsing problem." << i << "... \r";
-                cerr << endl;
-            }
-            --max_retries_;
+            for (auto i = 3; --i; this_thread::sleep_for(chrono::seconds(1)))
+                cerr << we.what() << endl << "Work couldn't be decoded, possible json parsing problem." << i << "... \r";
+            cerr << endl;
         } catch (jsonrpc::JsonRpcException& je) {
-            if (max_retries_ == 0) {
-                cerr << "JSON-RPC problem. Couldn't connect, will exit now" << endl;
-                should_mine = false;
-            } else {
-                for (auto i = 3; --i; this_thread::sleep_for(chrono::seconds(1)))
-                    cerr << je.GetMessage() << endl << je.what() << endl << "JSON-RPC problem. Probably couldn't connect. Retrying in " << i << "... \r";
-                cerr << endl;
-            }
-            --max_retries_;
+            for (auto i = 3; --i; this_thread::sleep_for(chrono::seconds(1)))
+                cerr << je.GetMessage() << endl << je.what() << endl << "JSON-RPC problem. Probably couldn't connect. Retrying in " << i << "... \r";
+            cerr << endl;
         }
     }
     cout << "simulation is exiting: " << m_farmURL << " " << endl;

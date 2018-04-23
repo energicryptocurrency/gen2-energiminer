@@ -59,6 +59,12 @@ public:
         return m_work;
     }
 
+    void updateWorkTimestamp()
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_mutex);
+        m_work.updateTimestamp();
+    }
+
     std::string name() const
     {
         return m_name;

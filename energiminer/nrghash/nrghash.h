@@ -15,7 +15,7 @@
 #include <vector>
 #include <cstring>
 
-namespace egihash
+namespace nrghash
 {
 	bool test_function() noexcept;
 
@@ -39,15 +39,15 @@ namespace egihash
 		*/
 		static constexpr uint32_t CALLBACK_FREQUENCY = 1024u;
 
-		/** \brief The major version of egihash
+		/** \brief The major version of nrghash
 		*/
 		static constexpr uint32_t MAJOR_VERSION = 1u;
 
-		/** \brief The revision number (middle version digit) of egihash
+		/** \brief The revision number (middle version digit) of nrghash
 		*/
 		static constexpr uint32_t REVISION = 23u;
 
-		/** \brief The minor version number of egihash
+		/** \brief The minor version number of nrghash
 		*/
 		static constexpr uint32_t MINOR_VERSION = 0u;
 
@@ -126,7 +126,7 @@ namespace egihash
 	static_assert(sizeof(node) == sizeof(uint32_t), "Invalid hash node size");
 
 
-	/** \brief hash_exception indicates an error or cancellation when performing a task within egihash.
+	/** \brief hash_exception indicates an error or cancellation when performing a task within nrghash.
 	*
 	*	All functions not marked noexcept may be assumed to throw hash_exception or C++ runtime exceptions.
 	*/
@@ -289,7 +289,7 @@ namespace egihash
 	*/
 	static constexpr h512_t empty_h512;
 
-	/** \brief result_t represents the result of an egihash.
+	/** \brief result_t represents the result of an nrghash.
 	*/
 	struct result_t
 	{
@@ -327,7 +327,7 @@ namespace egihash
 		*/
 		bool operator==(result_t const &) const;
 
-		/** \brief This member contains the egihash result value.
+		/** \brief This member contains the nrghash result value.
 		*/
 		h256_t value;
 
@@ -503,9 +503,9 @@ namespace egihash
 		::std::shared_ptr<impl_t> impl;
 	};
 
-	/** \brief dag_t is the DAG which is used by full nodes and miners to compute egihashes.
+	/** \brief dag_t is the DAG which is used by full nodes and miners to compute nrghashes.
 	*
-	*	The DAG gives egihash it's ASIC resistance, ensuring that this hashing function is memory bound not compute bound.
+	*	The DAG gives nrghash it's ASIC resistance, ensuring that this hashing function is memory bound not compute bound.
 	*	The DAG must be updated once per constants::EPOCH_LENGTH block numbers.
 	*	The DAG for epoch 0 is 1073739904 bytes in size and will grow linearly with each following epoch.
 	*	The DAG can take a long time to generate. It is recommended to save the DAG to disk to avoid having to regenerate it each time.
