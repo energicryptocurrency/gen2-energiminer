@@ -5,6 +5,7 @@
  *      Author: ranjeet
  */
 
+#include <chrono>
 #include <memory>
 #include "primitives/base58.h"
 #include "primitives/block.h"
@@ -40,6 +41,11 @@ void Work::incrementExtraNonce()
 {
     unsigned int extraNonce=0;
     incrementExtraNonce(extraNonce);
+}
+
+void Work::updateTimestamp()
+{
+    nTime = std::chrono::seconds(std::time(NULL)).count();
 }
 
 } //! namespace energi
