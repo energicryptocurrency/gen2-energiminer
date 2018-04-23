@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "energiminer/egihash/egihash.h"
+#include "energiminer/nrghash/nrghash.h"
 
 /**
  * @class base_blob
@@ -162,7 +162,7 @@ public:
     {
     }
 
-    explicit uint256(const egihash::h256_t & h)
+    explicit uint256(const nrghash::h256_t & h)
         : base_blob<256>()
     {
         // copy to internal byte order for this type

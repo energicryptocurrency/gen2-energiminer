@@ -8,7 +8,7 @@
 #include "libegihash-cl/OpenCLMiner.h"
 
 #include "../libegihash-cl/CL/cl2.hpp"
-#include "energiminer/egihash/egihash.h"
+#include "energiminer/nrghash/nrghash.h"
 #include "CLMiner_kernel.h"
 #include "energiminer/common/Log.h"
 
@@ -343,7 +343,7 @@ bool OpenCLMiner::configureGPU(
     s_workgroupSize = _localWorkSize;
     s_initialGlobalWorkSize = _globalWorkSizeMultiplier * _localWorkSize;
 
-    uint64_t dagSize = egihash::dag_t::get_full_size(_currentBlock);
+    uint64_t dagSize = nrghash::dag_t::get_full_size(_currentBlock);
 
     std::vector<cl::Platform> platforms = getPlatforms();
     if (platforms.empty())
@@ -393,14 +393,14 @@ void OpenCLMiner::trun()
             }
 
             if ( current_work != work ) {
-                if (!dagLoaded_ || ((work.nHeight / egihash::constants::EPOCH_LENGTH) != (m_lastHeight / egihash::constants::EPOCH_LENGTH))) {
+                if (!dagLoaded_ || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
                     init_dag(work.nHeight);
                     dagLoaded_ = true;
                 }
                 m_lastHeight = work.nHeight;
                 current_work = work;
                 energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
-                egihash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
+                nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
                 // Upper 64 bits of the boundary.
                 const uint64_t target = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
@@ -533,7 +533,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
 {
     // get all platforms
     try {
-        uint32_t const epoch = height / egihash::constants::EPOCH_LENGTH;
+        uint32_t const epoch = height / nrghash::constants::EPOCH_LENGTH;
         cllog << name() << "Generating DAG for epoch #" << epoch;
         auto deviceResult = cl->getDeviceInfo(m_index);
         // create context
@@ -547,9 +547,9 @@ bool OpenCLMiner::init_dag(uint32_t height)
         if (globalWorkSize_ % workgroupSize_ != 0) {
             globalWorkSize_ = ((globalWorkSize_ / workgroupSize_) + 1) * workgroupSize_;
         }
-        egihash::cache_t  cache = egihash::cache_t(height);
-        uint64_t dagSize = egihash::dag_t::get_full_size(height);//dag->size();
-        uint32_t dagSize128 = (unsigned)(dagSize / egihash::constants::MIX_BYTES);
+        nrghash::cache_t  cache = nrghash::cache_t(height);
+        uint64_t dagSize = nrghash::dag_t::get_full_size(height);//dag->size();
+        uint32_t dagSize128 = (unsigned)(dagSize / nrghash::constants::MIX_BYTES);
         uint32_t lightSize64 = (unsigned)(cache.data().size()); //dag->get_cache().data().size();
         // patch source code
         // note: CLMiner_kernel is simply ethash_cl_miner_kernel.cl compiled
@@ -560,7 +560,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
         addDefinition(code, "GROUP_SIZE", workgroupSize_);
         addDefinition(code, "DAG_SIZE", dagSize128);
         addDefinition(code, "LIGHT_SIZE", lightSize64);
-        addDefinition(code, "ACCESSES", egihash::constants::ACCESSES);
+        addDefinition(code, "ACCESSES", nrghash::constants::ACCESSES);
         addDefinition(code, "MAX_OUTPUTS", c_maxSearchResults);
         addDefinition(code, "PLATFORM", std::get<2>(deviceResult));
         addDefinition(code, "COMPUTE", std::get<3>(deviceResult));
@@ -620,7 +620,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
         //ETHCL_LOG("Creating mining buffer");
         cl->searchBuffer_ = cl::Buffer(cl->context_, CL_MEM_WRITE_ONLY, (c_maxSearchResults + 1) * sizeof(uint32_t));
 
-        uint32_t const work = (uint32_t)(dagSize / sizeof(egihash::node));
+        uint32_t const work = (uint32_t)(dagSize / sizeof(nrghash::node));
         uint32_t fullRuns = work / globalWorkSize_;
         uint32_t const restWork = work % globalWorkSize_;
         if (restWork > 0) {
