@@ -44,11 +44,11 @@ set(SOURCES
   common/utilstrencodings.cpp
   common/merkle.h
   common/merkle.cpp
-  egihash/egihash.cpp
-  egihash/egihash.h
-  egihash/keccak-tiny.h
-  egihash/keccak-tiny.c
-  egihash/secure_memzero.h
+  nrghash/nrghash.cpp
+  nrghash/nrghash.h
+  nrghash/keccak-tiny.h
+  nrghash/keccak-tiny.c
+  nrghash/secure_memzero.h
 )
 
 
