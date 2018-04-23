@@ -24,7 +24,7 @@
 
 #include <jsonrpccpp/client/connectors/httpclient.h>
 
-#include "egihash/egihash.h"
+#include "nrghash/nrghash.h"
 #include "energiminer/common/common.h"
 #include "energiminer/solution.h"
 #include "energiminer/work.h"
@@ -62,7 +62,7 @@
 using namespace std;
 using namespace boost::algorithm;
 using namespace energi;
-using namespace egihash;
+using namespace nrghash;
 
 class MinerCLI
 {
@@ -146,7 +146,7 @@ private:
 
 	/// Mining options
 	bool should_mine = true;
-	MinerExecutionMode m_minerExecutionMode = MinerExecutionMode::kCL;
+	MinerExecutionMode m_minerExecutionMode = MinerExecutionMode::kCL ;
 
 	unsigned m_openclPlatform = 0;
 	unsigned m_miningThreads = 1;
