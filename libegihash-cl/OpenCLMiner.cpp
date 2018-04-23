@@ -396,12 +396,6 @@ void OpenCLMiner::trun()
                 //cllog << name() << "Valid work.";
             }
 
-            // nonce overflow
-            if (startNonce >= nonceSegment)
-            {
-                this->updateWorkTimestamp();
-            }
-
             if ( current_work != work ) {
                 if (!dagLoaded_ || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
                     init_dag(work.nHeight);
