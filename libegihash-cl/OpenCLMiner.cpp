@@ -267,6 +267,7 @@ struct OpenCLMiner::clInfo
 OpenCLMiner::OpenCLMiner(const Plant& plant, unsigned index)
     : Miner("GPU/", plant, index)
     , cl(new clInfo)
+    , m_lastHeight(0)
 {
 }
 
@@ -392,12 +393,11 @@ void OpenCLMiner::trun()
             }
 
             if ( current_work != work ) {
-                //cllog << name() << "Bits:" << " " << work.nBits;
-
-                if (!dagLoaded_ || (egihash::cache_t::get_seedhash(current_work.nHeight) != egihash::cache_t::get_seedhash(work.nHeight))) {
+                if (!dagLoaded_ || ((work.nHeight / egihash::constants::EPOCH_LENGTH) != (m_lastHeight / egihash::constants::EPOCH_LENGTH))) {
                     init_dag(work.nHeight);
                     dagLoaded_ = true;
                 }
+                m_lastHeight = work.nHeight;
                 current_work = work;
                 energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
                 egihash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
