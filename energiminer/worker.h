@@ -40,7 +40,7 @@ public:
     Worker& operator=(const Worker &) = default;
     virtual ~Worker();
 
-    bool start(); // starts a Worker thread
+    virtual bool start(); // starts a Worker thread
     bool stop();  // stops  a Worker thread
     void stopAllWork();
 
