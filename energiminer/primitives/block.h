@@ -59,6 +59,8 @@ struct BlockHeader
         READWRITE(nNonce);
     }
 
+    inline uint256 GetHash() const;
+
     void SetNull()
     {
         nVersion = 0;
@@ -214,6 +216,32 @@ struct CBlockHeaderTruncatedLE
 };
 
 static_assert(sizeof(CBlockHeaderTruncatedLE) == 146, "CBlockHeaderTruncatedLE has incorrect size");
+
+struct CBlockHeaderFullLE : public CBlockHeaderTruncatedLE
+{
+    uint64_t nNonce;
+    char hashMix[65];
+
+    CBlockHeaderFullLE(BlockHeader const & h)
+        : CBlockHeaderTruncatedLE(h)
+        , nNonce(h.nNonce)
+        , hashMix{0}
+    {
+        auto mixString = h.hashMix.ToString();
+        memcpy(hashMix, mixString.c_str(), (std::min)(mixString.size(), sizeof(hashMix)));
+    }
+};
+static_assert(sizeof(CBlockHeaderFullLE) == 219, "CBlockHeaderFullLE has incorrect size");
+
 #pragma pack(pop)
+
+uint256 BlockHeader::GetHash() const
+{
+    // return a Keccak-256 hash of the full block header, including nonce and mixhash
+    CBlockHeaderFullLE fullBlockHeader(*this);
+    nrghash::h256_t blockHash(&fullBlockHeader, sizeof(fullBlockHeader));
+    return uint256(blockHash);
+}
+
 
 } // namespace energi
