@@ -216,6 +216,11 @@ namespace nrghash
 		*/
 		bool operator==(h256_t const &) const;
 
+        inline const uint8_t* data() const
+        {
+            return &b[0];
+        }
+
 		/** \brief This member stores the 256-bit hash data
 		*/
 		uint8_t b[hash_size];
