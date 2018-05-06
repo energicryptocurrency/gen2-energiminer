@@ -159,14 +159,23 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
 void MinerCLI::execute()
 {
     if (m_shouldListDevices) {
+#if ETH_ETHASHCL
         if (m_minerExecutionMode == MinerExecutionMode::kCL ||
                 m_minerExecutionMode == MinerExecutionMode::kMixed) {
             OpenCLMiner::listDevices();
+#endif
+#if ETH_ETHASHCUDA
+        if (m_minerExecutionMode == MinerExecutionMode:kCUDA ||
+                m_minerExecutionMode == MinerExecutionMode::kMixed) {
+            CUDAMiner::listDevices();
+#endif
             return;
         }
     }
 
-    if (m_minerExecutionMode == MinerExecutionMode::kCL) {
+    if (m_minerExecutionMode == MinerExecutionMode::kCL ||
+            m_minerExecutionMode = MinerExecutionMode::kMixed) {
+# if (ETH_ETHASHCL
         if (m_openclDeviceCount > 0) {
             OpenCLMiner::setDevices(m_openclDevices, m_openclDeviceCount);
             m_miningThreads = m_openclDeviceCount;
@@ -182,6 +191,38 @@ void MinerCLI::execute()
         }
 
         OpenCLMiner::setNumInstances(m_miningThreads);
+#else
+        cerr << "Selected GPU mining without having compiled with -DETHASHCL=1" << endl;
+        exit(1);
+#endif
+    }
+
+    if (m_minerExecutionMode == MinerExecutionMode::kCUDA ||
+            m_minerExecutionMode == MinerExecutionMode::kMixed) {
+#if ETH_ETHASHCUDA
+        if (m_cudaDeviceCount > 0) {
+            CUDAMiner::setDevices(m_cudaDevices, m_cudaDeviceCount);
+            m_miningThreads = m_cudaDeviceCount;
+        }
+
+        CUDAMiner::setNumInstances(m_miningThreads);
+        if (!CUDAMiner::configureGPU(
+                    m_cudaBlockSize,
+                    m_cudaGridSize,
+                    m_numStreams,
+                    m_cudaSchedule,
+                    m_dagLoadMode,
+                    m_dagCreateDevice,
+                    m_cudaNoEval,
+                    m_exit
+                    ))
+            exit(1);
+
+        CUDAMiner::setParallelHash(m_parallelHash);
+#else
+        cerr << "CUDA support disabled. Configure project build with -DETHASHCUDA=ON" << endl;
+        exit(1);
+#endif
     }
 
     if (mode == OperationMode::Benchmark) {
@@ -192,7 +233,7 @@ void MinerCLI::execute()
         doSimulation();
     } else {
         cerr << "No mining mode selected!" << std::endl;
-        exit(-1);
+        exit(1);
     }
 }
 

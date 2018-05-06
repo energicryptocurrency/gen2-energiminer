@@ -56,10 +56,16 @@ cmake_policy(SET CMP0054 NEW)
 ######################################################################################################
 
 option(ETHASHCL "Build with OpenCL mining" ON)
+option(ETHASHCUDA "Build with CUDA mining" OFF)
 
 # propagates CMake configuration options to the compiler
 function(configureProject)
-    add_definitions(-DETH_ETHASHCL -Wno-unused-private-field -Wno-unused-function)
+    if (ETHASHCL)
+        add_definitions(-DETH_ETHASHCL -Wno-unused-private-field -Wno-unused-function)
+    endif()
+	if (ETHASHCUDA)
+        add_definitions(-DETH_ETHASHCUDA -Wno-unused-private-field -Wno-unused-function)
+	endif()
 endfunction()
 
 function(createBuildInfo)
@@ -114,6 +120,7 @@ message("-- CMake ${CMAKE_VERSION}")
 message("-- Build ${CMAKE_BUILD_TYPE} / ${CMAKE_SYSTEM_NAME}")
 message("------------------------------------------------------------- components")
 message("-- ETHASHCL         Build OpenCL components                  ${ETHASHCL}")
+message("-- ETHASHCUDA       Build CUDA components                    ${ETHASHCUDA}")
 message("------------------------------------------------------------------------")
 message("")
 
@@ -121,7 +128,12 @@ include(EthCompilerSettings)
 
 createBuildInfo()
 
-add_subdirectory(libegihash-cl)
+if (ETHASHCL)
+    add_subdirectory(libegihash-cl)
+endif()
+if (ETHASHCUDA)
+    add_subdirectory(libnrghash-cuda)
+endif()
 add_subdirectory(energiminer)
 
 
