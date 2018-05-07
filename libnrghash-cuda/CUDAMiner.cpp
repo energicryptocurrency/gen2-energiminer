@@ -322,11 +322,18 @@ bool CUDAMiner::cuda_init(
         m_search_buf = new volatile search_results *[s_numStreams];
         m_streams = new cudaStream_t[s_numStreams];
 
-        const auto& context = ethash::managed::get_epoch_context(epoch);
-        const auto lightNumItems = context.light_cache_num_items;
-        const auto lightSize = ethash::get_light_cache_size(lightNumItems);
-        const auto dagNumItems = context.full_dataset_num_items;
-        const auto dagSize = ethash::get_full_dataset_size(dagNumItems);
+        nrghash::cache_t cache = nrghash::cache_t(height);
+        const auto lightNumItems = (unsigned)(cache.data().size());
+        const auto dagNumItems = (unsigned)(dagSize / nrghash::constants::MIX_BYTES);
+        uint64_t dagSize = nrghash::dag_t::get_full_dataset_size(height);
+        // create buffer for dag
+        std::vector<uint32_t> vData;
+        for (auto &d : cache.data()) {
+            for ( auto &dv : d) {
+                vData.push_back(dv.hword);
+            }
+        }
+        const auto lightSize = sizeof(uint32_t) * vData.size();
 
         CUDA_SAFE_CALL(cudaSetDevice(m_device_num));
         cudalog << "Set Device to current";
@@ -355,7 +362,7 @@ bool CUDAMiner::cuda_init(
             CUDA_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&light), lightSize));
         }
         // copy lightData to device
-        CUDA_SAFE_CALL(cudaMemcpy(reinterpret_cast<void*>(light), context.light_cache, lightSize, cudaMemcpyHostToDevice));
+        CUDA_SAFE_CALL(cudaMemcpy(reinterpret_cast<void*>(light), cache.light_cache, lightSize, cudaMemcpyHostToDevice));
         m_light[m_device_num] = light;
 
         if (dagNumItems != m_dag_size || !dag) { // create buffer for dag
@@ -377,7 +384,7 @@ bool CUDAMiner::cuda_init(
             m_current_index = 0;
             if (!hostDAG) {
                 if((m_device_num == dagCreateDevice) || !_cpyToHost) { //if !cpyToHost -> All devices shall generate their DAG
-                    cudalog << "Generating DAG for GPU #" << m_device_num << " with dagSize: " 
+                    cudalog << "Generating DAG for GPU #" << m_device_num << " with dagSize: "
                         << dagSize <<" gridSize: " << s_gridSize;
                     ethash_generate_dag(dagSize, s_gridSize, s_blockSize, m_streams[0], m_device_num);
 
