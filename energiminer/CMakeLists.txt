@@ -57,7 +57,7 @@ add_executable(${EXECUTABLE} ${SRC_LIST} ${SOURCES} ${HEADERS})
 
 add_dependencies(${EXECUTABLE} BuildInfo.h )
 
-target_link_libraries(${EXECUTABLE} libjson-rpc-cpp::client  Boost::boost Threads::Threads Boost::system egihash-cl)
+target_link_libraries(${EXECUTABLE} libjson-rpc-cpp::client  Boost::boost Threads::Threads Boost::system egihash-cl nrghash-cuda)
 
 include(GNUInstallDirs)
 install(TARGETS energiminer DESTINATION ${CMAKE_INSTALL_BINDIR})
