@@ -53,6 +53,7 @@
 #include <boost/algorithm/string/trim_all.hpp>
 #include <boost/optional.hpp>
 #include "libegihash-cl/OpenCLMiner.h"
+#include "libnrghash-cuda/CUDAMiner.h"
 
 // Win32 GetMessage macro intereferes with jsonrpc::JsonRpcException::GetMessage() member function
 #if defined(_WIN32) && defined(GetMessage)

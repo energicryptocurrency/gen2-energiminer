@@ -165,7 +165,7 @@ void MinerCLI::execute()
             OpenCLMiner::listDevices();
 #endif
 #if ETH_ETHASHCUDA
-        if (m_minerExecutionMode == MinerExecutionMode:kCUDA ||
+        if (m_minerExecutionMode == MinerExecutionMode::kCUDA ||
                 m_minerExecutionMode == MinerExecutionMode::kMixed) {
             CUDAMiner::listDevices();
 #endif
@@ -175,7 +175,7 @@ void MinerCLI::execute()
 
     if (m_minerExecutionMode == MinerExecutionMode::kCL ||
             m_minerExecutionMode = MinerExecutionMode::kMixed) {
-# if (ETH_ETHASHCL
+# if ETH_ETHASHCL
         if (m_openclDeviceCount > 0) {
             OpenCLMiner::setDevices(m_openclDevices, m_openclDeviceCount);
             m_miningThreads = m_openclDeviceCount;
