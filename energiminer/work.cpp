@@ -8,7 +8,6 @@
 #include <chrono>
 #include <memory>
 #include "primitives/base58.h"
-#include "primitives/block.h"
 #include "work.h"
 
 namespace energi {

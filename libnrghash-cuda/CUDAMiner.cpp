@@ -27,7 +27,7 @@ using namespace energi;
 
 unsigned CUDAMiner::s_numInstances = 0;
 
-vector<int> CUDAMiner::s_devices(MAX_MINERS, -1);
+std::vector<int> CUDAMiner::s_devices(MAX_MINERS, -1);
 
 struct CUDAChannel: public LogChannel
 {
@@ -52,7 +52,7 @@ CUDAMiner::CUDAMiner(const Plant& plant, unsigned index) :
 
 CUDAMiner::~CUDAMiner()
 {
-    kick_miner();
+    onSetWork();
 }
 
 bool CUDAMiner::init_dag(uint32_t height)
@@ -60,7 +60,7 @@ bool CUDAMiner::init_dag(uint32_t height)
     //!@brief get all platforms
     try {
         uint32_t epoch = height / nrghash::constants::EPOCH_LENGTH;
-        cllog << name() << "Generating DAG for epoch #" << epoch;
+        cudalog << name() << "Generating DAG for epoch #" << epoch;
         //if (s_dagLoadMode == DAG_LOAD_MODE_SEQUENTIAL)
         //    while (s_dagLoadIndex < index)
         //        this_thread::sleep_for(chrono::milliseconds(100));
@@ -68,7 +68,7 @@ bool CUDAMiner::init_dag(uint32_t height)
 
         cnote << "Initialising miner " << m_index;
 
-        cuda_init(getNumDevices(), epoch, device, false/*(s_dagLoadMode == DAG_LOAD_MODE_SINGLE)*/,
+        cuda_init(getNumDevices(), height, device, false/*(s_dagLoadMode == DAG_LOAD_MODE_SINGLE)*/,
             s_dagInHostMemory, s_dagCreateDevice);
         s_dagLoadIndex++;
 
@@ -93,29 +93,29 @@ bool CUDAMiner::init_dag(uint32_t height)
     }
 }
 
-void CUDAMiner::workLoop()
+void CUDAMiner::trun()
 {
     Work current;
     uint64_t startNonce = 0;
     try {
         while(!shouldStop()) {
                     // take local copy of work since it may end up being overwritten.
-            const WorkPackage work = this->getWork();
+            const Work work = this->getWork();
             if (!shouldStop()) {
                 if(work.isValid()) {
                     cnote << "No work. Pause for 1 s.";
                     std::this_thread::sleep_for(std::chrono::seconds(1));
                     continue;
                 } else {
-                    //cllog << name() << "Valid work.";
+                    //cudalog << name() << "Valid work.";
                 }
 
                 if (current != work) {
-                    if (m_dagLoaded || (nrghash::cache_t::get_seedhash(current_work.nHeight) != nrghash::cache_t::get_seedhash(work.nHeight))) {
+                    if (m_dagLoaded || (nrghash::cache_t::get_seedhash(current.nHeight) != nrghash::cache_t::get_seedhash(work.nHeight))) {
                         init_dag(work.nHeight);
                         m_dagLoaded = true;
                     }
-                    current = w;
+                    current = work;
                 }
             }
             //uint64_t upper64OfBoundary = (uint64_t)(u64)((u256)current.boundary >> 192);
@@ -124,11 +124,11 @@ void CUDAMiner::workLoop()
             nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
             // Upper 64 bits of the boundary.
-            const uint64_t target = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
-            assert(target > 0);
+            const uint64_t upper64OfBoundary = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
+            assert(upper64OfBoundary > 0);
             startNonce = m_nonceStart.load();
 
-            search(hash_header.data(), upper64OfBoundary, (current.exSizeBits >= 0), startNonce, w);
+            search(hash_header.data(), upper64OfBoundary, (current.exSizeBits >= 0), startNonce, work);
         }
 
         // Reset miner and stop working
@@ -145,7 +145,7 @@ void CUDAMiner::workLoop()
     }
 }
 
-void CUDAMiner::kick_miner()
+void CUDAMiner::onSetWork()
 {
     m_new_work.store(true, std::memory_order_relaxed);
 }
@@ -155,7 +155,7 @@ void CUDAMiner::setNumInstances(unsigned _instances)
         s_numInstances = std::min<unsigned>(_instances, getNumDevices());
 }
 
-void CUDAMiner::setDevices(const vector<unsigned>& _devices, unsigned _selectedDeviceCount)
+void CUDAMiner::setDevices(const std::vector<unsigned>& _devices, unsigned _selectedDeviceCount)
 {
         for (unsigned i = 0; i < _selectedDeviceCount; ++i) {
             s_devices[i] = _devices[i];
@@ -264,8 +264,9 @@ bool CUDAMiner::cuda_configureGPU(
         cudalog << "Using grid size " << s_gridSize << ", block size " << s_blockSize;
 
         // by default let's only consider the DAG of the first epoch
-        const auto dagSize =
-            ethash::get_full_dataset_size(ethash::calculate_full_dataset_num_items(0));
+         uint64_t dagSize = nrghash::dag_t::get_full_size(0);
+        //const auto dagSize =
+        //    ethash::get_full_dataset_size(ethash::calculate_full_dataset_num_items(0));
         int devicesCount = static_cast<int>(numDevices);
         for (int i = 0; i < devicesCount; ++i) {
             if (_devices[i] != -1) {
@@ -298,7 +299,7 @@ bool CUDAMiner::s_noeval = false;
 
 bool CUDAMiner::cuda_init(
     size_t numDevices,
-    int epoch,
+    uint32_t height,
     unsigned _deviceId,
     bool _cpyToHost,
     uint8_t* &hostDAG,
@@ -310,9 +311,6 @@ bool CUDAMiner::cuda_init(
         }
         // use selected device
         m_device_num = _deviceId < numDevices -1 ? _deviceId : numDevices - 1;
-        m_hwmoninfo.deviceType = HwMonitorInfoType::NVIDIA;
-        m_hwmoninfo.indexSource = HwMonitorIndexSource::CUDA;
-        m_hwmoninfo.deviceIndex = m_device_num;
 
         cudaDeviceProp device_props;
         CUDA_SAFE_CALL(cudaGetDeviceProperties(&device_props, m_device_num));
@@ -323,9 +321,9 @@ bool CUDAMiner::cuda_init(
         m_streams = new cudaStream_t[s_numStreams];
 
         nrghash::cache_t cache = nrghash::cache_t(height);
+        uint64_t dagSize = nrghash::dag_t::get_full_size(height);
         const auto lightNumItems = (unsigned)(cache.data().size());
         const auto dagNumItems = (unsigned)(dagSize / nrghash::constants::MIX_BYTES);
-        uint64_t dagSize = nrghash::dag_t::get_full_dataset_size(height);
         // create buffer for dag
         std::vector<uint32_t> vData;
         for (auto &d : cache.data()) {
@@ -362,7 +360,7 @@ bool CUDAMiner::cuda_init(
             CUDA_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&light), lightSize));
         }
         // copy lightData to device
-        CUDA_SAFE_CALL(cudaMemcpy(reinterpret_cast<void*>(light), cache.light_cache, lightSize, cudaMemcpyHostToDevice));
+        CUDA_SAFE_CALL(cudaMemcpy(vData.data(), cache.light_cache, lightSize, cudaMemcpyHostToDevice));
         m_light[m_device_num] = light;
 
         if (dagNumItems != m_dag_size || !dag) { // create buffer for dag
@@ -495,18 +493,18 @@ void CUDAMiner::search(
                     if (s_noeval) {
                         work.nNonce = nonces[i];
                         const auto powHash = GetPOWHash(work);
-                        cllog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonce;
-                        Solution solution(work, nonce, work.hashMix);
+                        cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
+                        Solution solution(work, nonces[i], work.hashMix);
                         m_plant.submit(solution);
                     } else {
-                        work.nNonce = nonce;
+                        work.nNonce = nonces[i];
                         auto const powHash = GetPOWHash(work);
                         if (UintToArith256(powHash) <= work.hashTarget) {
-                            cllog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonce;
-                            Solution solution(work, nonce, work.hashMix);
+                            cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
+                            Solution solution(work, nonces[i], work.hashMix);
                             m_plant.submit(solution);
                         } else {
-                            cwarn << name() << "CUDA Miner proposed invalid solution" << work.GetHash().ToString() << "nonce: " << nonce;
+                            cwarn << name() << "CUDA Miner proposed invalid solution" << work.GetHash().ToString() << "nonce: " << nonces[i];
                         }
                     }
                 }
@@ -514,9 +512,9 @@ void CUDAMiner::search(
             addHashCount(batch_size);
             bool t = true;
             if (m_new_work.compare_exchange_strong(t, false)) {
-                cudaswitchlog << "Switch time "
-                    << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - workSwitchStart).count()
-                    << "ms.";
+                //cudaswitchlog << "Switch time "
+                //    << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - workSwitchStart_).count()
+                //    << "ms.";
                 break;
             }
             if (shouldStop()) {

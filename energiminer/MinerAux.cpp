@@ -147,7 +147,9 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
          m_cudaNoEval = true;
      }
 #endif
-     else if (arg == "--benchmark-warmup" && i + 1 < argc) {
+     else if ((arg == "--exit")) {
+         m_exit = true;
+     } else if (arg == "--benchmark-warmup" && i + 1 < argc) {
         try {
             m_benchmarkWarmup = stol(argv[++i]);
         } catch (...) {
@@ -236,7 +238,7 @@ void MinerCLI::execute()
     }
 
     if (m_minerExecutionMode == MinerExecutionMode::kCL ||
-            m_minerExecutionMode = MinerExecutionMode::kMixed) {
+            m_minerExecutionMode == MinerExecutionMode::kMixed) {
 # if ETH_ETHASHCL
         if (m_openclDeviceCount > 0) {
             OpenCLMiner::setDevices(m_openclDevices, m_openclDeviceCount);

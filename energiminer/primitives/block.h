@@ -82,6 +82,7 @@ struct Block : public BlockHeader
     std::vector<CTxOut> voutSuperblock; //superblock payment
 
     Block()
+        : BlockHeader()
     {
         SetNull();
     }

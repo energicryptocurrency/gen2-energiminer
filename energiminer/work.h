@@ -30,6 +30,7 @@ namespace energi
 struct Work : public Block
 {
     Work()
+        : Block()
     {}
 
     Work(Work &&) = default; // -> Blank work for comparisons
