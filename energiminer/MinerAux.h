@@ -52,8 +52,14 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/trim_all.hpp>
 #include <boost/optional.hpp>
+
+#ifdef ETH_ETHASHCL
 #include "libegihash-cl/OpenCLMiner.h"
+#endif
+
+#ifdef ETH_ETHASHCUDA
 #include "libnrghash-cuda/CUDAMiner.h"
+#endif
 
 // Win32 GetMessage macro intereferes with jsonrpc::JsonRpcException::GetMessage() member function
 #if defined(_WIN32) && defined(GetMessage)
@@ -193,7 +199,7 @@ private:
 
 	unsigned m_dagLoadMode = 0; // parallel
 	unsigned m_dagCreateDevice = 0;
-
+    bool m_exit = false;
 
 	/// Benchmarking params
 	unsigned m_benchmarkWarmup = 15;

@@ -21,6 +21,13 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 
+#define LOG2_MAX_MINERS 5u
+#define MAX_MINERS (1u << LOG2_MAX_MINERS)
+
+#define DAG_LOAD_MODE_PARALLEL	 0
+#define DAG_LOAD_MODE_SEQUENTIAL 1
+#define DAG_LOAD_MODE_SINGLE	 2
+
 namespace energi {
 
 class Miner : public Worker
@@ -85,6 +92,11 @@ protected:
 
     int m_index = 0;
     const Plant &m_plant;
+    static bool s_exit;
+    static unsigned s_dagLoadMode;
+    static unsigned s_dagLoadIndex;
+    static unsigned s_dagCreateDevice;
+    static uint8_t* s_dagInHostMemory;
 
     std::atomic<uint64_t> m_nonceStart;
     std::atomic<uint64_t> m_nonceEnd;

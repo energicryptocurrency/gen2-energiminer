@@ -55,10 +55,10 @@ public:
 		bool _exit
 		);
 	static void setNumInstances(unsigned _instances);
-	static void setDevices(const vector<unsigned>& _devices, unsigned _selectedDeviceCount);
+	static void setDevices(const std::vector<unsigned>& _devices, unsigned _selectedDeviceCount);
 	static bool cuda_configureGPU(
 		size_t numDevices,
-		const vector<int>& _devices,
+		const std::vector<int>& _devices,
 		unsigned _blockSize,
 		unsigned _gridSize,
 		unsigned _numStreams,
@@ -68,7 +68,7 @@ public:
 
 	bool cuda_init(
 		size_t numDevices,
-		int epoch,
+		uint32_t height,
 		unsigned _deviceId,
 		bool _cpyToHost,
 		uint8_t * &hostDAG,
@@ -90,46 +90,46 @@ public:
 	static unsigned const c_defaultNumStreams;
 
 protected:
-	void kick_miner() override;
+	void onSetWork() override;
 
 private:
-	atomic<bool> m_new_work = {false};
+    std::atomic<bool> m_new_work = {false};
 
-	void trun() override;
+    void trun() override;
 
     bool init_dag(uint32_t height);
 
     bool     m_dagLoaded = false
-	hash32_t m_current_header;
-	uint64_t m_current_target;
-	uint64_t m_current_nonce;
-	uint64_t m_starting_nonce;
-	uint64_t m_current_index;
+        uint8_t* m_current_header;
+    uint64_t m_current_target;
+    uint64_t m_current_nonce;
+    uint64_t m_starting_nonce;
+    uint64_t m_current_index;
 
-	///Constants on GPU
-	hash128_t* m_dag = nullptr;
-	std::vector<hash64_t*> m_light;
-	int m_dag_size = -1;
-	uint32_t m_device_num;
+    ///Constants on GPU
+    hash128_t* m_dag = nullptr;
+    std::vector<hash64_t*> m_light;
+    uint32_t m_dag_size = 0;
+    uint32_t m_device_num;
 
-	volatile search_results** m_search_buf;
-	cudaStream_t  * m_streams;
+    volatile search_results** m_search_buf;
+    cudaStream_t  * m_streams;
 
-	/// The local work size for the search
-	static unsigned s_blockSize;
-	/// The initial global work size for the searches
-	static unsigned s_gridSize;
-	/// The number of CUDA streams
-	static unsigned s_numStreams;
-	/// CUDA schedule flag
-	static unsigned s_scheduleFlag;
+    /// The local work size for the search
+    static unsigned s_blockSize;
+    /// The initial global work size for the searches
+    static unsigned s_gridSize;
+    /// The number of CUDA streams
+    static unsigned s_numStreams;
+    /// CUDA schedule flag
+    static unsigned s_scheduleFlag;
 
-	static unsigned m_parallelHash;
+    static unsigned m_parallelHash;
 
-	static unsigned s_numInstances;
-	static vector<int> s_devices;
+    static unsigned s_numInstances;
+    static std::vector<int> s_devices;
 
-	static bool s_noeval;
+    static bool s_noeval;
 
 };
 

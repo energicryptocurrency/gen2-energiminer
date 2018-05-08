@@ -14,6 +14,16 @@
 
 using namespace energi;
 
+bool Miner::s_exit = false;
+
+unsigned Miner::s_dagLoadMode = 0;
+
+unsigned Miner::s_dagLoadIndex = 0;
+
+unsigned Miner::s_dagCreateDevice = 0;
+
+uint8_t* Miner::s_dagInHostMemory = nullptr;
+
 bool Miner::LoadNrgHashDAG()
 {
     // initialize the DAG
