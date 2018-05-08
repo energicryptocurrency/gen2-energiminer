@@ -39,7 +39,9 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
             cerr << "Bad " << arg << " option: " << argv[i] << endl;
             throw;
         }
-    } else if (arg == "--opencl-platform" && i + 1 < argc) {
+    }
+#if ETH_ETHASHCL
+    else if (arg == "--opencl-platform" && i + 1 < argc) {
         try {
             m_openclPlatform = stol(argv[++i]);
         }
@@ -83,9 +85,69 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
             cerr << "Bad " << arg << " option: " << argv[i] << endl;
             throw;
         }
-    } else if (arg == "--list-devices") {
+    }
+#endif
+#if ETH_ETHASHCL || ETH_ETHASHCUDA
+     else if (arg == "--list-devices") {
         m_shouldListDevices = true;
-    } else if (arg == "--benchmark-warmup" && i + 1 < argc) {
+     }
+#endif
+#if ETH_ETHASHCUDA
+     else if (arg == "--cuda-grid-size" && i + 1 < argc) {
+         try {
+             m_cudaGridSize = stol(argv[++i]);
+         } catch (...) {
+             cerr << "Bad " << arg << " option: " argv[i] << endl;
+             throw;
+         }
+     } else if (arg == "--cuda-block-size" && i + 1 < argc) {
+         try {
+             m_cudaBlockSize = stol(argv[++i]);
+         } catch (...) {
+             cerr << "Bad " << arg << " option: " argv[i] << endl;
+             throw;
+         }
+     } else if (arg == "--cuda-devices") {
+         while (m_cudaDeviceCount < 16 && i + 1 < argc) {
+             try {
+                 m_cudaDevices[m_cudaDeviceCount] = stol(argv[++i]);
+                 ++m_cudaDeviceCount;
+             } catch (...) {
+                 --i;
+                 break;
+             }
+         }
+     } else if (arg == "--cuda-parallel-hash" && i + 1 < argc) {
+         try {
+             m_parallelHash = stol(argv[++i]);
+             if (m_parallelHash == 0 || m_parallelHash > 8) {
+                 throw;
+             }
+         } catch(...) {
+             cerr << "Bad " << arg << " option: " << argv[i] << endl;
+             throw;
+         }
+     } else if (arg == "--cuda-schedule" && i + 1 < argc) {
+         std::string mode = argv[++i];
+         if (mode == "auto")
+             m_cudaSchedule = 0;
+         else if (mode == "spin")
+             m_cudaSchedule = 1;
+         else if (mode == "yield")
+             m_cudaSchedule = 2;
+         else if (mode == "sync")
+             m_cudaSchedule = 4;
+         else {
+             cerr << "Bad " << arg << "option: " << argv[i] << endl;
+             throw;
+         }
+     } else if (arg == "--cuda-streams" && i + 1 < argc) {
+         m_numStreams = stol(argv[++i]);
+     } else if (arg == "--cuda-noeval") {
+         m_cudaNoEval = true;
+     }
+#endif
+     else if (arg == "--benchmark-warmup" && i + 1 < argc) {
         try {
             m_benchmarkWarmup = stol(argv[++i]);
         } catch (...) {
