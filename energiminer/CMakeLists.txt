@@ -12,21 +12,11 @@ set(EXECUTABLE energiminer)
 
 file(GLOB HEADERS "*.h")
 
-set(SOURCES
-  nrghash/nrghash.cpp
-  nrghash/nrghash.h
-  nrghash/keccak-tiny.h
-  nrghash/keccak-tiny.c
-  nrghash/secure_memzero.h
-)
-
-
-
 add_executable(${EXECUTABLE} ${SRC_LIST} ${SOURCES} ${HEADERS})
 
 add_dependencies(${EXECUTABLE} BuildInfo.h )
 
-target_link_libraries(${EXECUTABLE} libjson-rpc-cpp::client poolprotocols libprimitives libcommon Boost::boost Threads::Threads Boost::system)
+target_link_libraries(${EXECUTABLE} libjson-rpc-cpp::client poolprotocols libprimitives libcommon libnrghash Boost::boost Threads::Threads Boost::system)
 
 if (ETHASHCL)
     target_link_libraries(${EXECUTABLE} egihash-cl)

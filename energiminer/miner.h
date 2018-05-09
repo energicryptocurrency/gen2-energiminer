@@ -10,7 +10,7 @@
 
 #include "energiminer/plant.h"
 #include "energiminer/worker.h"
-#include "energiminer/nrghash/nrghash.h"
+#include "nrghash/nrghash.h"
 
 #include <string>
 #include <atomic>

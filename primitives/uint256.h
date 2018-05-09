@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "energiminer/nrghash/nrghash.h"
+#include "nrghash/nrghash.h"
 
 /**
  * @class base_blob
