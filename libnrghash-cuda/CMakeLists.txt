@@ -31,6 +31,6 @@ file(GLOB sources "*.cpp" "*.cu")
 file(GLOB headers "*.h" "*.cuh")
 
 cuda_add_library(nrghash-cuda STATIC ${sources} ${headers})
-target_link_libraries(nrghash-cuda energiminer)
+#target_link_libraries(nrghash-cuda energiminer)
 target_include_directories(nrghash-cuda PUBLIC ${CUDA_INCLUDE_DIRS})
 target_include_directories(nrghash-cuda PRIVATE .. ${CMAKE_CURRENT_BINARY_DIR})
