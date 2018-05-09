@@ -128,6 +128,8 @@ include(EthCompilerSettings)
 
 createBuildInfo()
 
+add_subdirectory(protocol)
+
 if (ETHASHCL)
     add_subdirectory(libegihash-cl)
 endif()

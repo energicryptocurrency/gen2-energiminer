@@ -13,10 +13,6 @@ set(EXECUTABLE energiminer)
 file(GLOB HEADERS "*.h")
 
 set(SOURCES
-  protocol/MiningClient.h
-  protocol/GBTClient.h
-  protocol/StratumClient.h
-  protocol/StratumClient.cpp
   primitives/hash.h
   primitives/base58.h
   primitives/base58.cpp
@@ -57,7 +53,7 @@ add_executable(${EXECUTABLE} ${SRC_LIST} ${SOURCES} ${HEADERS})
 
 add_dependencies(${EXECUTABLE} BuildInfo.h )
 
-target_link_libraries(${EXECUTABLE} libjson-rpc-cpp::client  Boost::boost Threads::Threads Boost::system)
+target_link_libraries(${EXECUTABLE} libjson-rpc-cpp::client poolprotocols  Boost::boost Threads::Threads Boost::system)
 
 if (ETHASHCL)
     target_link_libraries(${EXECUTABLE} egihash-cl)
