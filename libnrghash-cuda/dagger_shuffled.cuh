@@ -45,7 +45,7 @@ __device__ __forceinline__ bool compute_hash(
 			init0[p] = __shfl_sync(0xFFFFFFFF,shuffle[0].x, 0, THREADS_PER_HASH);
 		}
 
-		for (uint32_t a = 0; a < ACCESSES; a += 4)
+		for (uint32_t a = 0; a < _ACCESSES; a += 4)
 		{
 			int t = bfe(a, 2u, 3u);
 
