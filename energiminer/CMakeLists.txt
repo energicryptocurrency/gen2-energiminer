@@ -26,11 +26,11 @@ set(SOURCES
   primitives/arith_uint256.cpp
   primitives/script.h
   primitives/script.cpp
-  primitives/prevector.h
   primitives/transaction.h
   primitives/transaction.cpp
   primitives/amount.h
   primitives/amount.cpp
+  common/prevector.h
   common/serialize.h
   common/common.h
   common/Log.h

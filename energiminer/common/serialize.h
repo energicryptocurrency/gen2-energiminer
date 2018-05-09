@@ -6,7 +6,6 @@
 #ifndef BITCOIN_SERIALIZE_H
 #define BITCOIN_SERIALIZE_H
 
-#include "energiminer/common/portable_endian.h"
 
 #include <algorithm>
 #include <assert.h>
@@ -21,7 +20,8 @@
 #include <utility>
 #include <vector>
 
-#include "energiminer/primitives/prevector.h"
+#include "portable_endian.h"
+#include "prevector.h"
 
 static const unsigned int MAX_SIZE = 0x02000000;
 
