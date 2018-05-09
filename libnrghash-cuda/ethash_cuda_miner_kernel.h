@@ -22,7 +22,7 @@ typedef struct {
 	} result[SEARCH_RESULTS];
 } search_results;
 
-#define ACCESSES 64
+#define _ACCESSES 64
 #define THREADS_PER_HASH (128 / 16)
 
 typedef struct
