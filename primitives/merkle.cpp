@@ -1,5 +1,5 @@
 #include "merkle.h"
-#include "energiminer/primitives/hash.h"
+#include "hash.h"
 #include "energiminer/common/utilstrencodings.h"
 
 using namespace energi;

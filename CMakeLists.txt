@@ -129,6 +129,7 @@ include(EthCompilerSettings)
 createBuildInfo()
 
 add_subdirectory(protocol)
+add_subdirectory(primitives)
 
 if (ETHASHCL)
     add_subdirectory(libegihash-cl)

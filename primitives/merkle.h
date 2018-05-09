@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <vector>
 
-#include "energiminer/primitives/block.h"
+#include "block.h"
 
 uint256 ComputeMerkleRoot(const std::vector<uint256>& leaves, bool* mutated = NULL);
 std::vector<uint256> ComputeMerkleBranch(const std::vector<uint256>& leaves, uint32_t position);

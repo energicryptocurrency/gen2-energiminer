@@ -9,10 +9,10 @@
 #define ENERGIMINER_WORK_H_
 
 #include "energiminer/common/common.h"
-#include "energiminer/common/merkle.h"
-#include "energiminer/primitives/uint256.h"
-#include "energiminer/primitives/arith_uint256.h"
-#include "energiminer/primitives/block.h"
+#include "primitives/merkle.h"
+#include "primitives/uint256.h"
+#include "primitives/arith_uint256.h"
+#include "primitives/block.h"
 
 #include <limits>
 #include <cstdint>
