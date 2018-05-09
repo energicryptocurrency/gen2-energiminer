@@ -1,5 +1,5 @@
 #include <assert.h>
-#include "energiminer/common/utilstrencodings.h"
+#include "common/utilstrencodings.h"
 
 #include "uint256.h"
 

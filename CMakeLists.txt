@@ -130,6 +130,7 @@ createBuildInfo()
 
 add_subdirectory(protocol)
 add_subdirectory(primitives)
+add_subdirectory(common)
 
 if (ETHASHCL)
     add_subdirectory(libegihash-cl)

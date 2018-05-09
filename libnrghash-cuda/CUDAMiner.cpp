@@ -17,7 +17,7 @@ along with cpp-ethereum.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "CUDAMiner.h"
 #include "energiminer/nrghash/nrghash.h"
-#include "energiminer/common/Log.h"
+#include "common/Log.h"
 
 #include <algorithm>
 #include <iostream>

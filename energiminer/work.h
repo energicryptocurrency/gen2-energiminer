@@ -8,7 +8,7 @@
 #ifndef ENERGIMINER_WORK_H_
 #define ENERGIMINER_WORK_H_
 
-#include "energiminer/common/common.h"
+#include "common/common.h"
 #include "primitives/merkle.h"
 #include "primitives/uint256.h"
 #include "primitives/arith_uint256.h"

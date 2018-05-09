@@ -4,7 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "arith_uint256.h"
-#include "energiminer/common/common.h"
+#include "common/common.h"
 
 #include "uint256.h"
 

@@ -7,12 +7,12 @@
 #define BITCOIN_PRIMITIVES_TRANSACTION_H
 
 #include "script.h"
-#include "energiminer/common/serialize.h"
 #include "uint256.h"
 #include "amount.h"
 #include "base58.h"
-#include "energiminer/common/streams.h"
-#include "energiminer/common/utilstrencodings.h"
+#include "common/serialize.h"
+#include "common/streams.h"
+#include "common/utilstrencodings.h"
 
 // TODO: This only supports P2PKH addresses. This should support all address types. (issue #14)
 CScript GetScriptForDestination(const CKeyID& keyID);

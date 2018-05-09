@@ -15,7 +15,7 @@
 #include <memory>
 #include <cstdlib>
 
-#include "energiminer/common/common.h"
+#include "common/common.h"
 #include "energiminer/work.h"
 
 namespace energi {

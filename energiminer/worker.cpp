@@ -8,7 +8,7 @@
 #include <iostream>
 
 #include "worker.h"
-#include "energiminer/common/Log.h"
+#include "common/Log.h"
 
 
 using namespace energi;
