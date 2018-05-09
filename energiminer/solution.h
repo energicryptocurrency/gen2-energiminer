@@ -12,7 +12,7 @@
 #include <iostream>
 
 #include "energiminer/nrghash/nrghash.h"
-#include "energiminer/primitives/uint256.h"
+#include "primitives/uint256.h"
 #include "energiminer/work.h"
 
 namespace utility {

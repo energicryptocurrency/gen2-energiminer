@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <vector>
 
-#include "energiminer/primitives/transaction.h"
+#include "transaction.h"
 #include "energiminer/common/utilstrencodings.h"
 #include "energiminer/common/serialize.h"
 #include "uint256.h"

@@ -6,7 +6,7 @@
 #include "arith_uint256.h"
 #include "energiminer/common/common.h"
 
-#include "energiminer/primitives/uint256.h"
+#include "uint256.h"
 
 #include <stdio.h>
 #include <string.h>
