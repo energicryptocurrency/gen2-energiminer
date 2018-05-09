@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "energiminer/common/ZeroAfterFreeAllocator.h"
+#include "common/ZeroAfterFreeAllocator.h"
 #include "uint256.h"
 
 /**

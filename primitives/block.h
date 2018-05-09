@@ -7,8 +7,8 @@
 #include <vector>
 
 #include "transaction.h"
-#include "energiminer/common/utilstrencodings.h"
-#include "energiminer/common/serialize.h"
+#include "common/utilstrencodings.h"
+#include "common/serialize.h"
 #include "uint256.h"
 
 

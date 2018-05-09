@@ -10,7 +10,7 @@
 #include <stdlib.h>
 
 #if (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) || defined(__APPLE__)
-    #include "energiminer/common/portable_endian.h"
+    #include "common/portable_endian.h"
 //#include "endian.h"
 #endif
 

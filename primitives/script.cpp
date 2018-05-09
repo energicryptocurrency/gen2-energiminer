@@ -4,8 +4,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "script.h"
-#include "energiminer/common/tinyformat.h"
-#include "energiminer/common/utilstrencodings.h"
+#include "common/tinyformat.h"
+#include "common/utilstrencodings.h"
 
 using namespace std;
 

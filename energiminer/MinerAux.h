@@ -25,7 +25,7 @@
 #include <jsonrpccpp/client/connectors/httpclient.h>
 
 #include "nrghash/nrghash.h"
-#include "energiminer/common/common.h"
+#include "common/common.h"
 #include "energiminer/solution.h"
 #include "energiminer/work.h"
 #include "energiminer/mineplant.h"

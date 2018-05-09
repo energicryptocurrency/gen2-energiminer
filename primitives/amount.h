@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-#include "energiminer/common/serialize.h"
+#include "common/serialize.h"
 
 typedef int64_t CAmount;
 

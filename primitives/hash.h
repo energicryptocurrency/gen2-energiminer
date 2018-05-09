@@ -2,7 +2,7 @@
 
 #include "uint256.h"
 #include "sha256.h"
-#include "energiminer/common/serialize.h"
+#include "common/serialize.h"
 
 /* ----------- Bitcoin Hash ------------------------------------------------- */
 /** A hasher class for Bitcoin's 256-bit hash (double SHA-256). */

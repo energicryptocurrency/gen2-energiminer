@@ -1,6 +1,6 @@
 #include "merkle.h"
 #include "hash.h"
-#include "energiminer/common/utilstrencodings.h"
+#include "common/utilstrencodings.h"
 
 using namespace energi;
 

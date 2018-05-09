@@ -6,8 +6,8 @@
 #include "transaction.h"
 
 #include "hash.h"
-#include "energiminer/common/tinyformat.h"
-#include "energiminer/common/utilstrencodings.h"
+#include "common/tinyformat.h"
+#include "common/utilstrencodings.h"
 
 CScript GetScriptForDestination(const CKeyID& keyID)
 {

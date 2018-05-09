@@ -6,8 +6,8 @@
 #ifndef BITCOIN_SCRIPT_SCRIPT_H
 #define BITCOIN_SCRIPT_SCRIPT_H
 
-#include "energiminer/common/common.h"
-#include "energiminer/common/prevector.h"
+#include "common/common.h"
+#include "common/prevector.h"
 
 #include <assert.h>
 #include <climits>

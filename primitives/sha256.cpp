@@ -4,7 +4,7 @@
 
 #include <string.h>
 
-#include "energiminer/common/common.h"
+#include "common/common.h"
 #include "sha256.h"
 
 

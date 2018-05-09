@@ -1,5 +1,5 @@
 #include "amount.h"
-#include "energiminer/common/tinyformat.h"
+#include "common/tinyformat.h"
 
 const std::string CURRENCY_UNIT = "NRG";
 
