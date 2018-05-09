@@ -11,7 +11,7 @@
 #include <functional>
 #include <iostream>
 
-#include "energiminer/nrghash/nrghash.h"
+#include "nrghash/nrghash.h"
 #include "primitives/uint256.h"
 #include "energiminer/work.h"
 

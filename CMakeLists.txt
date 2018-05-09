@@ -131,6 +131,7 @@ createBuildInfo()
 add_subdirectory(protocol)
 add_subdirectory(primitives)
 add_subdirectory(common)
+add_subdirectory(nrghash)
 
 if (ETHASHCL)
     add_subdirectory(libegihash-cl)
