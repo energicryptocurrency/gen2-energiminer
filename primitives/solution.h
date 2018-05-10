@@ -12,8 +12,8 @@
 #include <iostream>
 
 #include "nrghash/nrghash.h"
-#include "primitives/uint256.h"
-#include "energiminer/work.h"
+#include "uint256.h"
+#include "work.h"
 
 namespace utility {
 

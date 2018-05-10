@@ -26,8 +26,8 @@
 
 #include "nrghash/nrghash.h"
 #include "common/common.h"
-#include "energiminer/solution.h"
-#include "energiminer/work.h"
+#include "primitives/solution.h"
+#include "primitives/work.h"
 #include "energiminer/mineplant.h"
 
 

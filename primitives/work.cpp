@@ -7,7 +7,7 @@
 
 #include <chrono>
 #include <memory>
-#include "primitives/base58.h"
+#include "base58.h"
 #include "work.h"
 
 namespace energi {

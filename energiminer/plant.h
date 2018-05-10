@@ -8,7 +8,7 @@
 #ifndef PLANT_H_
 #define PLANT_H_
 
-#include "energiminer/solution.h"
+#include "primitives/solution.h"
 
 namespace energi
 {

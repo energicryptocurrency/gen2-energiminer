@@ -9,7 +9,7 @@
 #define ENERGIMINER_MINER_H_
 
 #include "energiminer/plant.h"
-#include "energiminer/worker.h"
+#include "primitives/worker.h"
 #include "nrghash/nrghash.h"
 
 #include <string>
