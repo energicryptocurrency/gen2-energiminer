@@ -5,7 +5,7 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
-#include "energiminer/worker.h"
+#include "primitives/worker.h"
 #include "energiminer/miner.h"
 #include "MiningClient.h"
 

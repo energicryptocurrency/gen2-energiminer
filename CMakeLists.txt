@@ -132,6 +132,7 @@ add_subdirectory(protocol)
 add_subdirectory(primitives)
 add_subdirectory(common)
 add_subdirectory(nrghash)
+#add_subdirectory(miners)
 
 if (ETHASHCL)
     add_subdirectory(libegihash-cl)

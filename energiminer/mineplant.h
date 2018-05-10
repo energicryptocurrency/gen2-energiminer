@@ -10,7 +10,7 @@
 
 #include "energiminer/plant.h"
 #include "energiminer/miner.h"
-#include "energiminer/solution.h"
+#include "primitives/solution.h"
 
 
 #include <memory>
