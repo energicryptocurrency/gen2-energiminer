@@ -97,14 +97,14 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
          try {
              m_cudaGridSize = stol(argv[++i]);
          } catch (...) {
-             cerr << "Bad " << arg << " option: " argv[i] << endl;
+             cerr << "Bad " << arg << " option: " << argv[i] << endl;
              throw;
          }
      } else if (arg == "--cuda-block-size" && i + 1 < argc) {
          try {
              m_cudaBlockSize = stol(argv[++i]);
          } catch (...) {
-             cerr << "Bad " << arg << " option: " argv[i] << endl;
+             cerr << "Bad " << arg << " option: " << argv[i] << endl;
              throw;
          }
      } else if (arg == "--cuda-devices") {
@@ -172,12 +172,11 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
         }
     } else if (arg == "-G" || arg == "--opencl") {
         m_minerExecutionMode = MinerExecutionMode::kCL;
-    }
-    /*else if (arg == "-X" || arg == "--cuda-opencl")
-      {
-      m_minerExecutionMode = MinerExecutionMode::Mixed;
-      }*/
-    else if (arg == "-M" || arg == "--benchmark") {
+    } else if (arg == "-U" || arg == "--cuda") {
+        m_minerExecutionMode = MinerExecutionMode::kCUDA;
+    } else if (arg == "-X" || arg == "--cuda-opencl") {
+        m_minerExecutionMode = MinerExecutionMode::kMixed;
+    } else if (arg == "-M" || arg == "--benchmark") {
         mode = OperationMode::Benchmark;
         if (i + 1 < argc) {
             string m = boost::to_lower_copy(string(argv[++i]));

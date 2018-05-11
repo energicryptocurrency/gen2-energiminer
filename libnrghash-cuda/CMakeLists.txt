@@ -39,7 +39,7 @@ else()
 endif()
 
 cuda_add_library(nrghash-cuda STATIC ${sources} ${headers})
-target_link_libraries(nrghash-cuda nrgcore)
 target_include_directories(nrghash-cuda PUBLIC ${CUDA_INCLUDE_DIRS})
 target_include_directories(nrghash-cuda PRIVATE .. ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(nrghash-cuda OpenCL::OpenCL)
+target_link_libraries(nrghash-cuda Boost::system Boost::filesystem)
