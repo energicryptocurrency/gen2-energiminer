@@ -79,8 +79,9 @@ struct Work : public Block
 
 
     //!TODO keep only this part
-    std::string             m_jobName;
-    arith_uint256           hashTarget;
+    int            exSizeBits = -1;
+    std::string    m_jobName;
+    arith_uint256  hashTarget;
 
     std::string ToString() const
     {

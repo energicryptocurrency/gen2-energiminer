@@ -187,6 +187,7 @@ bool StratumClient::processResponse(Json::Value& responseObject)
                     const auto& master = workGBT["masternode"];
                     std::string job = params.get((Json::Value::ArrayIndex)1, "").asString();
                     m_current = energi::Work(workGBT, master["payee"].asString(), job);
+                    m_current.exSizeBits = m_extraNonceHexSize * 4;
                     m_worktimer.cancel();
                     m_worktimer.expires_from_now(boost::posix_time::seconds(m_worktimeout));
                     m_worktimer.async_wait(boost::bind(&StratumClient::workTimeoutHandler, this, boost::asio::placeholders::error));
