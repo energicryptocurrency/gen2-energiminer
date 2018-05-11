@@ -100,7 +100,7 @@ void CUDAMiner::trun()
     try {
         while(!shouldStop()) {
                     // take local copy of work since it may end up being overwritten.
-            const Work work = this->getWork();
+            Work work = this->getWork();
             if (!shouldStop()) {
                 if(work.isValid()) {
                     cnote << "No work. Pause for 1 s.";

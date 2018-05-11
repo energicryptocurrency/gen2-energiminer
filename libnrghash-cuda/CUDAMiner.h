@@ -19,8 +19,8 @@ along with cpp-ethereum.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "ethash_cuda_miner_kernel.h"
 
-#include "energiminer/plant.h"
-#include "energiminer/miner.h"
+#include "nrgcore/plant.h"
+#include "nrgcore/miner.h"
 
 #include <cstdint>
 #include <mutex>
