@@ -33,7 +33,7 @@ namespace energi {
 class Miner : public Worker
 {
 public:
-    Miner(const std::string& name, const Plant &plant, int index)
+    Miner(const std::string& name, const Plant &plant, unsigned index)
         : Worker(name + std::to_string(index))
         , m_index(index)
         , m_plant(plant)
@@ -90,7 +90,7 @@ protected:
         m_hashCount += _n;
     }
 
-    int m_index = 0;
+    unsigned m_index = 0;
     const Plant &m_plant;
     static bool s_exit;
     static unsigned s_dagLoadMode;

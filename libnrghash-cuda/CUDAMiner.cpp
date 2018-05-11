@@ -36,15 +36,7 @@ struct CUDAChannel: public LogChannel
     static const bool debug = false;
 };
 
-struct CUDASwitchChannel: public LogChannel
-{
-    static const char* name() { return EthOrange " cu"; }
-    static const int verbosity = 6;
-    static const bool debug = false;
-};
-
 #define cudalog clog(CUDAChannel)
-#define cudaswitchlog clog(CUDASwitchChannel)
 
 CUDAMiner::CUDAMiner(const Plant& plant, unsigned index) :
     Miner("GPU/", plant, index),
@@ -61,34 +53,31 @@ bool CUDAMiner::init_dag(uint32_t height)
     try {
         uint32_t epoch = height / nrghash::constants::EPOCH_LENGTH;
         cudalog << name() << "Generating DAG for epoch #" << epoch;
-        //if (s_dagLoadMode == DAG_LOAD_MODE_SEQUENTIAL)
-        //    while (s_dagLoadIndex < index)
-        //        this_thread::sleep_for(chrono::milliseconds(100));
+        if (s_dagLoadMode == DAG_LOAD_MODE_SEQUENTIAL)
+            while (s_dagLoadIndex < m_index)
+                this_thread::sleep_for(chrono::milliseconds(100));
         unsigned device = s_devices[m_index] > -1 ? s_devices[m_index] : m_index;
 
         cnote << "Initialising miner " << m_index;
 
-        cuda_init(getNumDevices(), height, device, false/*(s_dagLoadMode == DAG_LOAD_MODE_SINGLE)*/,
+        cuda_init(getNumDevices(), height, device, (s_dagLoadMode == DAG_LOAD_MODE_SINGLE),
             s_dagInHostMemory, s_dagCreateDevice);
         s_dagLoadIndex++;
 
-        if (s_dagLoadMode == DAG_LOAD_MODE_SINGLE)
-        {
-            if (s_dagLoadIndex >= s_numInstances && s_dagInHostMemory)
-            {
+        if (s_dagLoadMode == DAG_LOAD_MODE_SINGLE) {
+            if (s_dagLoadIndex >= s_numInstances && s_dagInHostMemory) {
                 // all devices have loaded DAG, we can free now
                 delete[] s_dagInHostMemory;
-                s_dagInHostMemory = NULL;
+                s_dagInHostMemory = nullptr;
                 cnote << "Freeing DAG from host";
             }
         }
         return true;
-    }
-    catch (std::runtime_error const& _e)
-    {
+    } catch (std::runtime_error const& _e) {
         cwarn << "Error CUDA mining: " << _e.what();
-        if(s_exit)
+        if(s_exit) {
             exit(1);
+        }
         return false;
     }
 }
@@ -118,8 +107,6 @@ void CUDAMiner::trun()
                     current = work;
                 }
             }
-            //uint64_t upper64OfBoundary = (uint64_t)(u64)((u256)current.boundary >> 192);
-
             energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
             nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
@@ -265,8 +252,6 @@ bool CUDAMiner::cuda_configureGPU(
 
         // by default let's only consider the DAG of the first epoch
          uint64_t dagSize = nrghash::dag_t::get_full_size(0);
-        //const auto dagSize =
-        //    ethash::get_full_dataset_size(ethash::calculate_full_dataset_num_items(0));
         int devicesCount = static_cast<int>(numDevices);
         for (int i = 0; i < devicesCount; ++i) {
             if (_devices[i] != -1) {
@@ -352,15 +337,15 @@ bool CUDAMiner::cuda_init(
             m_dag = nullptr;
         }
         // create buffer for cache
-        hash128_t * dag = m_dag;
-        hash64_t * light = m_light[m_device_num];
+        hash128_t* dag = m_dag;
+        hash64_t* light = m_light[m_device_num];
 
         if(!light){
             cudalog << "Allocating light with size: " << lightSize;
             CUDA_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&light), lightSize));
         }
         // copy lightData to device
-        CUDA_SAFE_CALL(cudaMemcpy(light, cache.data(), lightSize, cudaMemcpyHostToDevice));
+        CUDA_SAFE_CALL(cudaMemcpy(light, /*cache.data()*/vData.data(), lightSize, cudaMemcpyHostToDevice));
         m_light[m_device_num] = light;
 
         if (dagNumItems != m_dag_size || !dag) { // create buffer for dag
@@ -376,10 +361,7 @@ bool CUDAMiner::cuda_init(
                 CUDA_SAFE_CALL(cudaMallocHost(&m_search_buf[i], sizeof(search_results)));
                 CUDA_SAFE_CALL(cudaStreamCreate(&m_streams[i]));
             }
-            memset(&m_current_header, 0, sizeof(hash32_t));
             m_current_target = 0;
-            m_current_nonce = 0;
-            m_current_index = 0;
             if (!hostDAG) {
                 if((m_device_num == dagCreateDevice) || !_cpyToHost) { //if !cpyToHost -> All devices shall generate their DAG
                     cudalog << "Generating DAG for GPU #" << m_device_num << " with dagSize: "
@@ -425,74 +407,78 @@ void CUDAMiner::search(
     uint64_t startNonce,
     Work& work)
 {
-    bool initialize = false;
-    if (memcmp(&m_current_header, header, sizeof(hash32_t))) {
-        m_current_header = *reinterpret_cast<hash32_t const *>(header);
-        set_header(m_current_header);
-        initialize = true;
-    }
+    set_header(*reinterpret_cast<hash32_t const *>(header));
     if (m_current_target != target) {
+        set_target(target);
         m_current_target = target;
-        set_target(m_current_target);
-        initialize = true;
     }
-    if (_ethStratum) {
-        if (initialize) {
-            m_starting_nonce = 0;
-            m_current_index = 0;
-            CUDA_SAFE_CALL(cudaDeviceSynchronize());
-            for (unsigned int i = 0; i < s_numStreams; i++)
-                m_search_buf[i]->count = 0;
-        }
-        if (m_starting_nonce != startNonce) {
-            // reset nonce counter
-            m_starting_nonce = startNonce;
-            m_current_nonce = m_starting_nonce;
-        }
-    } else {
-        if (initialize) {
-            m_current_nonce = get_start_nonce();
-            m_current_index = 0;
-            CUDA_SAFE_CALL(cudaDeviceSynchronize());
-            for (unsigned int i = 0; i < s_numStreams; ++i) {
-                m_search_buf[i]->count = 0;
-            }
-        }
-    }
+
+    // choose the starting nonce
+    uint64_t current_nonce = _ethStratum ? startNonce : 0; //get_start_nonce();
+
+    // clear all the stream search result buffers
+    for (unsigned int i = 0; i < s_numStreams; i++)
+        m_search_buf[i]->count = 0;
+
+    // Nonces processed in one pass by a single stream
     const uint32_t batch_size = s_gridSize * s_blockSize;
-    while (true) {
-        ++m_current_index;
-        m_current_nonce += batch_size;
-        auto stream_index = m_current_index % s_numStreams;
-        cudaStream_t stream = m_streams[stream_index];
-        volatile search_results* buffer = m_search_buf[stream_index];
-        uint32_t found_count = 0;
-        uint64_t nonces[SEARCH_RESULTS];
-        h256 mixes[SEARCH_RESULTS];
-        uint64_t nonce_base = m_current_nonce - s_numStreams * batch_size;
-        if (m_current_index >= s_numStreams) {
+    // Nonces processed in one pass by all streams
+    const uint32_t streams_batch_size = batch_size * s_numStreams;
+    volatile search_results* buffer;
+
+    // prime each stream
+    uint32_t current_index;
+    for (current_index = 0; current_index < s_numStreams; current_index++, current_nonce += batch_size) {
+        cudaStream_t stream = m_streams[current_index];
+        buffer = m_search_buf[current_index];
+        run_ethash_search(s_gridSize, s_blockSize, stream, buffer, current_nonce, m_parallelHash);
+    }
+
+    // process stream batches until we get new work.
+    bool done = false;
+    bool  __attribute__((unused)) stop = false;
+    while (!done) {
+        for (current_index = 0; current_index < s_numStreams; current_index++, current_nonce += batch_size) {
+            cudaStream_t stream = m_streams[current_index];
+            buffer = m_search_buf[current_index];
+            // Wait for stream batch to complete
             CUDA_SAFE_CALL(cudaStreamSynchronize(stream));
-            found_count = buffer->count;
+            if (shouldStop()) {
+                m_new_work.store(false, std::memory_order_relaxed);
+                done = true;
+                stop = true;
+            }
+            bool t = true;
+            if (m_new_work.compare_exchange_strong(t, false))
+                done = true;
+
+            // See if we got solutions in this batch
+            uint32_t found_count = buffer->count;
             if (found_count) {
                 buffer->count = 0;
-                if (found_count > SEARCH_RESULTS) {
+                uint64_t nonces[SEARCH_RESULTS];
+                //h256 mixes[SEARCH_RESULTS];
+                // handle the highly unlikely possibility that there are more
+                // solutions found than we can handle
+                if (found_count > SEARCH_RESULTS)
                     found_count = SEARCH_RESULTS;
-                }
+                uint64_t nonce_base = current_nonce - streams_batch_size;
+                // stash the solutions, so we can reuse the search buffer
                 for (unsigned int j = 0; j < found_count; j++) {
                     nonces[j] = nonce_base + buffer->result[j].gid;
-                    if (s_noeval) {
-                        memcpy(mixes[j].data(), (void *)&buffer->result[j].mix, sizeof(buffer->result[j].mix));
-                    }
+                    //if (s_noeval)
+                    //    memcpy(mixes[j].data(), (void *)&buffer->result[j].mix, sizeof(buffer->result[j].mix));
                 }
-            }
-        }
-        run_ethash_search(s_gridSize, s_blockSize, stream, buffer, m_current_nonce, m_parallelHash);
-        if (m_current_index >= s_numStreams) {
-            if (found_count) {
-                for (uint32_t i = 0; i < found_count; ++i) {
+                // restart the stream on the next batch of nonces
+                if (!done) {
+                    run_ethash_search(s_gridSize, s_blockSize, stream, buffer, current_nonce, m_parallelHash);
+                }
+                // Pass the solutions up to the higher level
+                for (uint32_t i = 0; i < found_count; i++)
                     if (s_noeval) {
+                        //farm.submitProof(Solution{nonces[i], mixes[i], w, m_new_work});
                         work.nNonce = nonces[i];
-                        const auto powHash = GetPOWHash(work);
+                        //const auto powHash = GetPOWHash(work);
                         cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
                         Solution solution(work, nonces[i], work.hashMix);
                         m_plant.submit(solution);
@@ -506,22 +492,126 @@ void CUDAMiner::search(
                         } else {
                             cwarn << name() << "CUDA Miner proposed invalid solution" << work.GetHash().ToString() << "nonce: " << nonces[i];
                         }
+                        //Result r = EthashAux::eval(w.epoch, w.header, nonces[i]);
+                        //if (r.value <= w.boundary)
+                        //    farm.submitProof(Solution{nonces[i], r.mixHash, w, m_new_work});
+                        //else
+                        //{
+                        //    farm.failedSolution();
+                        //    cwarn << "GPU gave incorrect result!";
+                        //}
                     }
+            } else {
+                // restart the stream on the next batch of nonces
+                if (!done) {
+                    run_ethash_search(s_gridSize, s_blockSize, stream, buffer, current_nonce, m_parallelHash);
                 }
             }
             addHashCount(batch_size);
-            bool t = true;
-            if (m_new_work.compare_exchange_strong(t, false)) {
-                //cudaswitchlog << "Switch time "
-                //    << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - workSwitchStart_).count()
-                //    << "ms.";
-                break;
-            }
-            if (shouldStop()) {
-                m_new_work.store(false, std::memory_order_relaxed);
-                break;
-            }
+
         }
     }
+    //if (!stop && (g_logVerbosity >= 6)) {
+    //    cudalog << "Switch time "
+    //        << std::chrono::duration_cast<std::chrono::milliseconds>
+    //            (std::chrono::high_resolution_clock::now() - workSwitchStart).count()
+    //        << "ms.";
+    //}
+
+//    bool initialize = false;
+//    if (memcmp(&m_current_header, header, sizeof(hash32_t))) {
+//        m_current_header = *reinterpret_cast<hash32_t const *>(header);
+//        set_header(m_current_header);
+//        initialize = true;
+//    }
+//    if (m_current_target != target) {
+//        m_current_target = target;
+//        set_target(m_current_target);
+//        initialize = true;
+//    }
+//    if (_ethStratum) {
+//        if (initialize) {
+//            m_starting_nonce = 0;
+//            m_current_index = 0;
+//            CUDA_SAFE_CALL(cudaDeviceSynchronize());
+//            for (unsigned int i = 0; i < s_numStreams; i++)
+//                m_search_buf[i]->count = 0;
+//        }
+//        if (m_starting_nonce != startNonce) {
+//            // reset nonce counter
+//            m_starting_nonce = startNonce;
+//            m_current_nonce = m_starting_nonce;
+//        }
+//    } else {
+//        if (initialize) {
+//            m_current_nonce = get_start_nonce();
+//            m_current_index = 0;
+//            CUDA_SAFE_CALL(cudaDeviceSynchronize());
+//            for (unsigned int i = 0; i < s_numStreams; ++i) {
+//                m_search_buf[i]->count = 0;
+//            }
+//        }
+//    }
+//    const uint32_t batch_size = s_gridSize * s_blockSize;
+//    while (true) {
+//        ++m_current_index;
+//        m_current_nonce += batch_size;
+//        auto stream_index = m_current_index % s_numStreams;
+//        cudaStream_t stream = m_streams[stream_index];
+//        volatile search_results* buffer = m_search_buf[stream_index];
+//        uint32_t found_count = 0;
+//        uint64_t nonces[SEARCH_RESULTS];
+//        h256 mixes[SEARCH_RESULTS];
+//        uint64_t nonce_base = m_current_nonce - s_numStreams * batch_size;
+//        if (m_current_index >= s_numStreams) {
+//            CUDA_SAFE_CALL(cudaStreamSynchronize(stream));
+//            found_count = buffer->count;
+//            if (found_count) {
+//                buffer->count = 0;
+//                if (found_count > SEARCH_RESULTS) {
+//                    found_count = SEARCH_RESULTS;
+//                }
+//                for (unsigned int j = 0; j < found_count; j++) {
+//                    nonces[j] = nonce_base + buffer->result[j].gid;
+//                    if (s_noeval) {
+//                        memcpy(mixes[j].data(), (void *)&buffer->result[j].mix, sizeof(buffer->result[j].mix));
+//                    }
+//                }
+//            }
+//        }
+//        run_ethash_search(s_gridSize, s_blockSize, stream, buffer, m_current_nonce, m_parallelHash);
+//        if (m_current_index >= s_numStreams) {
+//            if (found_count) {
+//                for (uint32_t i = 0; i < found_count; ++i) {
+//                    if (s_noeval) {
+//                        work.nNonce = nonces[i];
+//                        const auto powHash = GetPOWHash(work);
+//                        cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
+//                        Solution solution(work, nonces[i], work.hashMix);
+//                        m_plant.submit(solution);
+//                    } else {
+//                        work.nNonce = nonces[i];
+//                        auto const powHash = GetPOWHash(work);
+//                        if (UintToArith256(powHash) <= work.hashTarget) {
+//                            cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
+//                            Solution solution(work, nonces[i], work.hashMix);
+//                            m_plant.submit(solution);
+//                        } else {
+//                            cwarn << name() << "CUDA Miner proposed invalid solution" << work.GetHash().ToString() << "nonce: " << nonces[i];
+//                        }
+//                    }
+//                }
+//            }
+//            addHashCount(batch_size);
+//            bool t = true;
+//            if (m_new_work.compare_exchange_strong(t, false)) {
+//                break;
+//            }
+//            if (shouldStop()) {
+//                m_new_work.store(false, std::memory_order_relaxed);
+//                break;
+//            }
+//        }
+//    }
 }
 
