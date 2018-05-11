@@ -1,4 +1,4 @@
-#include "energiminer/mineplant.h"
+#include <nrgcore/mineplant.h>
 #include "StratumClient.h"
 #include "common/Log.h"
 #include "BuildInfo.h"
