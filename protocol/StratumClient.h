@@ -6,7 +6,7 @@
 #include <boost/bind.hpp>
 
 #include "primitives/worker.h"
-#include "energiminer/miner.h"
+#include "nrgcore/miner.h"
 #include "MiningClient.h"
 
 typedef struct {

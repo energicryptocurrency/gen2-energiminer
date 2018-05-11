@@ -8,7 +8,7 @@
 #include "mineplant.h"
 
 #include "libegihash-cl/OpenCLMiner.h"
-#include "energiminer/miner.h"
+#include "nrgcore/miner.h"
 #include "primitives/work.h"
 #include "energiminer/CpuMiner.h"
 #include "energiminer/TestMiner.h"

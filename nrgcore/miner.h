@@ -8,7 +8,7 @@
 #ifndef ENERGIMINER_MINER_H_
 #define ENERGIMINER_MINER_H_
 
-#include "energiminer/plant.h"
+#include "nrgcore/plant.h"
 #include "primitives/worker.h"
 #include "nrghash/nrghash.h"
 

@@ -8,8 +8,8 @@
 #ifndef ENERGIMINER_MINEPLANT_H_
 #define ENERGIMINER_MINEPLANT_H_
 
-#include "energiminer/plant.h"
-#include "energiminer/miner.h"
+#include "plant.h"
+#include "miner.h"
 #include "primitives/solution.h"
 
 

@@ -28,7 +28,7 @@
 #include "common/common.h"
 #include "primitives/solution.h"
 #include "primitives/work.h"
-#include "energiminer/mineplant.h"
+#include "nrgcore/mineplant.h"
 
 
 #include <memory>
