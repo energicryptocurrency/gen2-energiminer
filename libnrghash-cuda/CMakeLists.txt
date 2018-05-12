@@ -30,16 +30,7 @@ endif()
 file(GLOB sources "*.cpp" "*.cu")
 file(GLOB headers "*.h" "*.cuh")
 
-if(APPLE)
-	# On macOS use system OpenCL library.
-	find_package(OpenCL REQUIRED)
-else()
-	hunter_add_package(OpenCL)
-	find_package(OpenCL CONFIG REQUIRED)
-endif()
-
 cuda_add_library(nrghash-cuda STATIC ${sources} ${headers})
 target_include_directories(nrghash-cuda PUBLIC ${CUDA_INCLUDE_DIRS})
 target_include_directories(nrghash-cuda PRIVATE .. ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(nrghash-cuda OpenCL::OpenCL)
 target_link_libraries(nrghash-cuda Boost::system Boost::filesystem)

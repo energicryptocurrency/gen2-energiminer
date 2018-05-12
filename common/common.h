@@ -29,7 +29,8 @@ enum class EnumMinerEngine : unsigned
 {
     kCPU    = 0x0,
     kCL     = 0x1,
-    kTest   = 0x2
+    kCUDA   = 0x2,
+    kTest   = 0x4
 };
 
 uint16_t inline ReadLE16(const unsigned char* ptr)

@@ -7,7 +7,14 @@
 
 #include "mineplant.h"
 
+#ifdef ETH_ETHASHCL
 #include "libegihash-cl/OpenCLMiner.h"
+#endif
+
+#ifdef ETH_ETHASHCUDA
+#include "libnrghash-cuda/CUDAMiner.h"
+#endif
+
 #include "nrgcore/miner.h"
 #include "primitives/work.h"
 #include "energiminer/CpuMiner.h"
@@ -23,13 +30,21 @@ namespace energi {
 
 MinerPtr createMiner(EnumMinerEngine minerEngine, int index, const MinePlant &plant)
 {
-    switch(minerEngine) {
-        case EnumMinerEngine::kCL:
-            return MinerPtr(new OpenCLMiner(plant, index));
-        case EnumMinerEngine::kCPU:
-            return MinerPtr(new CpuMiner(plant, index));
-        case EnumMinerEngine::kTest:
-            return MinerPtr(new TestMiner(plant, index));
+#if ETH_ETHASHCL
+    if (minerEngine == EnumMinerEngine::kCL) {
+        return MinerPtr(new OpenCLMiner(plant, index));
+    }
+#endif
+#if ETH_ETHASHCUDA
+    if (minerEngine == EnumMinerEngine::kCUDA) {
+        return MinerPtr(new CUDAMiner(plant, index));
+    }
+#endif
+    if (minerEngine == EnumMinerEngine::kCPU) {
+        return MinerPtr(new CpuMiner(plant, index));
+    }
+    if (minerEngine == EnumMinerEngine::kTest) {
+        return MinerPtr(new TestMiner(plant, index));
     }
     return nullptr;
 }
@@ -41,9 +56,24 @@ bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
     }
     m_started = true;
     for ( auto &minerEngine : vMinerEngine) {
-        unsigned int num_threads_for_cpu = std::thread::hardware_concurrency() - 1;
-        auto count = EnumMinerEngine::kCL  == minerEngine ? OpenCLMiner::instances() : ( EnumMinerEngine::kTest  == minerEngine ? 2 : num_threads_for_cpu );
-        for ( decltype(count) i = 0; i < count; ++i ) {
+        unsigned count = 0;
+#if ETH_ETHASHCL
+        if (minerEngine == EnumMinerEngine::kCL) {
+            count = OpenCLMiner::instances();
+        }
+#endif
+#if ETH_ETHASHCUDA
+        if (minerEngine == EnumMinerEngine::kCUDA) {
+            count = CUDAMiner::instances();
+        }
+#endif
+        if (minerEngine == EnumMinerEngine::kTest) {
+            count = 2;
+        }
+        if (minerEngine == EnumMinerEngine::kCPU) {
+            count = std::thread::hardware_concurrency() - 1;
+        }
+        for ( unsigned i = 0; i < count; ++i ) {
             auto miner = createMiner(minerEngine, i, *this);
             m_started &= miner->start();
             if ( m_started ) {
