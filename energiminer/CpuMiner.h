@@ -8,7 +8,7 @@
 #ifndef ENERGIMINER_CPUMINER_H_
 #define ENERGIMINER_CPUMINER_H_
 
-#include "energiminer/miner.h"
+#include "nrgcore/miner.h"
 
 namespace energi
 {

@@ -39,7 +39,9 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
             cerr << "Bad " << arg << " option: " << argv[i] << endl;
             throw;
         }
-    } else if (arg == "--opencl-platform" && i + 1 < argc) {
+    }
+#if ETH_ETHASHCL
+    else if (arg == "--opencl-platform" && i + 1 < argc) {
         try {
             m_openclPlatform = stol(argv[++i]);
         }
@@ -83,9 +85,71 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
             cerr << "Bad " << arg << " option: " << argv[i] << endl;
             throw;
         }
-    } else if (arg == "--list-devices") {
+    }
+#endif
+#if ETH_ETHASHCL || ETH_ETHASHCUDA
+     else if (arg == "--list-devices") {
         m_shouldListDevices = true;
-    } else if (arg == "--benchmark-warmup" && i + 1 < argc) {
+     }
+#endif
+#if ETH_ETHASHCUDA
+     else if (arg == "--cuda-grid-size" && i + 1 < argc) {
+         try {
+             m_cudaGridSize = stol(argv[++i]);
+         } catch (...) {
+             cerr << "Bad " << arg << " option: " << argv[i] << endl;
+             throw;
+         }
+     } else if (arg == "--cuda-block-size" && i + 1 < argc) {
+         try {
+             m_cudaBlockSize = stol(argv[++i]);
+         } catch (...) {
+             cerr << "Bad " << arg << " option: " << argv[i] << endl;
+             throw;
+         }
+     } else if (arg == "--cuda-devices") {
+         while (m_cudaDeviceCount < 16 && i + 1 < argc) {
+             try {
+                 m_cudaDevices[m_cudaDeviceCount] = stol(argv[++i]);
+                 ++m_cudaDeviceCount;
+             } catch (...) {
+                 --i;
+                 break;
+             }
+         }
+     } else if (arg == "--cuda-parallel-hash" && i + 1 < argc) {
+         try {
+             m_parallelHash = stol(argv[++i]);
+             if (m_parallelHash == 0 || m_parallelHash > 8) {
+                 throw;
+             }
+         } catch(...) {
+             cerr << "Bad " << arg << " option: " << argv[i] << endl;
+             throw;
+         }
+     } else if (arg == "--cuda-schedule" && i + 1 < argc) {
+         std::string mode = argv[++i];
+         if (mode == "auto")
+             m_cudaSchedule = 0;
+         else if (mode == "spin")
+             m_cudaSchedule = 1;
+         else if (mode == "yield")
+             m_cudaSchedule = 2;
+         else if (mode == "sync")
+             m_cudaSchedule = 4;
+         else {
+             cerr << "Bad " << arg << "option: " << argv[i] << endl;
+             throw;
+         }
+     } else if (arg == "--cuda-streams" && i + 1 < argc) {
+         m_numStreams = stol(argv[++i]);
+     } else if (arg == "--cuda-noeval") {
+         m_cudaNoEval = true;
+     }
+#endif
+     else if ((arg == "--exit")) {
+         m_exit = true;
+     } else if (arg == "--benchmark-warmup" && i + 1 < argc) {
         try {
             m_benchmarkWarmup = stol(argv[++i]);
         } catch (...) {
@@ -108,12 +172,11 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
         }
     } else if (arg == "-G" || arg == "--opencl") {
         m_minerExecutionMode = MinerExecutionMode::kCL;
-    }
-    /*else if (arg == "-X" || arg == "--cuda-opencl")
-      {
-      m_minerExecutionMode = MinerExecutionMode::Mixed;
-      }*/
-    else if (arg == "-M" || arg == "--benchmark") {
+    } else if (arg == "-U" || arg == "--cuda") {
+        m_minerExecutionMode = MinerExecutionMode::kCUDA;
+    } else if (arg == "-X" || arg == "--cuda-opencl") {
+        m_minerExecutionMode = MinerExecutionMode::kMixed;
+    } else if (arg == "-M" || arg == "--benchmark") {
         mode = OperationMode::Benchmark;
         if (i + 1 < argc) {
             string m = boost::to_lower_copy(string(argv[++i]));
@@ -159,14 +222,23 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
 void MinerCLI::execute()
 {
     if (m_shouldListDevices) {
+#if ETH_ETHASHCL
         if (m_minerExecutionMode == MinerExecutionMode::kCL ||
                 m_minerExecutionMode == MinerExecutionMode::kMixed) {
             OpenCLMiner::listDevices();
+#endif
+#if ETH_ETHASHCUDA
+        if (m_minerExecutionMode == MinerExecutionMode::kCUDA ||
+                m_minerExecutionMode == MinerExecutionMode::kMixed) {
+            CUDAMiner::listDevices();
+#endif
             return;
         }
     }
 
-    if (m_minerExecutionMode == MinerExecutionMode::kCL) {
+    if (m_minerExecutionMode == MinerExecutionMode::kCL ||
+            m_minerExecutionMode == MinerExecutionMode::kMixed) {
+# if ETH_ETHASHCL
         if (m_openclDeviceCount > 0) {
             OpenCLMiner::setDevices(m_openclDevices, m_openclDeviceCount);
             m_miningThreads = m_openclDeviceCount;
@@ -182,6 +254,38 @@ void MinerCLI::execute()
         }
 
         OpenCLMiner::setNumInstances(m_miningThreads);
+#else
+        cerr << "Selected GPU mining without having compiled with -DETHASHCL=1" << endl;
+        exit(1);
+#endif
+    }
+
+    if (m_minerExecutionMode == MinerExecutionMode::kCUDA ||
+            m_minerExecutionMode == MinerExecutionMode::kMixed) {
+#if ETH_ETHASHCUDA
+        if (m_cudaDeviceCount > 0) {
+            CUDAMiner::setDevices(m_cudaDevices, m_cudaDeviceCount);
+            m_miningThreads = m_cudaDeviceCount;
+        }
+
+        CUDAMiner::setNumInstances(m_miningThreads);
+        if (!CUDAMiner::configureGPU(
+                    m_cudaBlockSize,
+                    m_cudaGridSize,
+                    m_numStreams,
+                    m_cudaSchedule,
+                    m_dagLoadMode,
+                    m_dagCreateDevice,
+                    m_cudaNoEval,
+                    m_exit
+                    ))
+            exit(1);
+
+        CUDAMiner::setParallelHash(m_parallelHash);
+#else
+        cerr << "CUDA support disabled. Configure project build with -DETHASHCUDA=ON" << endl;
+        exit(1);
+#endif
     }
 
     if (mode == OperationMode::Benchmark) {
@@ -192,7 +296,7 @@ void MinerCLI::execute()
         doSimulation();
     } else {
         cerr << "No mining mode selected!" << std::endl;
-        exit(-1);
+        exit(1);
     }
 }
 

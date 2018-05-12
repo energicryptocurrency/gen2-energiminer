@@ -7,7 +7,7 @@
 
 #include "TestMiner.h"
 
-#include "energiminer/solution.h"
+#include "primitives/solution.h"
 
 namespace energi
 {

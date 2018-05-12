@@ -8,9 +8,9 @@
 #include "libegihash-cl/OpenCLMiner.h"
 
 #include "../libegihash-cl/CL/cl2.hpp"
-#include "energiminer/nrghash/nrghash.h"
+#include "nrghash/nrghash.h"
 #include "CLMiner_kernel.h"
-#include "energiminer/common/Log.h"
+#include "common/Log.h"
 
 #include <algorithm>
 #include <vector>
@@ -444,13 +444,13 @@ void OpenCLMiner::trun()
                 auto const powHash = GetPOWHash(work);
                 if (UintToArith256(powHash) <= work.hashTarget)
                 {
-                    cllog << name() << "Submitting block powhash: " << powHash.ToString() << "nonce: " << nonce;
+                    cllog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonce;
                     Solution solution(work, nonce, work.hashMix);
                     m_plant.submit(solution);
                 }
                 else
                 {
-                    cwarn << name() << "CL Miner proposed invalid solution" << powHash.ToString() << "nonce: " << nonce;
+                    cwarn << name() << "CL Miner proposed invalid solution" << work.GetHash().ToString() << "nonce: " << nonce;
                 }
             }
             current_work = work;
