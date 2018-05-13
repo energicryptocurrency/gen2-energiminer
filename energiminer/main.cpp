@@ -64,7 +64,7 @@ int main(int argc, char** argv)
 {
 	if ( !is_little_endian() )
 	{
-		cerr << "Little endian not tested" << endl;
+		cerr << "Big endian not tested" << endl;
 		exit(-1);
 	}
 
