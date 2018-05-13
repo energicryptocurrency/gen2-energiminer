@@ -59,6 +59,8 @@ struct BlockHeader
         READWRITE(nNonce);
     }
 
+    inline uint256 GetHash() const;
+
     void SetNull()
     {
         nVersion = 0;
@@ -112,12 +114,6 @@ struct Block : public BlockHeader
         }
         //! end coinbase transaction
 
-        //!Backbone transaction
-        txoutBackbone = outTransaction(gbt["backbone"]);
-        coinbaseTransaction.vout.push_back(txoutBackbone);
-        coinbaseTransaction.vout.push_back(CTxOut(coinbaseValue - txoutBackbone.nValue, GetScriptForDestination(keyID)));
-        //! end Backbone transaction
-
         ////! masternode payment
         ////! masternaode transaction
         bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
@@ -130,10 +126,12 @@ struct Block : public BlockHeader
 
         //! superblock payments
         //! superblock transactions
+        bool is_superblock=false;
         bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();
         if (superblocks_enabled) {
             const auto superblock = gbt["superblock"];
             if (superblock.size()  > 0) {
+                is_superblock=true;
                 for (const auto& proposal_payee : superblock) {
                     auto trans = outTransaction(proposal_payee);
                     voutSuperblock.push_back(trans);
@@ -141,6 +139,16 @@ struct Block : public BlockHeader
                 }
             }
         }
+
+        //!Backbone transaction
+        if (!is_superblock)
+        {
+            txoutBackbone = outTransaction(gbt["backbone"]);
+            coinbaseTransaction.vout.push_back(txoutBackbone);
+            coinbaseTransaction.vout.push_back(CTxOut(coinbaseValue - txoutBackbone.nValue, GetScriptForDestination(keyID)));
+        }
+        //! end Backbone transaction
+
         vtx.push_back(coinbaseTransaction);
         vtx[0].UpdateHash();
 
@@ -214,6 +222,32 @@ struct CBlockHeaderTruncatedLE
 };
 
 static_assert(sizeof(CBlockHeaderTruncatedLE) == 146, "CBlockHeaderTruncatedLE has incorrect size");
+
+struct CBlockHeaderFullLE : public CBlockHeaderTruncatedLE
+{
+    uint64_t nNonce;
+    char hashMix[65];
+
+    CBlockHeaderFullLE(BlockHeader const & h)
+        : CBlockHeaderTruncatedLE(h)
+        , nNonce(h.nNonce)
+        , hashMix{0}
+    {
+        auto mixString = h.hashMix.ToString();
+        memcpy(hashMix, mixString.c_str(), (std::min)(mixString.size(), sizeof(hashMix)));
+    }
+};
+static_assert(sizeof(CBlockHeaderFullLE) == 219, "CBlockHeaderFullLE has incorrect size");
+
 #pragma pack(pop)
+
+uint256 BlockHeader::GetHash() const
+{
+    // return a Keccak-256 hash of the full block header, including nonce and mixhash
+    CBlockHeaderFullLE fullBlockHeader(*this);
+    nrghash::h256_t blockHash(&fullBlockHeader, sizeof(fullBlockHeader));
+    return uint256(blockHash);
+}
+
 
 } // namespace energi

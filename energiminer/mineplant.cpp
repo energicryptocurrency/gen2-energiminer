@@ -89,6 +89,9 @@ bool MinePlant::setWork(const Work& work)
     // if new work hasnt changed, then ignore
     std::lock_guard<std::mutex> lock(m_mutexWork);
     if (work == m_work) {
+        for (auto& miner : m_miners) {
+            miner->start();
+        }
         return false;
     }
     cnote << "New Work assigned: Height: "
@@ -105,7 +108,7 @@ bool MinePlant::setWork(const Work& work)
     for (auto &miner: m_miners) {
         auto first  = index * kLimitPerThread;
         auto end    = first + kLimitPerThread;
-        cdebug << "first:" << first << "end: " << end;
+        //cdebug << "first:" << first << "end: " << end;
         miner->setWork(work, first, end);
         ++index;
     }
