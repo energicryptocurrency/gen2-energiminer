@@ -345,11 +345,11 @@ void MinerCLI::doMiner()
             solution_found = false;
         } catch(WorkException &we) {
             for (auto i = 3; --i; this_thread::sleep_for(chrono::seconds(1)))
-                cerr << we.what() << endl << "Work couldn't be decoded, possible json parsing problem." << i << "... \r";
+                cerr << we.what() << endl << "Work couldn't be decoded, possible json parsing problem." << i << "... \n";
             cerr << endl;
         } catch (jsonrpc::JsonRpcException& je) {
             for (auto i = 3; --i; this_thread::sleep_for(chrono::seconds(1)))
-                cerr << je.GetMessage() << endl << je.what() << endl << "JSON-RPC problem. Probably couldn't connect. Retrying in " << i << "... \r";
+                cerr << je.GetMessage() << endl << je.what() << endl << "JSON-RPC problem. Probably couldn't connect. Retrying in " << i << "... \n";
             cerr << endl;
         }
     }

@@ -114,12 +114,6 @@ struct Block : public BlockHeader
         }
         //! end coinbase transaction
 
-        //!Backbone transaction
-        txoutBackbone = outTransaction(gbt["backbone"]);
-        coinbaseTransaction.vout.push_back(txoutBackbone);
-        coinbaseTransaction.vout.push_back(CTxOut(coinbaseValue - txoutBackbone.nValue, GetScriptForDestination(keyID)));
-        //! end Backbone transaction
-
         ////! masternode payment
         ////! masternaode transaction
         bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
@@ -132,10 +126,12 @@ struct Block : public BlockHeader
 
         //! superblock payments
         //! superblock transactions
+        bool is_superblock=false;
         bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();
         if (superblocks_enabled) {
             const auto superblock = gbt["superblock"];
             if (superblock.size()  > 0) {
+                is_superblock=true;
                 for (const auto& proposal_payee : superblock) {
                     auto trans = outTransaction(proposal_payee);
                     voutSuperblock.push_back(trans);
@@ -143,6 +139,16 @@ struct Block : public BlockHeader
                 }
             }
         }
+
+        //!Backbone transaction
+        if (!is_superblock)
+        {
+            txoutBackbone = outTransaction(gbt["backbone"]);
+            coinbaseTransaction.vout.push_back(txoutBackbone);
+            coinbaseTransaction.vout.push_back(CTxOut(coinbaseValue - txoutBackbone.nValue, GetScriptForDestination(keyID)));
+        }
+        //! end Backbone transaction
+
         vtx.push_back(coinbaseTransaction);
         vtx[0].UpdateHash();
 
