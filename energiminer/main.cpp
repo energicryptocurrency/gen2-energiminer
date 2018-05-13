@@ -38,7 +38,7 @@ namespace energi
 void help()
 {
 	cout
-		<< "Usage ethminer [OPTIONS]" << endl
+		<< "Usage energiminer [OPTIONS]" << endl
 		<< "Options:" << endl << endl;
 	MinerCLI::streamHelp(cout);
 	cout
