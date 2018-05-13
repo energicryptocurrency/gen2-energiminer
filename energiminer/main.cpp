@@ -37,8 +37,8 @@ namespace energi
 
 void help()
 {
-	cout
-		<< "Usage energiminer [OPTIONS]" << endl
+	cout << "energiminer v" << ENERGI_PROJECT_VERSION << endl << endl
+		<< "Usage: energiminer [OPTIONS]" << endl
 		<< "Options:" << endl << endl;
 	MinerCLI::streamHelp(cout);
 	cout
@@ -52,8 +52,8 @@ void help()
 
 void version()
 {
-	cout << "enegiminer version " << ENERGI_PROJECT_VERSION << endl;
-	cout << "Build: " << ENERGI_BUILD_PLATFORM << "/" << ENERGI_BUILD_TYPE << endl;
+	cout << "v" << ENERGI_PROJECT_VERSION << endl;
+	//cout << "Build: " << ENERGI_BUILD_PLATFORM << "/" << ENERGI_BUILD_TYPE << endl;
 	exit(0);
 }
 
