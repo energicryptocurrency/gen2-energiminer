@@ -8,9 +8,8 @@
  */
 #include "keccak-tiny.h"
 
-#ifdef USE_SECURE_MEMZERO
+#define USE_SECURE_MEMZERO
 #include "secure_memzero.h"
-#endif
 
 #include <stdint.h>
 #include <stdio.h>

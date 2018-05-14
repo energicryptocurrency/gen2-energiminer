@@ -10,8 +10,8 @@ set(HUNTER_CONFIGURATION_TYPES Release)
 set(HUNTER_CACHE_SERVERS "https://github.com/ethereum/hunter-cache")
 include(HunterGate)
 HunterGate(
-    URL "https://github.com/ruslo/hunter/archive/v0.19.86.tar.gz"
-    SHA1 "aafb99b93d466f963d53a39271f20d5074996cb0"
+	URL "https://github.com/ruslo/hunter/archive/v0.20.34.tar.gz"
+	SHA1 "2f04d1beffdf39db1c40d8347beb8c10bbe9b8ed"
 	LOCAL
 )
 
@@ -61,10 +61,10 @@ option(ETHASHCUDA "Build with CUDA mining" OFF)
 # propagates CMake configuration options to the compiler
 function(configureProject)
     if (ETHASHCL)
-        add_definitions(-DETH_ETHASHCL -Wno-unused-private-field -Wno-unused-function)
+        add_definitions(-DETH_ETHASHCL)
     endif()
 	if (ETHASHCUDA)
-        add_definitions(-DETH_ETHASHCUDA -Wno-unused-private-field -Wno-unused-function)
+        add_definitions(-DETH_ETHASHCUDA)
 	endif()
 endfunction()
 
