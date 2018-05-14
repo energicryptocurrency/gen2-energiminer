@@ -90,6 +90,8 @@ inline std::vector<EnumMinerEngine> getEngineModes(MinerExecutionMode minerExecu
         vEngine.push_back(EnumMinerEngine::kCL);
     if ( static_cast<unsigned>(minerExecutionMode) & static_cast<unsigned>(MinerExecutionMode::kCPU) )
         vEngine.push_back(EnumMinerEngine::kCPU);
+    if (static_cast<unsigned>(minerExecutionMode) & static_cast<unsigned>(MinerExecutionMode::kCUDA))
+        vEngine.push_back(EnumMinerEngine::kCUDA);
 
     return vEngine;
 }
@@ -100,11 +102,13 @@ inline EnumMinerEngine getEngineMode(MinerExecutionMode minerExecutionMode)
         return EnumMinerEngine::kCL;
     if ( static_cast<unsigned>(minerExecutionMode) & static_cast<unsigned>(MinerExecutionMode::kCPU) )
         return EnumMinerEngine::kCPU;
+    if (static_cast<unsigned>(minerExecutionMode) & static_cast<unsigned>(MinerExecutionMode::kCUDA))
+        return EnumMinerEngine::kCUDA;
 
     return EnumMinerEngine::kTest;
 }
 
-constexpr const char* StrMinerEngine[] = { "CPU", "CL", "Test" };
+constexpr const char* StrMinerEngine[] = { "CPU", "CL", "CUDA", "Test" };
 
 inline std::string to_string(EnumMinerEngine minerEngine)
 {
