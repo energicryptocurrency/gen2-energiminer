@@ -145,6 +145,25 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
          m_numStreams = stol(argv[++i]);
      } else if (arg == "--cuda-noeval") {
          m_cudaNoEval = true;
+     } else if ((arg == "-L" || arg == "--dag-load-mode") && i + 1 < argc) {
+         string mode = argv[++i];
+         if (mode == "parallel") {
+             m_dagLoadMode = DAG_LOAD_MODE_PARALLEL;
+         } else if (mode == "sequential") {
+             m_dagLoadMode = DAG_LOAD_MODE_SEQUENTIAL;
+         } else if (mode == "single") {
+             m_dagLoadMode = DAG_LOAD_MODE_SINGLE;
+             try {
+                 m_dagCreateDevice = stol(argv[++i]);
+             } catch (...) {
+                 cerr << "Bad " << arg << " option: " << argv[i] << endl;
+                 --i;
+                 throw;
+             }
+         } else {
+             cerr << "Bad " << arg << " option: " << argv[i] << endl;
+             throw;
+         }
      }
 #endif
      else if ((arg == "--exit")) {

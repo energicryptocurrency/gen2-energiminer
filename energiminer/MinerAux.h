@@ -128,6 +128,7 @@ public:
 			<< "    --cuda-devices <0 1 ..n> Select which CUDA GPUs to mine on. Default is to use all" << endl
 			<< "    --cuda-parallel-hash <1 2 ..8> Define how many hashes to calculate in a kernel, can be scaled to achieve better performance. Default=4" << endl
 			<< "    --cuda-noeval  bypass host software re-evaluation of GPU solutions." << endl
+			<< "    -L, --dag-load-mode <mode> DAG generation mode." << endl
 			<< "        This will trim some milliseconds off the time it takes to send a result to the pool." << endl
 			<< "        Use at your own risk! If GPU generates errored results they WILL be forwarded to the pool" << endl
 			<< "        Not recommended at high overclock." << endl
@@ -195,9 +196,9 @@ private:
 	unsigned m_cudaBlockSize = CUDAMiner::c_defaultBlockSize;
 	bool m_cudaNoEval = false;
 	unsigned m_parallelHash    = 4;
+	unsigned m_dagLoadMode = 0; // parallel
 #endif
 
-	unsigned m_dagLoadMode = 0; // parallel
 	unsigned m_dagCreateDevice = 0;
     bool m_exit = false;
 

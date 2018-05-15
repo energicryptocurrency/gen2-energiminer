@@ -38,9 +38,12 @@ struct CUDAChannel: public LogChannel
 
 #define cudalog clog(CUDAChannel)
 
-CUDAMiner::CUDAMiner(const Plant& plant, unsigned index) :
-    Miner("GPU/", plant, index),
-    m_light(getNumDevices()) {}
+CUDAMiner::CUDAMiner(const Plant& plant, unsigned index)
+    : Miner("GPU/", plant, index)
+    , m_light(getNumDevices())
+    , m_lastHeight(0)
+{
+}
 
 CUDAMiner::~CUDAMiner()
 {
@@ -98,10 +101,11 @@ void CUDAMiner::trun()
             }
 
             if (current != work) {
-                if (m_dagLoaded || (work.nHeight / nrghash::constants::EPOCH_LENGTH)) {
+                if (m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
                     init_dag(work.nHeight);
                     m_dagLoaded = true;
                 }
+                m_lastHeight = work.nHeight;
                 current = work;
             }
             energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
@@ -433,7 +437,11 @@ void CUDAMiner::search(
 
     // process stream batches until we get new work.
     bool done = false;
+#if defined(WIN32) || defined(_WIN32)
+    bool stop = 0;
+#else
     bool  __attribute__((unused)) stop = false;
+#endif
     while (!done) {
         for (current_index = 0; current_index < s_numStreams; current_index++, current_nonce += batch_size) {
             cudaStream_t stream = m_streams[current_index];
@@ -508,107 +516,5 @@ void CUDAMiner::search(
 
         }
     }
-    //if (!stop && (g_logVerbosity >= 6)) {
-    //    cudalog << "Switch time "
-    //        << std::chrono::duration_cast<std::chrono::milliseconds>
-    //            (std::chrono::high_resolution_clock::now() - workSwitchStart).count()
-    //        << "ms.";
-    //}
-
-//    bool initialize = false;
-//    if (memcmp(&m_current_header, header, sizeof(hash32_t))) {
-//        m_current_header = *reinterpret_cast<hash32_t const *>(header);
-//        set_header(m_current_header);
-//        initialize = true;
-//    }
-//    if (m_current_target != target) {
-//        m_current_target = target;
-//        set_target(m_current_target);
-//        initialize = true;
-//    }
-//    if (_ethStratum) {
-//        if (initialize) {
-//            m_starting_nonce = 0;
-//            m_current_index = 0;
-//            CUDA_SAFE_CALL(cudaDeviceSynchronize());
-//            for (unsigned int i = 0; i < s_numStreams; i++)
-//                m_search_buf[i]->count = 0;
-//        }
-//        if (m_starting_nonce != startNonce) {
-//            // reset nonce counter
-//            m_starting_nonce = startNonce;
-//            m_current_nonce = m_starting_nonce;
-//        }
-//    } else {
-//        if (initialize) {
-//            m_current_nonce = get_start_nonce();
-//            m_current_index = 0;
-//            CUDA_SAFE_CALL(cudaDeviceSynchronize());
-//            for (unsigned int i = 0; i < s_numStreams; ++i) {
-//                m_search_buf[i]->count = 0;
-//            }
-//        }
-//    }
-//    const uint32_t batch_size = s_gridSize * s_blockSize;
-//    while (true) {
-//        ++m_current_index;
-//        m_current_nonce += batch_size;
-//        auto stream_index = m_current_index % s_numStreams;
-//        cudaStream_t stream = m_streams[stream_index];
-//        volatile search_results* buffer = m_search_buf[stream_index];
-//        uint32_t found_count = 0;
-//        uint64_t nonces[SEARCH_RESULTS];
-//        h256 mixes[SEARCH_RESULTS];
-//        uint64_t nonce_base = m_current_nonce - s_numStreams * batch_size;
-//        if (m_current_index >= s_numStreams) {
-//            CUDA_SAFE_CALL(cudaStreamSynchronize(stream));
-//            found_count = buffer->count;
-//            if (found_count) {
-//                buffer->count = 0;
-//                if (found_count > SEARCH_RESULTS) {
-//                    found_count = SEARCH_RESULTS;
-//                }
-//                for (unsigned int j = 0; j < found_count; j++) {
-//                    nonces[j] = nonce_base + buffer->result[j].gid;
-//                    if (s_noeval) {
-//                        memcpy(mixes[j].data(), (void *)&buffer->result[j].mix, sizeof(buffer->result[j].mix));
-//                    }
-//                }
-//            }
-//        }
-//        run_ethash_search(s_gridSize, s_blockSize, stream, buffer, m_current_nonce, m_parallelHash);
-//        if (m_current_index >= s_numStreams) {
-//            if (found_count) {
-//                for (uint32_t i = 0; i < found_count; ++i) {
-//                    if (s_noeval) {
-//                        work.nNonce = nonces[i];
-//                        const auto powHash = GetPOWHash(work);
-//                        cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
-//                        Solution solution(work, nonces[i], work.hashMix);
-//                        m_plant.submit(solution);
-//                    } else {
-//                        work.nNonce = nonces[i];
-//                        auto const powHash = GetPOWHash(work);
-//                        if (UintToArith256(powHash) <= work.hashTarget) {
-//                            cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
-//                            Solution solution(work, nonces[i], work.hashMix);
-//                            m_plant.submit(solution);
-//                        } else {
-//                            cwarn << name() << "CUDA Miner proposed invalid solution" << work.GetHash().ToString() << "nonce: " << nonces[i];
-//                        }
-//                    }
-//                }
-//            }
-//            addHashCount(batch_size);
-//            bool t = true;
-//            if (m_new_work.compare_exchange_strong(t, false)) {
-//                break;
-//            }
-//            if (shouldStop()) {
-//                m_new_work.store(false, std::memory_order_relaxed);
-//                break;
-//            }
-//        }
-//    }
 }
 

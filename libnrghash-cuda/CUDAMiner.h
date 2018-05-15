@@ -106,6 +106,7 @@ private:
     std::vector<hash64_t*> m_light;
     uint32_t m_dag_size = 0;
     uint32_t m_device_num;
+    uint64_t m_lastHeight;
 
     volatile search_results** m_search_buf;
     cudaStream_t* m_streams;
