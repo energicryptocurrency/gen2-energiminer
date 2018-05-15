@@ -111,15 +111,15 @@ void CUDAMiner::trun()
                 m_lastHeight = work.nHeight;
                 current = work;
 
-		energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
-		nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
+                energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
+                nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
-		// Upper 64 bits of the boundary.
-		const uint64_t upper64OfBoundary = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
-		assert(upper64OfBoundary > 0);
-		startNonce = m_nonceStart.load();
+                // Upper 64 bits of the boundary.
+                const uint64_t upper64OfBoundary = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
+                assert(upper64OfBoundary > 0);
+                startNonce = m_nonceStart.load();
 
-		search(hash_header.data(), upper64OfBoundary, (current.exSizeBits >= 0), startNonce, work);
+                search(hash_header.data(), upper64OfBoundary, (current.exSizeBits >= 0), startNonce, work);
             }
         }
 
@@ -466,7 +466,6 @@ void CUDAMiner::search(
             if (found_count) {
                 buffer->count = 0;
                 uint64_t nonces[SEARCH_RESULTS];
-                //h256 mixes[SEARCH_RESULTS];
                 // handle the highly unlikely possibility that there are more
                 // solutions found than we can handle
                 if (found_count > SEARCH_RESULTS)
@@ -475,8 +474,6 @@ void CUDAMiner::search(
                 // stash the solutions, so we can reuse the search buffer
                 for (unsigned int j = 0; j < found_count; j++) {
                     nonces[j] = nonce_base + buffer->result[j].gid;
-                    //if (s_noeval)
-                    //    memcpy(mixes[j].data(), (void *)&buffer->result[j].mix, sizeof(buffer->result[j].mix));
                 }
                 // restart the stream on the next batch of nonces
                 if (!done) {
@@ -489,6 +486,8 @@ void CUDAMiner::search(
                         cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
                         Solution solution(work, nonces[i], work.hashMix);
                         m_plant.submit(solution);
+                        addHashCount(batch_size);
+                        break;
                     } else {
                         work.nNonce = nonces[i];
                         auto const powHash = GetPOWHash(work);
@@ -496,6 +495,8 @@ void CUDAMiner::search(
                             cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
                             Solution solution(work, nonces[i], work.hashMix);
                             m_plant.submit(solution);
+                            addHashCount(batch_size);
+                            break;
                         } else {
                             cwarn << name() << "CUDA Miner proposed invalid solution" << work.GetHash().ToString() << "nonce: " << nonces[i];
                         }

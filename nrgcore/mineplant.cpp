@@ -120,7 +120,7 @@ bool MinePlant::setWork(const Work& work)
     std::lock_guard<std::mutex> lock(m_mutexWork);
     if (work == m_work) {
         for (auto& miner : m_miners) {
-            miner->start();
+            reinterpret_cast<Worker*>(miner.get())->setWork(m_work);
         }
         return false;
     }
