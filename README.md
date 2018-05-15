@@ -38,6 +38,8 @@ energiminer --help
 
 This project uses [CMake] and [Hunter] package manager.
 
+To avoid know issue "parse error in template argument list" please update your gcc/g++ compiler to 6th version.
+
 1. Create a build directory.
 
    ```sh

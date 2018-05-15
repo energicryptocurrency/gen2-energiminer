@@ -88,24 +88,21 @@ void CUDAMiner::trun()
     uint64_t startNonce = 0;
     try {
         while(!shouldStop()) {
-                    // take local copy of work since it may end up being overwritten.
             Work work = this->getWork();
-            if (!shouldStop()) {
-                if(work.isValid()) {
-                    cnote << "No work. Pause for 1 s.";
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
-                    continue;
-                } else {
-                    //cudalog << name() << "Valid work.";
-                }
+            if(work.isValid()) {
+                cnote << "No work. Pause for 1 s.";
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                continue;
+            } else {
+                //cudalog << name() << "Valid work.";
+            }
 
-                if (current != work) {
-                    if (m_dagLoaded || (nrghash::cache_t::get_seedhash(current.nHeight) != nrghash::cache_t::get_seedhash(work.nHeight))) {
-                        init_dag(work.nHeight);
-                        m_dagLoaded = true;
-                    }
-                    current = work;
+            if (current != work) {
+                if (m_dagLoaded || (work.nHeight / nrghash::constants::EPOCH_LENGTH)) {
+                    init_dag(work.nHeight);
+                    m_dagLoaded = true;
                 }
+                current = work;
             }
             energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
             nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
@@ -302,7 +299,7 @@ bool CUDAMiner::cuda_init(
 
         cudalog << "Using device: " << device_props.name << " (Compute " + to_string(device_props.major) + "." + to_string(device_props.minor) + ")";
 
-        m_search_buf = new volatile search_results *[s_numStreams];
+        m_search_buf = new volatile search_results * [s_numStreams];
         m_streams = new cudaStream_t[s_numStreams];
 
         nrghash::cache_t cache = nrghash::cache_t(height);
