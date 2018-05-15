@@ -95,6 +95,9 @@ void CUDAMiner::trun()
             if(!work.isValid()) {
                 cnote << "No work. Pause for 1 s.";
                 std::this_thread::sleep_for(std::chrono::seconds(1));
+                if ( this->shouldStop() ) {
+                    break;
+                }
                 continue;
             } else {
                 //cudalog << name() << "Valid work.";
@@ -107,16 +110,17 @@ void CUDAMiner::trun()
                 }
                 m_lastHeight = work.nHeight;
                 current = work;
+
+		energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
+		nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
+
+		// Upper 64 bits of the boundary.
+		const uint64_t upper64OfBoundary = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
+		assert(upper64OfBoundary > 0);
+		startNonce = m_nonceStart.load();
+
+		search(hash_header.data(), upper64OfBoundary, (current.exSizeBits >= 0), startNonce, work);
             }
-            energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
-            nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
-
-            // Upper 64 bits of the boundary.
-            const uint64_t upper64OfBoundary = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
-            assert(upper64OfBoundary > 0);
-            startNonce = m_nonceStart.load();
-
-            search(hash_header.data(), upper64OfBoundary, (current.exSizeBits >= 0), startNonce, work);
         }
 
         // Reset miner and stop working
@@ -481,9 +485,7 @@ void CUDAMiner::search(
                 // Pass the solutions up to the higher level
                 for (uint32_t i = 0; i < found_count; i++)
                     if (s_noeval) {
-                        //farm.submitProof(Solution{nonces[i], mixes[i], w, m_new_work});
                         work.nNonce = nonces[i];
-                        //const auto powHash = GetPOWHash(work);
                         cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
                         Solution solution(work, nonces[i], work.hashMix);
                         m_plant.submit(solution);
@@ -497,14 +499,6 @@ void CUDAMiner::search(
                         } else {
                             cwarn << name() << "CUDA Miner proposed invalid solution" << work.GetHash().ToString() << "nonce: " << nonces[i];
                         }
-                        //Result r = EthashAux::eval(w.epoch, w.header, nonces[i]);
-                        //if (r.value <= w.boundary)
-                        //    farm.submitProof(Solution{nonces[i], r.mixHash, w, m_new_work});
-                        //else
-                        //{
-                        //    farm.failedSolution();
-                        //    cwarn << "GPU gave incorrect result!";
-                        //}
                     }
             } else {
                 // restart the stream on the next batch of nonces
