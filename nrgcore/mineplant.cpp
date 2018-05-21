@@ -131,12 +131,13 @@ bool MinePlant::setWork(const Work& work)
     m_work = work;
 
     // Propagate to all miners
+    uint64_t extraNonce = m_work.getExtraNonce();
     const auto minersCount = m_miners.size();
-    const auto kLimitPerThread = std::numeric_limits<uint32_t>::max() / minersCount;
+    const auto kLimitPerThread = std::numeric_limits<uint64_t>::max() - extraNonce / minersCount;
     uint32_t index = 0;
     m_solutionFound = false;
     for (auto &miner: m_miners) {
-        auto first  = index * kLimitPerThread;
+        auto first  = index * kLimitPerThread + extraNonce;
         auto end    = first + kLimitPerThread;
         //cdebug << "first:" << first << "end: " << end;
         miner->setWork(work, first, end);

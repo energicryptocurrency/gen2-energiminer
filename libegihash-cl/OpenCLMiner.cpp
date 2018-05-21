@@ -383,6 +383,7 @@ void OpenCLMiner::trun()
     uint64_t const nonceSegment = static_cast<uint64_t>(m_index) << (64 - 4);
     Work current_work; // Here we need current work as to initialize gpu
     try {
+        unsigned int nExtraNonce = 0;
         while (!shouldStop()) {
             Work work = this->getWork(); // This work is a copy of last assigned work the worker was provided by plant
             if ( !work.isValid() ) {
@@ -396,6 +397,7 @@ void OpenCLMiner::trun()
                 //cllog << name() << "Valid work.";
             }
 
+            work.incrementExtraNonce(nExtraNonce);
             if ( current_work != work ) {
                 if (!dagLoaded_ || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
                     init_dag(work.nHeight);
@@ -445,7 +447,7 @@ void OpenCLMiner::trun()
                 if (UintToArith256(powHash) <= work.hashTarget)
                 {
                     cllog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonce;
-                    Solution solution(work, nonce, work.hashMix);
+                    Solution solution(work, nonce, nExtraNonce, work.hashMix);
                     m_plant.submit(solution);
                 }
                 else

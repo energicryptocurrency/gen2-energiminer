@@ -5,11 +5,24 @@
 #include <sstream>
 #include <cstdlib>
 #include <vector>
+#include <random>
 
 #include "transaction.h"
 #include "common/utilstrencodings.h"
 #include "common/serialize.h"
 #include "uint256.h"
+
+inline std::string randomExtraNonce()
+{
+    std::random_device device;
+    std::mt19937 engine(device());
+    std::uniform_int_distribution<uint32_t> distribution;
+    uint32_t extraNonce = distribution(engine);
+    std::stringstream stream;
+    stream << std::setfill ('0') << std::setw(sizeof(extraNonce) * 2)
+           << std::hex << extraNonce;
+    return stream.str();
+}
 
 
 namespace energi {
@@ -36,7 +49,6 @@ struct BlockHeader
         hashPrevBlock = uint256S(gbt["previousblockhash"].asString());
         hashMerkleRoot.SetNull();
         nTime            = gbt["curtime"].asInt();
-        std::string bits = gbt["bits"].asString();
         nBits = std::strtol(gbt["bits"].asString().c_str(), nullptr, 16);
         nHeight          = gbt["height"].asInt();
         hashMix.SetNull();
@@ -71,6 +83,19 @@ struct BlockHeader
         hashMix.SetNull();
         nNonce = 0;
     }
+
+    friend std::ostream& operator << (std::ostream& os, const BlockHeader& header)
+    {
+        os << "version: "        << header.nVersion                  << " \n"
+           << "hashPrevBlock: "  << header.hashPrevBlock.ToString()  << " \n"
+           << "hashMerkleRoot: " << header.hashMerkleRoot.ToString() << " \n"
+           << "Time: "           << header.nTime                     << " \n"
+           << "Bits: "           << header.nBits                     << " \n"
+           << "Height: "         << header.nHeight                   << " \n"
+           << "hashMix: "        << header.hashMix.ToString()        << " \n"
+           << "Nonce: "          << header.nNonce                    << " \n";
+        return os;
+    }
 };
 
 struct Block : public BlockHeader
@@ -87,13 +112,17 @@ struct Block : public BlockHeader
         SetNull();
     }
 
-    Block(const Json::Value& gbt, const std::string& coinbaseAddress)
+    Block(const Json::Value& gbt,
+          const std::string& coinbaseAddress,
+          const std::string& coinbase1 = std::string(),
+          const std::string& coinbase2 = std::string(),
+          const std::string& extraNonce = std::string())
         : BlockHeader(gbt)
     {
         if ( !( gbt.isMember("height") && gbt.isMember("version") && gbt.isMember("previousblockhash") ) ) {
             throw WorkException("Height or Version or Previous Block Hash not found");
         }
-        fillTransactions(gbt, coinbaseAddress);
+        fillTransactions(gbt, coinbaseAddress, coinbase1, coinbase2, extraNonce);
     }
 
     Block(const BlockHeader& header)
@@ -102,62 +131,75 @@ struct Block : public BlockHeader
         *((BlockHeader*)this) = header;
     }
 
-    void fillTransactions(const Json::Value& gbt, const std::string& coinbaseAddress)
+    void fillTransactions(const Json::Value& gbt,
+                          const std::string& coinbaseAddress,
+                          const std::string& coinbase1,
+                          const std::string& coinbase2,
+                          const std::string& extraNonce)
     {
-        //! first transaction for coinbase output
-        //! CoinbaseTransaction
-        CTransaction coinbaseTransaction;
-        coinbaseTransaction.vin.push_back(CTxIn());
-        auto coinbaseValue = gbt["coinbasevalue"].asInt64();
-        CKeyID keyID;
-        if (!CBitcoinAddress(coinbaseAddress).GetKeyID(keyID)) {
-            throw WorkException("Could not get KeyID for address");
-        }
-        //! end coinbase transaction
+        if (coinbaseAddress.empty()) {
+            std::string hexData = coinbase1 + extraNonce + randomExtraNonce() + coinbase2;
+            //std::reverse(hexData.begin(), hexData.end());
+            CTransaction coinbaseTx;
+            DecodeHexTx(coinbaseTx, hexData);
+            vtx.push_back(coinbaseTx);
+            vtx[0].UpdateHash();
+        } else {
+            //! first transaction for coinbase output
+            //! CoinbaseTransaction
+            CTransaction coinbaseTransaction;
+            coinbaseTransaction.vin.push_back(CTxIn());
+            auto coinbaseValue = gbt["coinbasevalue"].asInt64();
+            CKeyID keyID;
+            if (!CBitcoinAddress(coinbaseAddress).GetKeyID(keyID)) {
+                throw WorkException("Could not get KeyID for address");
+            }
+            //! end coinbase transaction
 
-        ////! masternode payment
-        ////! masternaode transaction
-        bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
-        //bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool(); // not used currently
-        if (masternode_payments_started) {
-            txoutMasternode = outTransaction(gbt["masternode"]);
-            coinbaseTransaction.vout.push_back(txoutMasternode);
-        }
-        //! end masternode transaction
+            ////! masternode payment
+            ////! masternaode transaction
+            bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
+            //bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool(); // not used currently
+            if (masternode_payments_started) {
+                txoutMasternode = outTransaction(gbt["masternode"]);
+                coinbaseTransaction.vout.push_back(txoutMasternode);
+            }
+            //! end masternode transaction
 
-        //! superblock payments
-        //! superblock transactions
-        bool is_superblock=false;
-        bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();
-        if (superblocks_enabled) {
-            const auto superblock = gbt["superblock"];
-            if (superblock.size()  > 0) {
-                is_superblock=true;
-                for (const auto& proposal_payee : superblock) {
-                    auto trans = outTransaction(proposal_payee);
-                    voutSuperblock.push_back(trans);
-                    coinbaseTransaction.vout.push_back(trans);
+            //! superblock payments
+            //! superblock transactions
+            bool is_superblock=false;
+            bool const superblocks_enabled = gbt["superblocks_enabled"].asBool();
+            if (superblocks_enabled) {
+                const auto superblock = gbt["superblock"];
+                if (superblock.size()  > 0) {
+                    is_superblock=true;
+                    for (const auto& proposal_payee : superblock) {
+                        auto trans = outTransaction(proposal_payee);
+                        voutSuperblock.push_back(trans);
+                        coinbaseTransaction.vout.push_back(trans);
+                    }
                 }
             }
-        }
 
-        //!Backbone transaction
-        if (!is_superblock)
-        {
-            txoutBackbone = outTransaction(gbt["backbone"]);
-            coinbaseTransaction.vout.push_back(txoutBackbone);
-            coinbaseTransaction.vout.push_back(CTxOut(coinbaseValue - txoutBackbone.nValue, GetScriptForDestination(keyID)));
-        }
-        //! end Backbone transaction
+            //!Backbone transaction
+            if (!is_superblock)
+            {
+                txoutBackbone = outTransaction(gbt["backbone"]);
+                coinbaseTransaction.vout.push_back(txoutBackbone);
+                coinbaseTransaction.vout.push_back(CTxOut(coinbaseValue - txoutBackbone.nValue, GetScriptForDestination(keyID)));
+            }
+            //! end Backbone transaction
 
-        vtx.push_back(coinbaseTransaction);
-        vtx[0].UpdateHash();
+            vtx.push_back(coinbaseTransaction);
+            vtx[0].UpdateHash();
 
-        auto transactions = gbt["transactions"];
-        for (const auto& txn : transactions) {
-            CTransaction trans;
-            DecodeHexTx(trans, txn["data"].asString());
-            vtx.push_back(trans);
+            auto transactions = gbt["transactions"];
+            for (const auto& txn : transactions) {
+                CTransaction trans;
+                DecodeHexTx(trans, txn["data"].asString());
+                vtx.push_back(trans);
+            }
         }
     }
 
