@@ -47,7 +47,7 @@ void CpuMiner::trun()
                 if (UintToArith256(hash) < work.hashTarget) {
                     addHashCount(work.nNonce + 1 - last_nonce);
 
-                    Solution solution(work, work.nNonce, nExtraNonce, work.hashMix);
+                    Solution solution(work, nExtraNonce);
                     m_plant.submit(solution);
                     return;
                 }

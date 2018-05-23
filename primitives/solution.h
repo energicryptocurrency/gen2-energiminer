@@ -23,10 +23,8 @@ public:
     Solution()
     {}
 
-    Solution(Work work, uint64_t nonce, unsigned extraNonce, const uint256& mixhash)
-        : m_nonce(nonce)
-        , m_extraNonce(extraNonce)
-        , m_mixhash(mixhash)
+    Solution(Work work, unsigned extraNonce)
+        : m_extraNonce(extraNonce)
         , m_work(work)
     {}
 
@@ -53,10 +51,23 @@ public:
         return stream.str();
     }
 
+    const Work& getWork() const
+    {
+        return m_work;
+    }
+
+    uint64_t getNonce() const
+    {
+        return m_work.getNonce();
+    }
+
+    const uint256& getHashMix() const
+    {
+        return m_work.getHashMix();
+    }
+
 public:
-    uint64_t m_nonce;
     unsigned m_extraNonce;
-    uint256 m_mixhash;
 
 private:
     Work m_work;

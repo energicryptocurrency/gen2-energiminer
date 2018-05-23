@@ -173,7 +173,7 @@ private:
 
 	/// Mining options
 	bool should_mine = true;
-	MinerExecutionMode m_minerExecutionMode = MinerExecutionMode::kCL ;
+	MinerExecutionMode m_minerExecutionMode = MinerExecutionMode::kCPU;
 
 	unsigned m_openclPlatform = 0;
 	unsigned m_miningThreads = 1;

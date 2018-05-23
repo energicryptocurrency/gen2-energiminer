@@ -484,19 +484,18 @@ void CUDAMiner::search(
                 }
                 // Pass the solutions up to the higher level
                 for (uint32_t i = 0; i < found_count; i++)
+                    work.nNonce = nonces[i];
                     if (s_noeval) {
-                        work.nNonce = nonces[i];
                         cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
-                        Solution solution(work, nonces[i], nExtraNonce, work.hashMix);
+                        Solution solution(work, nExtraNonce);
                         m_plant.submit(solution);
                         addHashCount(batch_size);
                         break;
                     } else {
-                        work.nNonce = nonces[i];
                         auto const powHash = GetPOWHash(work);
                         if (UintToArith256(powHash) <= work.hashTarget) {
                             cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
-                            Solution solution(work, nonces[i], nExtraNonce, work.hashMix);
+                            Solution solution(work, nExtraNonce);
                             m_plant.submit(solution);
                             addHashCount(batch_size);
                             break;
