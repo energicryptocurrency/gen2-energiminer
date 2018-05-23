@@ -447,7 +447,7 @@ void OpenCLMiner::trun()
                 if (UintToArith256(powHash) <= work.hashTarget)
                 {
                     cllog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonce;
-                    Solution solution(work, nonce, nExtraNonce, work.hashMix);
+                    Solution solution(work, nExtraNonce);
                     m_plant.submit(solution);
                 }
                 else

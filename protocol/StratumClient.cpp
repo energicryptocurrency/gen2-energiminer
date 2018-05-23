@@ -67,8 +67,11 @@ bool StratumClient::submit(const energi::Solution& solution)
     os << "{\"id\": 4, \"method\": \"mining.submit\", \"params\": [\"" +
             p_active->user + "\",\"" + solution.getJobName() +
             "\",\"" + solution.getExtraNonce() + "\", \"" + solution.getTime() +
-            "\", \"" + std::to_string(solution.m_nonce) + "\", \"" + solution.m_mixhash.GetHex() + "\"]}\n";
+            "\", \"" + std::to_string(solution.getNonce()) + "\", \"" + solution.getHashMix().GetHex() + "\"]}\n";
     write(m_socket, m_requestBuffer);
+    cnote << "work";
+    cnote << solution.getWork();
+    cnote << solution.getExtraNonce();
     cnote << "Solution found; Submitted to" << p_active->host;
     return true;
 }

@@ -5,25 +5,12 @@
 #include <sstream>
 #include <cstdlib>
 #include <vector>
-#include <random>
 
 #include "transaction.h"
 #include "common/utilstrencodings.h"
 #include "common/serialize.h"
 #include "uint256.h"
-
-inline std::string randomExtraNonce()
-{
-    std::random_device device;
-    std::mt19937 engine(device());
-    std::uniform_int_distribution<uint32_t> distribution;
-    uint32_t extraNonce = distribution(engine);
-    std::stringstream stream;
-    stream << std::setfill ('0') << std::setw(sizeof(extraNonce) * 2)
-           << std::hex << extraNonce;
-    return stream.str();
-}
-
+#include "extranoncesingleton.h"
 
 namespace energi {
 
@@ -53,6 +40,16 @@ struct BlockHeader
         nHeight          = gbt["height"].asInt();
         hashMix.SetNull();
         nNonce = 0;
+    }
+
+    uint64_t getNonce() const
+    {
+        return nNonce;
+    }
+
+    const uint256& getHashMix() const
+    {
+        return hashMix;
     }
 
     ADD_SERIALIZE_METHODS
@@ -138,7 +135,8 @@ struct Block : public BlockHeader
                           const std::string& extraNonce)
     {
         if (coinbaseAddress.empty()) {
-            std::string hexData = coinbase1 + extraNonce + randomExtraNonce() + coinbase2;
+            auto obj = ExtraNonceSingleton::getInstance();
+            std::string hexData = coinbase1 + extraNonce + obj->genAndSendExtraNonce() + coinbase2;
             //std::reverse(hexData.begin(), hexData.end());
             CTransaction coinbaseTx;
             DecodeHexTx(coinbaseTx, hexData);
