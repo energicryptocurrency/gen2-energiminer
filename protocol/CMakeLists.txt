@@ -1,8 +1,15 @@
 set(SOURCES
     MiningClient.h
     GBTClient.h
-    StratumClient.h
-    StratumClient.cpp
+    StratumClient.h StratumClient.cpp
+    PoolClient.h
+    PoolURI.h PoolURI.cpp
+    PoolManager.h PoolManager.cpp
+    getwork/jsonrpc_getwork.h
+    getwork/GetworkClient.h
+    getwork/GetworkClient.cpp
+    stratum/EthStratumClient.h
+    stratum/EthStratumClient.cpp
 )
 
 add_library(poolprotocols ${SOURCES})

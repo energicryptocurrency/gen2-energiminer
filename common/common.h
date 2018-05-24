@@ -10,7 +10,7 @@
 
 #include "Log.h"
 #include "portable_endian.h"
-
+#include <boost/asio.hpp>
 #include <cstdint>
 #include <cstring>
 #include <iomanip>
@@ -32,6 +32,47 @@ enum class EnumMinerEngine : unsigned
     kCUDA   = 0x2,
     kTest   = 0x4
 };
+
+enum class HwMonitorInfoType
+{
+    UNKNOWN,
+    NVIDIA,
+    AMD
+};
+
+enum class HwMonitorIndexSource
+{
+    UNKNOWN,
+    OPENCL,
+    CUDA
+};
+
+struct HwMonitorInfo
+{
+    HwMonitorInfoType deviceType = HwMonitorInfoType::UNKNOWN;
+    HwMonitorIndexSource indexSource = HwMonitorIndexSource::UNKNOWN;
+    int deviceIndex = -1;
+
+};
+
+struct HwMonitor
+{
+    int tempC = 0;
+    int fanP = 0;
+    double powerW = 0;
+};
+
+inline std::ostream& operator<<(std::ostream& os, HwMonitor _hw)
+{
+    std::string power = "";
+    if(_hw.powerW != 0){
+        std::ostringstream stream;
+        stream << std::fixed << std::setprecision(0) << _hw.powerW << "W";
+        power = stream.str();
+    }
+    return os << _hw.tempC << "C " << _hw.fanP << "% " << power;
+}
+
 
 uint16_t inline ReadLE16(const unsigned char* ptr)
 {
@@ -81,6 +122,15 @@ void inline WriteBE32(unsigned char* ptr, uint32_t x)
 void inline WriteBE64(unsigned char* ptr, uint64_t x)
 {
     *((uint64_t*)ptr) = htobe64(x);
+}
+
+/// Converts arbitrary value to string representation using std::stringstream.
+template <class _T>
+std::string toString(_T const& _t)
+{
+    std::ostringstream o;
+    o << _t;
+    return o.str();
 }
 
 inline std::vector<EnumMinerEngine> getEngineModes(MinerExecutionMode minerExecutionMode)
@@ -171,6 +221,7 @@ struct WorkingProgress
     uint64_t rate() const { return ms == 0 ? 0 : hashes * 1000 / ms; }
 
     std::map<std::string, uint64_t> minersHashes; // maps a miner's device name to it's hash count
+    std::map<std::string, HwMonitor> minerMonitors;
 
     uint64_t minerRate(const uint64_t hashCount) const
     {
@@ -180,17 +231,18 @@ struct WorkingProgress
 
 inline std::ostream& operator<<(std::ostream& _out, WorkingProgress _p)
 {
-    float mh = _p.rate() / 1000.0f;
+    float mh = _p.rate() / 1000000.0f;
     _out << "Speed "
         << EthTealBold << std::fixed << std::setw(6) << std::setprecision(2) << mh << EthReset
-        << " Kh/s    ";
-
-    for (auto const & i : _p.minersHashes)
-    {
-        mh = _p.minerRate(i.second) / 1000.0f;
+        << " Mh/s    ";
+    for (auto const & i : _p.minersHashes) {
+        mh = _p.minerRate(i.second) / 1000000.0f;
         _out << i.first << " " << EthTeal << std::fixed << std::setw(5) << std::setprecision(2) << mh << EthReset << "  ";
+        auto iter = _p.minerMonitors.find(i.first);
+        if (iter != _p.minerMonitors.end()) {
+//            _out << " " << EthTeal << _p.minerMonitors[i.first] << EthReset << "  ";
+        }
     }
-
     return _out;
 }
 

@@ -66,6 +66,12 @@ public:
         return m_work.getHashMix();
     }
 
+    void reset()
+    {
+        m_extraNonce = 0;
+        m_work.reset();
+    }
+
 public:
     unsigned m_extraNonce;
 

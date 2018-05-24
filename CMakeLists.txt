@@ -10,8 +10,8 @@ set(HUNTER_CONFIGURATION_TYPES Release)
 set(HUNTER_CACHE_SERVERS "https://github.com/ethereum/hunter-cache")
 include(HunterGate)
 HunterGate(
-	URL "https://github.com/ruslo/hunter/archive/v0.20.34.tar.gz"
-	SHA1 "2f04d1beffdf39db1c40d8347beb8c10bbe9b8ed"
+    URL "https://github.com/ruslo/hunter/archive/v0.20.34.tar.gz"
+    SHA1 "2f04d1beffdf39db1c40d8347beb8c10bbe9b8ed"
 	LOCAL
 )
 
@@ -113,6 +113,9 @@ find_package(jsoncpp CONFIG REQUIRED)
 hunter_add_package(libjson-rpc-cpp)
 find_package(libjson-rpc-cpp CONFIG REQUIRED)
 
+hunter_add_package(CppNetlibUri)
+find_package(CppNetlibUri CONFIG REQUIRED)
+
 configureProject()
 
 message("------------------------------------------------------------------------")
@@ -131,6 +134,7 @@ createBuildInfo()
 add_subdirectory(protocol)
 add_subdirectory(primitives)
 add_subdirectory(common)
+add_subdirectory(libhwmon)
 add_subdirectory(nrghash)
 add_subdirectory(nrgcore)
 

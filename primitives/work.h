@@ -57,6 +57,8 @@ struct Work : public Block
     void reset()
     {
         SetNull();
+        m_jobName = std::string();
+        m_extraNonce = std::string();
     }
 
     bool isValid() const
