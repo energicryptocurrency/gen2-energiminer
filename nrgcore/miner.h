@@ -68,12 +68,15 @@ public:
 
     uint32_t hashCount() const
     {
-        return m_hashCount.load();
+        return m_hashCount.load(std::memory_order_relaxed);
     }
     void resetHashCount()
     {
-        m_hashCount = 0;
+        m_hashCount.store(0, std::memory_order_relaxed);
     }
+
+	unsigned Index() { return m_index; };
+	HwMonitorInfo hwmonInfo() { return m_hwmoninfo; }
 
     //! static interfaces
 public:
@@ -89,21 +92,24 @@ protected:
     {
         m_hashCount += _n;
     }
-
-    unsigned m_index = 0;
-    const Plant &m_plant;
-    static bool s_exit;
     static unsigned s_dagLoadMode;
     static unsigned s_dagLoadIndex;
     static unsigned s_dagCreateDevice;
     static uint8_t* s_dagInHostMemory;
+    static bool s_exit;
+
+    unsigned m_index = 0;
+    const Plant &m_plant;
+    std::chrono::high_resolution_clock::time_point workSwitchStart_;
+	HwMonitorInfo m_hwmoninfo;
 
     std::atomic<uint64_t> m_nonceStart;
     std::atomic<uint64_t> m_nonceEnd;
 
 private:
     std::atomic<uint32_t> m_hashCount;
-    std::chrono::high_resolution_clock::time_point workSwitchStart_;
+	Work m_work;
+	mutable std::mutex x_work;
 };
 
 using MinerPtr = std::shared_ptr<energi::Miner>;

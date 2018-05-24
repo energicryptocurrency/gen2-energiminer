@@ -48,19 +48,6 @@ StratumClient::~StratumClient()
 {
 }
 
-void StratumClient::setFailover(const std::string& failOverURL)
-{
-
-    std::size_t portPos = failOverURL.find_last_of(":");
-    std::size_t passPos = failOverURL.find_last_of(":", portPos - 1);
-    std::size_t atPos   = failOverURL.find_first_of("@");
-
-	m_failover.host = failOverURL.substr(atPos + 1, portPos - atPos - 1);
-	m_failover.port = failOverURL.substr(portPos + 1);
-	m_failover.user = failOverURL.substr(7, passPos - 7);
-	m_failover.pass = failOverURL.substr(passPos + 1, atPos - passPos - 1);
-}
-
 bool StratumClient::submit(const energi::Solution& solution)
 {
     std::ostream os(&m_requestBuffer);
@@ -120,7 +107,7 @@ void StratumClient::connect()
     } else {
         cnote << "Connected!";
         m_connected = true;
-        if (!p_farm->isStarted()) {
+        if (!p_farm->isMining()) {
             cnote << "Starting farm";
             const auto modes = getEngineModes(m_minerType);
             p_farm->start(modes);
@@ -136,7 +123,7 @@ void StratumClient::disconnect()
     cdebug << "Disconnecting";
     m_connected = false;
     m_running = false;
-    if (p_farm->isStarted()) {
+    if (p_farm->isMining()) {
         cnote << "Stopping farm";
         p_farm->stop();
     }
