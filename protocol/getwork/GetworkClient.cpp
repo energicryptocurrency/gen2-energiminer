@@ -14,7 +14,7 @@ GetworkClient::GetworkClient(unsigned const & farmRecheckPeriod, const std::stri
 	m_authorized = true;
 	m_connection_changed = true;
     m_solutionToSubmit.reset();
-    onSetWork();
+    startWorking();
 }
 
 GetworkClient::~GetworkClient()
@@ -24,17 +24,16 @@ GetworkClient::~GetworkClient()
 
 void GetworkClient::connect()
 {
-	if (m_connection_changed) {
+    if (m_connection_changed) {
         std::stringstream ss;
-		ss <<  "http://" + m_conn.Host() << ':' << m_conn.Port();
-		if (m_conn.Path().length())
-			ss << m_conn.Path();
-		p_client = new ::JsonrpcGetwork(new jsonrpc::HttpClient(ss.str()), m_coinbase);
-	}
-
-//	cnote << "connect to " << m_host;
-	m_connection_changed = false;
-	m_justConnected = true; // We set a fake flag, that we can check with workhandler if connection works
+        ss <<  "http://" + m_conn.User()  << ":" << m_conn.Pass() << "@" << m_conn.Host() << ':' << m_conn.Port();
+        if (m_conn.Path().length())
+            ss << m_conn.Path();
+        p_client = new ::JsonrpcGetwork(new jsonrpc::HttpClient(ss.str()), m_coinbase);
+    }
+    //	cnote << "connect to " << m_host;
+    m_connection_changed = false;
+    m_justConnected = true; // We set a fake flag, that we can check with workhandler if connection works
 }
 
 void GetworkClient::disconnect()
@@ -46,6 +45,12 @@ void GetworkClient::disconnect()
 	if (m_onDisconnected) {
 		m_onDisconnected();
 	}
+}
+
+void GetworkClient::submitHashrate(const std::string& rate)
+{
+	// Store the rate in temp var. Will be handled in workLoop
+	m_currentHashrateToSubmit = rate;
 }
 
 void GetworkClient::submitSolution(Solution solution)
@@ -99,6 +104,7 @@ void GetworkClient::trun()
                     cwarn << "Failed getting work!";
                     disconnect();
                 }
+            //TODO submit hashrate part
         }
         // Sleep
         std::this_thread::sleep_for(std::chrono::milliseconds(m_farmRecheckPeriod));

@@ -36,7 +36,7 @@ namespace energi
         if ( maxLoop == 0 )
         {
           Solution solution;
-          m_plant.submit(solution);
+          m_plant.submitProof(solution);
         }
 
         if ( shouldStop() )

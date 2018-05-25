@@ -16,7 +16,7 @@ public:
     JsonrpcGetwork(jsonrpc::IClientConnector* conn, const std::string& coinbaseAddress)
         : m_coinbaseAddress(coinbaseAddress)
     {
-        this->m_client = new jsonrpc::Client(*conn);
+        this->m_client = new jsonrpc::Client(*conn, jsonrpc::JSONRPC_CLIENT_V1);
     }
 
     Json::Value getBlockTemplate() throw (jsonrpc::JsonRpcException)

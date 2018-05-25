@@ -488,7 +488,7 @@ void CUDAMiner::search(
                     if (s_noeval) {
                         cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
                         Solution solution(work, nExtraNonce);
-                        m_plant.submit(solution);
+                        m_plant.submitProof(solution);
                         addHashCount(batch_size);
                         break;
                     } else {
@@ -496,7 +496,7 @@ void CUDAMiner::search(
                         if (UintToArith256(powHash) <= work.hashTarget) {
                             cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
                             Solution solution(work, nExtraNonce);
-                            m_plant.submit(solution);
+                            m_plant.submitProof(solution);
                             addHashCount(batch_size);
                             break;
                         } else {

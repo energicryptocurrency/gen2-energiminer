@@ -48,7 +48,7 @@ void CpuMiner::trun()
                     addHashCount(work.nNonce + 1 - last_nonce);
 
                     Solution solution(work, nExtraNonce);
-                    m_plant.submit(solution);
+                    m_plant.submitProof(solution);
                     return;
                 }
                 ++work.nNonce;

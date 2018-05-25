@@ -50,7 +50,7 @@ MinerPtr createMiner(EnumMinerEngine minerEngine, int index, const MinePlant &pl
     return nullptr;
 }
 
-MinePlant::MinePlant(energi::SolutionFoundCallback&)
+MinePlant::MinePlant()
     : m_hashrateTimer(m_io_service)
 {
     std::random_device engine;
@@ -110,24 +110,23 @@ bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
             //m_started &= miner->start();
             //if ( m_started ) {
                 m_miners.push_back(miner);
+                m_miners.back()->startWorking();
             //}
         }
     }
+    m_isMining = true;
 
-//    if (m_tHashrateTimer) {
-//        std::cerr << "Hash Rate Thread active !, weird" << std::endl;
-//        return false;
-//    } else {
-//        m_tHashrateTimer.reset(new std::thread([&]() {
-//            while(m_continueHashTimer) {
-//                collectHashRate();
-//                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-//            }
-//        }));
-//    }
+    // Start hashrate collector
+    m_hashrateTimer.cancel();
+    m_hashrateTimer.expires_from_now(boost::posix_time::milliseconds(1000));
+    m_hashrateTimer.async_wait(boost::bind(&MinePlant::processHashRate, this, boost::asio::placeholders::error));
 
-    // Failure ? return right away
-//    return m_started;
+    if (m_serviceThread.joinable()) {
+        m_io_service.reset();
+        m_serviceThread.join();
+    }
+
+    m_serviceThread = std::thread{ boost::bind(&boost::asio::io_service::run, &m_io_service) };
     return true;
 }
 
@@ -143,29 +142,19 @@ void MinePlant::stop()
     m_io_service.stop();
 
     m_lastProgresses.clear();
-//    for (auto &miner : m_miners) {
-//        miner->stop();
-//    }
-//
-//    if(m_tHashrateTimer) {
-//        m_continueHashTimer = false;
-//        m_tHashrateTimer->join();
-//        m_tHashrateTimer.reset();
-//    }
-//    m_started = false;
 }
 
-bool MinePlant::setWork(const Work& work)
+void MinePlant::setWork(const Work& work)
 {
     //Collect hashrate before miner reset their work
     collectHashRate();
+    std::lock_guard<std::mutex> lock(x_minerWork);
     // if new work hasnt changed, then ignore
-//    std::lock_guard<std::mutex> lock(m_mutexWork);
     if (work == m_work) {
-        for (auto& miner : m_miners) {
-            reinterpret_cast<Worker*>(miner.get())->setWork(m_work);
-        }
-        return false;
+        return;
+//        for (auto& miner : m_miners) {
+//            //reinterpret_cast<Worker*>(miner.get())->setWork(m_work);
+//        }
     }
     cnote << "New Work assigned: Height: "
           << work.nHeight
@@ -186,7 +175,6 @@ bool MinePlant::setWork(const Work& work)
         miner->setWork(work, first, end);
         ++index;
     }
-    return true;
 }
 
 void MinePlant::stopAllWork()
@@ -197,9 +185,10 @@ void MinePlant::stopAllWork()
     }
 }
 
-void MinePlant::submit(const Solution &solution) const
+void MinePlant::submitProof(const Solution& solution) const
 {
-//    solution_found_cb_(solution);
+    assert(m_onSolutionFound);
+    m_onSolutionFound(solution);
 }
 
 void MinePlant::collectHashRate()

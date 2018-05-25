@@ -1,21 +1,6 @@
 #include "PoolManager.h"
 #include <chrono>
 
-/*
-static string diffToDisplay(double diff)
-{
-	static const char* k[] = {"hashes", "kilohashes", "megahashes", "gigahashes", "terahashes", "petahashes"};
-	uint32_t i = 0;
-	while ((diff > 1000.0) && (i < ((sizeof(k) / sizeof(char *)) - 2)))
-	{
-		i++;
-		diff = diff / 1000.0;
-	}
-	stringstream ss;
-	ss << fixed << setprecision(2) << diff << ' ' << k[i]; 
-	return ss.str();
-}
-*/
 using namespace energi;
 
 PoolManager::PoolManager(PoolClient* client,
@@ -32,6 +17,8 @@ PoolManager::PoolManager(PoolClient* client,
         cnote << "Connected to " << m_connections[m_activeConnectionIdx].Host() << p_client->ActiveEndPoint();
         if (!m_farm.isMining()) {
             cnote << "Spinning up miners...";
+            auto vEngineModes = getEngineModes(m_minerType);
+            m_farm.start(vEngineModes);
             //if (m_minerType == MinerType::CL)
             //	m_farm.start("opencl", false);
             //else if (m_minerType == MinerType::CUDA)
@@ -108,6 +95,8 @@ PoolManager::PoolManager(PoolClient* client,
 			cnote << "Shutting down miners...";
 			m_farm.stop();
 		}
+        auto vEngineModes = getEngineModes(m_minerType);
+        m_farm.start(vEngineModes);
 	//	cnote << "Spinning up miners...";
 	//	if (m_minerType == MinerType::CL)
 	//		m_farm.start("opencl", false);
@@ -182,7 +171,7 @@ bool PoolManager::start()
 {
     if (m_connections.size() > 0) {
         m_running = true;
-        onSetWork();
+        startWorking();
         // Try to connect to pool
         cnote << "Selected pool" << (m_connections[m_activeConnectionIdx].Host() + ":" + toString(m_connections[m_activeConnectionIdx].Port()));
         p_client->connect();

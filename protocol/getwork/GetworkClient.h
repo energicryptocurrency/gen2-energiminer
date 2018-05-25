@@ -18,6 +18,7 @@ public:
 	bool isConnected() override { return m_connected; }
     std::string ActiveEndPoint() override { return ""; };
 
+	void submitHashrate(const std::string& rate) override;
 	void submitSolution(energi::Solution solution) override;
 
 private:
