@@ -8,17 +8,23 @@
 
 using boost::asio::ip::tcp;
 
-StratumClient::StratumClient(int worktimeout, int responsetimeout, const std::string& email)
-    : PoolClient(),
-	m_worktimeout(worktimeout),
-	m_responsetimeout(responsetimeout),
-	m_socket(nullptr),
-	m_conntimer(m_io_service),
-	m_worktimer(m_io_service),
-	m_responsetimer(m_io_service),
-	m_resolver(m_io_service),
-	m_email(email)
+StratumClient::StratumClient(int worktimeout,
+                             int responsetimeout,
+                             const std::string& email,
+                             bool submitHashrate)
+    : PoolClient()
+    , m_worktimeout(worktimeout)
+    , m_responsetimeout(responsetimeout)
+    , m_socket(nullptr)
+    , m_conntimer(m_io_service)
+    , m_worktimer(m_io_service)
+    , m_responsetimer(m_io_service)
+    , m_resolver(m_io_service)
+    , m_email(email)
+    , m_submit_hashrate(submitHashrate)
 {
+//	if (m_submit_hashrate)
+//		m_submit_hashrate_id = h256::random().hex();
 }
 
 StratumClient::~StratumClient()
@@ -709,6 +715,32 @@ void StratumClient::response_timeout_handler(const boost::system::error_code& ec
             disconnect();
         }
     }
+}
+
+void StratumClient::submitHashrate(const std::string& rate)
+{
+//	m_rate = rate;
+//	if (!m_submit_hashrate || !isConnected()) {
+//		return;
+//	}
+
+	// There is no stratum method to submit the hashrate so we use the rpc variant.
+	// Note !!
+	// id = 6 is also the id used by ethermine.org and nanopool to push new jobs
+	// thus we will be in trouble if we want to check the result of hashrate submission
+	// actually change the id from 6 to 9
+
+//	Json::Value jReq;
+//	jReq["id"] = unsigned(9);
+//	jReq["jsonrpc"] = "2.0";
+//	if (m_worker.length()) jReq["worker"] = m_worker;
+//	jReq["method"] = "eth_submitHashrate";
+//	jReq["params"] = Json::Value(Json::arrayValue);
+//	jReq["params"].append(m_rate);
+//	jReq["params"].append("0x" + toString(this->m_submit_hashrate_id));
+//
+//	sendSocketData(jReq);
+
 }
 
 void StratumClient::submitSolution(Solution solution)

@@ -20,6 +20,7 @@ public:
     virtual void connect() = 0;
     virtual void disconnect() = 0;
 
+    virtual void submitHashrate(const std::string& rate) = 0;
     virtual void submitSolution(energi::Solution solution) = 0;
     virtual bool isConnected() = 0;
     virtual std::string ActiveEndPoint() = 0;

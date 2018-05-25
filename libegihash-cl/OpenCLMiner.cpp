@@ -448,7 +448,7 @@ void OpenCLMiner::trun()
                 {
                     cllog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonce;
                     Solution solution(work, nExtraNonce);
-                    m_plant.submit(solution);
+                    m_plant.submitProof(solution);
                 }
                 else
                 {

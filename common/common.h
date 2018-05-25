@@ -17,6 +17,16 @@
 #include <mutex>
 #include <array>
 
+template <class GuardType, class MutexType>
+struct GenericGuardBool: GuardType
+{
+	GenericGuardBool(MutexType& _m): GuardType(_m) {}
+	bool b = true;
+};
+
+#define DEV_GUARDED(MUTEX) \
+	for (GenericGuardBool<std::lock_guard<std::mutex>, std::mutex> __eth_l(MUTEX); __eth_l.b; __eth_l.b = false)
+
 enum class MinerExecutionMode : unsigned
 {
     kCPU   = 0x1,

@@ -65,7 +65,7 @@ inline std::ostream& operator<<(std::ostream& os, SolutionStats s)
 class MinePlant : public Plant
 {
 public:
-    MinePlant(energi::SolutionFoundCallback&);
+    MinePlant();
     ~MinePlant();
 
     bool start(const std::vector<EnumMinerEngine> &vMinerEngine);
@@ -77,9 +77,9 @@ public:
 
     //bool solutionFound() const override;
 
-    bool setWork(const Work& work);
+    void setWork(const Work& work);
     void stopAllWork();
-    void submit(const Solution &sol) const override;
+    void submitProof(const Solution &sol) const override;
     const WorkingProgress& miningProgress(bool hwmon = false, bool power = false) const;
 
     using SolutionFound = std::function<void(Solution const&)>;
@@ -117,22 +117,6 @@ private:
     void collectHashRate();
 
 private:
-    //bool      m_started   = false;
-    //bool      m_continueHashTimer = true;
-    //int       m_hashrateSmoothInterval = 10000;
-
-    //mutable std::atomic<bool>  m_solutionFound;
-    //SolutionFoundCallback      solution_found_cb_;
-    //Miners                     m_miners;
-    //Work                       m_work;
-
-    //mutable std::mutex      m_mutexWork;
-    //mutable std::mutex      m_mutexProgress;
-
-    //std::chrono::steady_clock::time_point m_lastStart;
-
-    //mutable WorkingProgress      m_progress;
-
 	mutable std::mutex                  x_minerWork;
 	Miners                              m_miners;
 	Work                                m_work;

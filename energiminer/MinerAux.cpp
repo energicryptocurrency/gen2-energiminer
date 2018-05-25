@@ -1,23 +1,90 @@
 #include <memory>
 
 #include "MinerAux.h"
-#include "protocol/StratumClient.h"
-#include "protocol/GBTClient.h"
+#include <protocol/PoolManager.h>
+#include <protocol/stratum/EthStratumClient.h>
+#include <protocol/getwork/GetworkClient.h>
+
+bool MinerCLI::g_running = false;
+
+struct MiningChannel: public LogChannel
+{
+	static const char* name() { return EthGreen "  m"; }
+	static const int verbosity = 2;
+	static const bool debug = false;
+};
+
+#define minelog clog(MiningChannel)
 
 bool MinerCLI::interpretOption(int& i, int argc, char** argv)
 {
-    string arg = argv[i];
+    std::string arg = argv[i];
     if ((arg == "--gbt") && i + 1 < argc) {
-        mode = OperationMode::GBT;
+        m_mode = OperationMode::GBT;
         m_farmURL = argv[++i];
         m_energiURL = m_farmURL;
+    }  else if ((arg == "--work-timeout") && i + 1 < argc) {
+        try {
+            m_worktimeout = stoi(argv[++i]);
+        } catch (...) {
+            cerr << "Bad " << arg << " option: " << argv[i] << endl;
+            throw;
+        }
+
+    } else if ((arg == "-SE" || arg == "--stratum-email") && i + 1 < argc) {
+        try {
+            m_email = string(argv[++i]);
+        } catch (...) {
+            cerr << "Bad " << arg << " option: " << argv[i] << endl;
+            throw;
+        }
+    } else if (arg == "--farm-recheck" && i + 1 < argc) {
+        try {
+            m_farmRecheckSet = true;
+            m_farmRecheckPeriod = stol(argv[++i]);
+        } catch (...) {
+            cerr << "Bad " << arg << " option: " << argv[i] << endl;
+        }
+    } else if (arg == "--farm-retries" && i + 1 < argc) {
+        try {
+            m_maxFarmRetries = stol(argv[++i]);
+        } catch (...) {
+            cerr << "Bad " << arg << " option: " << argv[i] << endl;
+            throw;
+        }
+    } else if (arg == "--display-interval" && i + 1 < argc) {
+        try {
+            m_displayInterval = stol(argv[++i]);
+        } catch (...) {
+            cerr << "Bad " << arg << " option: " << argv[i] << endl;
+            throw;
+        }
+    } else if ((arg == "--response-timeout") && i + 1 < argc) {
+        try {
+            m_responsetimeout = stoi(argv[++i]);
+            // Do not allow less than 2 seconds 
+            // or we may keep disconnecting and reconnecting
+            m_responsetimeout = (m_responsetimeout < 2 ? 2 : m_responsetimeout);
+        } catch (...) {
+            cerr << "Bad " << arg << " option: " << argv[i] << endl;
+            throw;
+        }
+
+    } else if ((arg == "-RH" || arg == "--report-hashrate")) {
+        m_report_stratum_hashrate = true;
+    } else if (arg == "-HWMON") {
+        m_show_hwmonitors = true;
+        if ((i + 1 < argc) && (*argv[i + 1] != '-')) {
+            try {
+                m_show_power = stoul(argv[++i]) != 0;
+            } catch (...) {
+                cerr << "Bad " << arg << " option: " << argv[i] << endl;
+            }
+        }
     } else if ((arg == "-S" || arg == "--stratum") && (i + 1 < argc)) {
-        mode = OperationMode::Stratum;
+        m_mode = OperationMode::Stratum;
         m_farmURL = argv[++i];
         m_energiURL = m_farmURL;
-    } else if ((arg == "-FO" || arg == "--failover-userpass") && i + 1 < argc) {
-        mode = OperationMode::Stratum;
-        m_farmFailOverURL = argv[++i];
     } else if ((arg == "-O" || arg == "--userpass") && i + 1 < argc) {
         std::string userpass = std::string(argv[++i]);
         size_t p = userpass.find_first_of(":");
@@ -196,7 +263,7 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
     } else if (arg == "-X" || arg == "--cuda-opencl") {
         m_minerExecutionMode = MinerExecutionMode::kMixed;
     } else if (arg == "-M" || arg == "--benchmark") {
-        mode = OperationMode::Benchmark;
+        m_mode = OperationMode::Benchmark;
         if (i + 1 < argc) {
             string m = boost::to_lower_copy(string(argv[++i]));
             try {
@@ -211,7 +278,7 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
             }
         }
     } else if (arg == "-Z" || arg == "--simulation") {
-        mode = OperationMode::Simulation;
+        m_mode = OperationMode::Simulation;
         if (i + 1 < argc) {
             string m = boost::to_lower_copy(string(argv[++i]));
             try {
@@ -225,6 +292,37 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
                 }
             }
         }
+    } else if ((arg == "-P") && (i + 1 < argc)) {
+        std::string url = argv[++i];
+        if (url == "exit") { // add fake scheme and port to 'exit' url
+            url = "stratum://exit:1";
+        }
+        URI uri;
+        try {
+            uri = url;
+        } catch (...) {
+            cerr << "Bad endpoint address: " << url << endl;
+            throw;
+        } if (!uri.KnownScheme()) {
+            cerr << "Unknown URI scheme " << uri.Scheme() << endl;
+            throw;
+        }
+        m_endpoints.push_back(uri);
+
+        OperationMode mode = OperationMode::None;
+        switch (uri.Family()) {
+            case ProtocolFamily::STRATUM:
+                mode = OperationMode::Stratum;
+                break;
+            case ProtocolFamily::GETWORK:
+                mode = OperationMode::GBT;
+                break;
+        }
+        if ((m_mode != OperationMode::None) && (m_mode != mode)) {
+            cerr << "Mixed stratum and getwork endpoints not supported." << endl;
+            throw;
+        }
+        m_mode = mode;
     //} else if ((arg == "-t" || arg == "--mining-threads") && i + 1 < argc) {
     //    try {
     //        m_miningThreads = stol(argv[++i]);
@@ -307,11 +405,15 @@ void MinerCLI::execute()
 #endif
     }
 
-    if (mode == OperationMode::Benchmark) {
+    g_running = true;
+    signal(SIGINT, MinerCLI::signalHandler);
+    signal(SIGTERM, MinerCLI::signalHandler);
+
+    if (m_mode == OperationMode::Benchmark) {
             ///doBenchmark(m_minerExecutionMode, m_benchmarkWarmup, m_benchmarkTrial, m_benchmarkTrials);
-    } else if (mode == OperationMode::GBT || mode == OperationMode::Stratum) {
+    } else if (m_mode == OperationMode::GBT || m_mode == OperationMode::Stratum) {
         doMiner();
-    } else if (mode == OperationMode::Simulation) {
+    } else if (m_mode == OperationMode::Simulation) {
         doSimulation();
     } else {
         cerr << "No mining mode selected!" << std::endl;
@@ -321,162 +423,166 @@ void MinerCLI::execute()
 
 void MinerCLI::doSimulation(int difficulty)
 {
-    auto vEngineModes = getEngineModes(m_minerExecutionMode);
-
-    for( auto mode : vEngineModes ) {
-        cnote << "Starting Miner Engine: " << to_string(mode);
-    }
-    std::mutex mutex_solution;
-    bool solution_found = false;
-    energi::Solution solution;
-
-    SolutionFoundCallback solution_found_cb = [&solution_found, &mutex_solution, &solution](const energi::Solution& found_solution)
-    {
-        std::lock_guard<std::mutex> lock(mutex_solution);
-        solution = found_solution;
-        solution_found = true;
-    };
-
-    // Use Test Miner
-    {
-        energi::MinePlant plant(solution_found_cb);
-        if ( !plant.start({EnumMinerEngine::kTest}) ) {
-            return;
-        }
-
-        energi::SimulatedWork new_work;
-        plant.setWork(new_work);
-
-        solution_found = false;
-        while(!solution_found) {
-            auto mp = plant.miningProgress();
-            mp.rate();
-
-            this_thread::sleep_for(chrono::milliseconds(1000));
-            cnote << "Mining on difficulty " << difficulty << " " << mp;
-        }
-
-        std::lock_guard<std::mutex> lock(mutex_solution);
-        std::cout << "Solution found!!" << std::endl;
-    }
-
-    // Use CPU Miner
-    {
-        energi::MinePlant plant(solution_found_cb);
-        if ( !plant.start({EnumMinerEngine::kCPU}) ) {
-            return;
-        }
-
-        energi::SimulatedWork new_work;
-        plant.setWork(new_work);
-
-        solution_found = false;
-        while(!solution_found) {
-            auto mp = plant.miningProgress();
-            mp.rate();
-
-            this_thread::sleep_for(chrono::milliseconds(1000));
-            cnote << "Mining on difficulty " << difficulty << " " << mp;
-        }
-
-        std::lock_guard<std::mutex> lock(mutex_solution);
-        std::cout << "Solution found!!" << std::endl;
-    }
+//    auto vEngineModes = getEngineModes(m_minerExecutionMode);
+//
+//    for( auto mode : vEngineModes ) {
+//        cnote << "Starting Miner Engine: " << to_string(mode);
+//    }
+//    std::mutex mutex_solution;
+//    bool solution_found = false;
+//    energi::Solution solution;
+//
+//    SolutionFoundCallback solution_found_cb = [&solution_found, &mutex_solution, &solution](const energi::Solution& found_solution)
+//    {
+//        std::lock_guard<std::mutex> lock(mutex_solution);
+//        solution = found_solution;
+//        solution_found = true;
+//    };
+//
+//    // Use Test Miner
+//    {
+//        energi::MinePlant plant(solution_found_cb);
+//        if ( !plant.start({EnumMinerEngine::kTest}) ) {
+//            return;
+//        }
+//
+//        energi::SimulatedWork new_work;
+//        plant.setWork(new_work);
+//
+//        solution_found = false;
+//        while(!solution_found) {
+//            auto mp = plant.miningProgress();
+//            mp.rate();
+//
+//            this_thread::sleep_for(chrono::milliseconds(1000));
+//            cnote << "Mining on difficulty " << difficulty << " " << mp;
+//        }
+//
+//        std::lock_guard<std::mutex> lock(mutex_solution);
+//        std::cout << "Solution found!!" << std::endl;
+//    }
+//
+//    // Use CPU Miner
+//    {
+//        energi::MinePlant plant(solution_found_cb);
+//        if ( !plant.start({EnumMinerEngine::kCPU}) ) {
+//            return;
+//        }
+//
+//        energi::SimulatedWork new_work;
+//        plant.setWork(new_work);
+//
+//        solution_found = false;
+//        while(!solution_found) {
+//            auto mp = plant.miningProgress();
+//            mp.rate();
+//
+//            this_thread::sleep_for(chrono::milliseconds(1000));
+//            cnote << "Mining on difficulty " << difficulty << " " << mp;
+//        }
+//
+//        std::lock_guard<std::mutex> lock(mutex_solution);
+//        std::cout << "Solution found!!" << std::endl;
+//    }
 }
 
 void MinerCLI::doMiner()
 {
-    // Start plant now with given miners
-    // start plant full of miners
-    std::mutex mutex_solution;
-    std::atomic_bool solution_found(false);
-    energi::Solution solution;
-    // Note, this is mostly called from a miner thread, but since solution is consumed in main thread after set
-    // its safe to not lock the access
-    SolutionFoundCallback solution_found_cb = [&solution_found, &mutex_solution, &solution](const energi::Solution& found_solution)
-    {
-        std::lock_guard<std::mutex> lock(mutex_solution);
-        solution = found_solution;
-        solution_found = true;
-    };
-
-    // Create plant
-    energi::MinePlant plant(solution_found_cb);
-    //if ( !plant.start({ { "cpu", 1 }, { "cl", OpenCLMiner::instances() } }) )
-    //if ( !plant.start({ { "cl", OpenCLMiner::instances() } }) )
-    auto vEngineModes = getEngineModes(m_minerExecutionMode);
-    if ( !plant.start(vEngineModes) ) {
-        return;
-    }
-    std::unique_ptr<MiningClient> client;
-    jsonrpc::HttpClient cli = jsonrpc::HttpClient(m_farmURL);
-    if (mode == OperationMode::GBT) {
-        client.reset(new GBTClient(cli, coinbase_addr_));
-    } else if (mode == OperationMode::Stratum) {
-        client.reset(new StratumClient(&plant,
-                                        m_minerExecutionMode,
-                                        m_farmURL,
-                                        m_user,
-                                        m_pass,
-                                        max_retries_,
-                                        m_worktimeout));
+    PoolClient* client = nullptr;
+    if (m_mode == OperationMode::GBT) {
+			client = new GetworkClient(m_farmRecheckPeriod, coinbase_addr_);
+    } else if (m_mode == OperationMode::Stratum) {
+        client = new StratumClient(m_worktimeout, m_responsetimeout, m_email, m_report_stratum_hashrate);
+    } else {
+        cwarn << "Inwalid OperationMode";
+        std::exit(1);
     }
     if (client == nullptr) {
         //! This should not happen
         std::cerr << "Client is not contsructed normally" << std::endl;
-        std::exit(-1);
+        std::exit(1);
     }
     cnote << "Engines started!";
+    energi::MinePlant plant;
+    PoolManager mgr(client, plant, m_minerExecutionMode);
+    mgr.setReconnectTries(m_maxFarmRetries);
 
-    energi::Work current_work;
-    // Mine till you can, or retries fail after a limit
-    while (should_mine) {
-        try {
-            solution_found = false;
-            // Keep checking for new work and mine
-            unsigned int i = 0;
-            while(!solution_found) {
-                energi::Work new_work = client->getWork();
-                // check if current work is no different, then skip
-                if ( new_work != current_work ) {
-                    //cnote << "work submitted";
-                    // 1. Got new work
-                    // 2. Abandon current work and take new work
-                    // 3. miner starts mining for new work
-                    current_work = new_work;
-                    plant.setWork(new_work);
-                    // 4. Work has been assigned to the plant
-                    // 5. Wait and continue for new work
-                    // 6. TODO decide on time to wait for
-                }
-                auto mp = plant.miningProgress();
-                mp.rate();
-                if (((++i % 200) == 0) && (mp.hashes > 0))
-                {
-                    i = 0;
-                    cnote << mp;
-                }
-
-                this_thread::sleep_for(chrono::milliseconds(50));
-            }
-            // 7. Since solution was found, before submit stop all miners
-            plant.stopAllWork();
-            // 8. Now submit
-            std::lock_guard<std::mutex> lock(mutex_solution);
-            client->submit(solution);
-            current_work.reset();
-            solution_found = false;
-        } catch(WorkException &we) {
-            for (auto i = 3; --i; this_thread::sleep_for(chrono::seconds(1)))
-                cerr << we.what() << endl << "Work couldn't be decoded, possible json parsing problem." << i << "... \n";
-            cerr << endl;
-        } catch (jsonrpc::JsonRpcException& je) {
-            for (auto i = 3; --i; this_thread::sleep_for(chrono::seconds(1)))
-                cerr << je.GetMessage() << endl << je.what() << endl << "JSON-RPC problem. Probably couldn't connect. Retrying in " << i << "... \n";
-            cerr << endl;
+    // If we are in simulation mode we add a fake connection
+    if (m_mode == OperationMode::Simulation) {
+        URI con(URI("http://-:0"));
+        mgr.clearConnections();
+        mgr.addConnection(con);
+    } else {
+        for (auto conn : m_endpoints) {
+            mgr.addConnection(conn);
         }
     }
-    cout << "simulation is exiting: " << m_farmURL << " " << endl;
-    plant.stopAllWork();
-    return;
+    //start PoolManager
+    mgr.start();
+
+    // Run CLI in loop
+    while (g_running && mgr.isRunning()) {
+        if (mgr.isConnected()) {
+            auto mp = plant.miningProgress(m_show_hwmonitors, m_show_power);
+            minelog << mp << plant.getSolutionStats() << plant.farmLaunchedFormatted();
+        } else {
+            minelog << "not-connected";
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(m_displayInterval));
+    }
+    mgr.stop();
+    exit(0);
+
+
+//    energi::Work current_work;
+//    // Mine till you can, or retries fail after a limit
+//    while (should_mine) {
+//        try {
+//            solution_found = false;
+//            // Keep checking for new work and mine
+//            unsigned int i = 0;
+//            while(!solution_found) {
+//                energi::Work new_work = client->getWork();
+//                // check if current work is no different, then skip
+//                if ( new_work != current_work ) {
+//                    //cnote << "work submitted";
+//                    // 1. Got new work
+//                    // 2. Abandon current work and take new work
+//                    // 3. miner starts mining for new work
+//                    current_work = new_work;
+//                    plant.setWork(new_work);
+//                    // 4. Work has been assigned to the plant
+//                    // 5. Wait and continue for new work
+//                    // 6. TODO decide on time to wait for
+//                }
+//                auto mp = plant.miningProgress();
+//                mp.rate();
+//                if (((++i % 200) == 0) && (mp.hashes > 0))
+//                {
+//                    i = 0;
+//                    cnote << mp;
+//                }
+//
+//                this_thread::sleep_for(chrono::milliseconds(50));
+//            }
+//            // 7. Since solution was found, before submit stop all miners
+//            plant.stopAllWork();
+//            // 8. Now submit
+//            std::lock_guard<std::mutex> lock(mutex_solution);
+//            client->submit(solution);
+//            current_work.reset();
+//            solution_found = false;
+//        } catch(WorkException &we) {
+//            for (auto i = 3; --i; this_thread::sleep_for(chrono::seconds(1)))
+//                cerr << we.what() << endl << "Work couldn't be decoded, possible json parsing problem." << i << "... \n";
+//            cerr << endl;
+//        } catch (jsonrpc::JsonRpcException& je) {
+//            for (auto i = 3; --i; this_thread::sleep_for(chrono::seconds(1)))
+//                cerr << je.GetMessage() << endl << je.what() << endl << "JSON-RPC problem. Probably couldn't connect. Retrying in " << i << "... \n";
+//            cerr << endl;
+//        }
+//    }
+//    cout << "simulation is exiting: " << m_farmURL << " " << endl;
+//    plant.stopAllWork();
+//    return;
 }

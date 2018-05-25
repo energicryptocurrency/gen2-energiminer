@@ -19,7 +19,7 @@ public:
 
 	typedef enum { STRATUM = 0, ETHPROXY, ETHEREUMSTRATUM } StratumProtocol;
 
-	StratumClient(int worktimeout, int responsetimeout, const std::string& email);
+	StratumClient(int worktimeout, int responsetimeout, const std::string& email, bool submitHashrate);
 	~StratumClient();
 
 	void connect() override;
@@ -36,8 +36,7 @@ public:
     std::string ActiveEndPoint() { return " [" + toString(m_endpoint) + "]"; };
 
 	void submitSolution(energi::Solution solution) override;
-
-//	bool current() { return static_cast<bool>(m_current); }
+	void submitHashrate(const std::string& rate);
 
 private:
 
@@ -104,4 +103,6 @@ private:
     std::string m_extraNonce;
     int m_extraNonceHexSize;
 
+    bool m_submit_hashrate;
+    std::string m_submit_hashrate_id;
 };

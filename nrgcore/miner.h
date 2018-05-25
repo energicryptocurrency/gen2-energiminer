@@ -43,23 +43,22 @@ public:
     {
     }
 
-    Miner(Miner && m) = default;
     virtual ~Miner() = default;
 
 public:
     void setWork(const Work& work, uint64_t nonceStart, uint64_t nonceEnd)
     {
-        Worker::setWork(work);
+        {
+            std::lock_guard<std::mutex> lock(x_work);
+            m_work = work;
+        }
+        //Worker::setWork(work);
         m_nonceStart = nonceStart;
         m_nonceEnd = nonceEnd;
-        resetHashCount();
+        onSetWork();
+        //resetHashCount();
     }
 
-    uint64_t get_start_nonce() const
-    {
-        // Each GPU is given a non-overlapping 2^40 range to search
-        return m_plant.get_nonce_scumbler() + ((uint64_t) m_index << 40);
-    }
 
     void stopMining()
     {
@@ -78,6 +77,12 @@ public:
 	unsigned Index() { return m_index; };
 	HwMonitorInfo hwmonInfo() { return m_hwmoninfo; }
 
+    uint64_t get_start_nonce() const
+    {
+        // Each GPU is given a non-overlapping 2^40 range to search
+        return m_plant.get_nonce_scumbler() + ((uint64_t) m_index << 40);
+    }
+
     //! static interfaces
 public:
     static bool LoadNrgHashDAG();
@@ -88,9 +93,21 @@ public:
     static std::unique_ptr<nrghash::dag_t> const & ActiveDAG(std::unique_ptr<nrghash::dag_t> next_dag  = std::unique_ptr<nrghash::dag_t>());
 
 protected:
+	/**
+	 * @brief No work left to be done. Pause until told to kickOff().
+	 */
+	//virtual void kick_miner() = 0;
+    virtual void onSetWork() {}
+
+    Work getWork() const
+    {
+        std::lock_guard<std::mutex> lock(x_work);
+        return m_work;
+    }
+
     void addHashCount(uint32_t _n)
     {
-        m_hashCount += _n;
+        m_hashCount.fetch_add(_n, std::memory_order_relaxed);
     }
     static unsigned s_dagLoadMode;
     static unsigned s_dagLoadIndex;

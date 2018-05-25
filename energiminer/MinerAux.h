@@ -29,6 +29,7 @@
 #include "primitives/solution.h"
 #include "primitives/work.h"
 #include "nrgcore/mineplant.h"
+#include <protocol/PoolURI.h>
 
 
 #include <memory>
@@ -83,7 +84,13 @@ public:
 		Stratum
 	};
 
-	MinerCLI(OperationMode _mode = OperationMode::Simulation): mode(_mode) {}
+	static void signalHandler(int sig)
+	{
+		(void)sig;
+		g_running = false;
+	}
+
+	MinerCLI(OperationMode _mode = OperationMode::Simulation): m_mode(_mode) {}
 
 	bool interpretOption(int& i, int argc, char** argv);
 
@@ -93,13 +100,31 @@ public:
 	{
 		_out
 			<< "Work farming mode:" << endl
+			<< "	--farm-retries <n> Number of retries until switch to failover (default: 3)" << endl
+			<< "    --work-timeout <n> reconnect/failover after n seconds of working on the same (stratum) job. Defaults to 180. Don't set lower than max. avg. block time" << endl
+			<< "    --response-timeout <n> reconnect/failover after n seconds delay for response from (stratum) pool. Also affects connection timeout. Minimum value 2. Default 2." << endl
+			<< "    -RH, --report-hashrate Report current hashrate to pool (please only enable on pools supporting this)" << endl
+			<< "    -HWMON [0|1], Displays gpu temp, fan percent and power usage. Note: In linux, the program uses sysfs, which may require running with root privileges." << endl
+			<< "        0: Displays only temp and fan percent (default)" << endl
+			<< "        1: Also displays power usage" << endl
 			<< "    --gbt <url>  Put into mining farm mode with the work server at URL (default: http://u:p@127.0.0.1:8545)" << endl
 			<< "    --coinbase-addr ADDRESS  Payout address for solo mining" << endl
+			<< "    -SE, --stratum-email <s> Email address used in eth-proxy (optional)" << endl
+			<< "    --farm-recheck <n>  Leave n ms between checks for changed work (default: 500). When using stratum, use a high value (i.e. 2000) to get more stable hashrate output" << endl
 			<< "Benchmarking mode:" << endl
 			<< "    -M [<n>],--benchmark [<n>] Benchmark for mining and exit; Optionally specify block number to benchmark against specific DAG." << endl
 			<< "    --benchmark-warmup <seconds>  Set the duration of warmup for the benchmark tests (default: 3)." << endl
 			<< "    --benchmark-trial <seconds>  Set the duration for each trial for the benchmark tests (default: 3)." << endl
 			<< "    --benchmark-trials <n>  Set the number of benchmark trials to run (default: 5)." << endl
+			<< "    -P URL Specify a pool URL. Can be used multiple times. The 1st for for the primary pool, and the 2nd for the failover pool." << endl
+			<< "        URL takes the form: scheme://user[:password]@hostname:port[/emailaddress]." << endl
+			<< "        for getwork use one of the following schemes:" << endl
+			<< "          " << URI::KnownSchemes(ProtocolFamily::GETWORK) << endl
+			<< "        for stratum use one of the following schemes: "<< endl
+			<< "          " << URI::KnownSchemes(ProtocolFamily::STRATUM) << endl
+			<< "        Example 1 : stratum+ssl://0x012345678901234567890234567890123.miner1@ethermine.org:5555" << endl
+			<< "        Example 2 : stratum1+tcp://0x012345678901234567890234567890123.miner1@nanopool.org:9999/john.doe@gmail.com" << endl
+			<< "        Example 3 : stratum1+tcp://0x012345678901234567890234567890123@nanopool.org:9999/miner1/john.doe@gmail.com" << endl
 			<< "	-S, --stratum <host:port>  Put into stratum mode with the stratum server at host:port" << endl
 			<< "    -O, --userpass <username.workername:password> Stratum login credentials" << endl
 			<< "Simulation mode:" << endl
@@ -110,6 +135,7 @@ public:
 			<< "    --opencl-devices <0 1 ..n> Select which OpenCL devices to mine on. Default is to use all" << endl
 			//<< "    -t, --mining-threads <n> Limit number of CPU/GPU miners to n (default: use everything available on selected platform)" << endl
 			<< "    --list-devices List the detected OpenCL/CUDA devices and exit." << endl
+			<< "    --display-interval <n> Set mining stats display interval in seconds. (default: every 5 seconds)" << endl			
 #if ETH_ETHASHCL
 			<< "    --cl-local-work Set the OpenCL local work size. Default is " << OpenCLMiner::c_defaultLocalWorkSize << endl
 			<< "    --cl-global-work Set the OpenCL global work size as a multiple of the local work size. Default is " << OpenCLMiner::c_defaultGlobalWorkSizeMultiplier << " * " << OpenCLMiner::c_defaultLocalWorkSize << endl
@@ -169,10 +195,10 @@ private:
 
 private:
 	/// Operating mode.
-	OperationMode mode;
+	OperationMode m_mode;
 
 	/// Mining options
-	bool should_mine = true;
+	static bool g_running;
 	MinerExecutionMode m_minerExecutionMode = MinerExecutionMode::kCPU;
 
 	unsigned m_openclPlatform = 0;
@@ -207,20 +233,30 @@ private:
 	unsigned m_benchmarkTrial = 3;
 	unsigned m_benchmarkTrials = 5;
 	unsigned m_benchmarkBlock = 0;
+    std::vector<URI> m_endpoints;
 
 
 	/// Farm params
-	bool m_farmRecheckSet = false;
 	int m_worktimeout = 180;
-	unsigned m_farmRetries = 0;
-	unsigned max_retries_ = 20;
+	// Number of seconds to wait before triggering a response timeout from pool
+	int m_responsetimeout = 2;
+
+	bool m_show_hwmonitors = false;
+	bool m_show_power = false;
+
+	unsigned m_maxFarmRetries = 3;
 	unsigned m_farmRecheckPeriod = 500;
+	unsigned m_displayInterval = 5;
+	bool m_farmRecheckSet = false;
+
 	unsigned m_defaultStratumFarmRecheckPeriod = 2000;
     std::string m_farmURL = "http://192.168.0.22:9998";
     std::string m_user;
     std::string m_pass;
-	std::string m_farmFailOverURL = "";
 	std::string m_energiURL = m_farmURL;
 	std::string m_fport = "";
 	std::string coinbase_addr_;
+
+    std::string m_email;
+	bool m_report_stratum_hashrate = false;
 };

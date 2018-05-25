@@ -17,7 +17,11 @@ public:
     void clearConnections();
     bool start();
     void stop();
-    void setReconnectTries(unsigned const & reconnectTries) { m_reconnectTries = reconnectTries; };
+    void setReconnectTries(const unsigned& reconnectTries)
+    {
+        m_reconnectTries = reconnectTries;
+    };
+
     bool isConnected() { return p_client->isConnected(); };
     bool isRunning() { return m_running; };
 
@@ -31,12 +35,10 @@ private:
     unsigned m_reconnectTry = 0;
     std::vector<URI> m_connections;
     unsigned m_activeConnectionIdx = 0;
-    //h256 m_lastBoundary = h256();
 
     PoolClient *p_client;
     energi::MinePlant &m_farm;
     MinerExecutionMode m_minerType;
-    //MinerType m_minerType;
     std::chrono::steady_clock::time_point m_submit_time;
     void tryReconnect();
 };
