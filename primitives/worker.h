@@ -43,7 +43,6 @@ public:
 
     virtual void startWorking(); // starts a Worker thread
     void stopWorking();  // stops  a Worker thread
-    void stopAllWork();
 
     bool shouldStop() const
     {

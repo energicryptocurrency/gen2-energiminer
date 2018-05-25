@@ -60,11 +60,6 @@ void Worker::stopWorking()
     }
 }
 
-void Worker::stopAllWork()
-{
-    stopWorking();
-}
-
 Worker::~Worker()
 {
     DEV_GUARDED(x_work)

@@ -78,7 +78,6 @@ public:
     //bool solutionFound() const override;
 
     void setWork(const Work& work);
-    void stopAllWork();
     void submitProof(const Solution &sol) const override;
     const WorkingProgress& miningProgress(bool hwmon = false, bool power = false) const;
 

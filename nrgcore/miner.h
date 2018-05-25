@@ -56,13 +56,7 @@ public:
         m_nonceStart = nonceStart;
         m_nonceEnd = nonceEnd;
         onSetWork();
-        //resetHashCount();
-    }
-
-
-    void stopMining()
-    {
-        stopAllWork();
+        resetHashCount();
     }
 
     uint32_t hashCount() const
