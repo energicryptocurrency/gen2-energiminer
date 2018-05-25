@@ -96,14 +96,16 @@ void GetworkClient::trun()
                 }
 
                 // Check if header changes so the new workpackage is really new
-                if (newWork != m_prevWork)
+                if (newWork != m_prevWork) {
+                    m_prevWork = newWork;
                     if (m_onWorkReceived) {
                         m_onWorkReceived(m_prevWork);
                     }
-                } catch (jsonrpc::JsonRpcException) {
-                    cwarn << "Failed getting work!";
-                    disconnect();
                 }
+            } catch (jsonrpc::JsonRpcException) {
+                cwarn << "Failed getting work!";
+                disconnect();
+            }
             //TODO submit hashrate part
         }
         // Sleep
