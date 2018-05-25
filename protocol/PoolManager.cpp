@@ -19,14 +19,6 @@ PoolManager::PoolManager(PoolClient* client,
             cnote << "Spinning up miners...";
             auto vEngineModes = getEngineModes(m_minerType);
             m_farm.start(vEngineModes);
-            //if (m_minerType == MinerType::CL)
-            //	m_farm.start("opencl", false);
-            //else if (m_minerType == MinerType::CUDA)
-            //	m_farm.start("cuda", false);
-            //else if (m_minerType == MinerType::Mixed) {
-            //	m_farm.start("cuda", false);
-            //	m_farm.start("opencl", true);
-            //}
     }
 	});
 	p_client->onDisconnected([&]()
@@ -44,16 +36,6 @@ PoolManager::PoolManager(PoolClient* client,
 	{
 		m_reconnectTry = 0;
 		m_farm.setWork(wp);
-		//if (wp.boundary != m_lastBoundary)
-		//{
-		//	using namespace boost::multiprecision;
-
-		//	m_lastBoundary = wp.boundary;
-		//	static const uint512_t dividend("0x10000000000000000000000000000000000000000000000000000000000000000");
-		//	const uint256_t divisor(string("0x") + m_lastBoundary.hex());
-		//	cnote << "New pool difficulty:" << EthWhite << diffToDisplay(double(dividend / divisor)) << EthReset;
-		//}
-		//cnote << "New job" << wp.header << "  " + m_connections[m_activeConnectionIdx].Host() + p_client->ActiveEndPoint();
 	});
 	p_client->onSolutionAccepted([&](const bool& stale)
 	{
@@ -97,15 +79,6 @@ PoolManager::PoolManager(PoolClient* client,
 		}
         auto vEngineModes = getEngineModes(m_minerType);
         m_farm.start(vEngineModes);
-	//	cnote << "Spinning up miners...";
-	//	if (m_minerType == MinerType::CL)
-	//		m_farm.start("opencl", false);
-	//	else if (m_minerType == MinerType::CUDA)
-	//		m_farm.start("cuda", false);
-	//	else if (m_minerType == MinerType::Mixed) {
-	//		m_farm.start("cuda", false);
-	//		m_farm.start("opencl", true);
-	//	}
 	});
 }
 
@@ -135,15 +108,6 @@ void PoolManager::trun()
             mp.rate();
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             cnote << mp;
-            //std::string h = toHex(toCompactBigEndian(mp.rate(), 1));
-            //std::string res = h[0] != '0' ? h : h.substr(1);
-
-            // Should be 32 bytes
-            // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_submithashrate
-            //std::ostringstream ss;
-            //ss << std::setw(64) << std::setfill('0') << res;
-
-//            p_client->submitHashrate("0x" + ss.str());
             m_hashrateReportingTimePassed = 0;
         }
     }
@@ -212,7 +176,6 @@ void PoolManager::tryReconnect()
             m_activeConnectionIdx = 0;
         }
         if (m_connections[m_activeConnectionIdx].Host() == "exit") {
-//            dev::setThreadName("main");
             cnote << "Exiting because reconnecting is not possible.";
             stop();
         }

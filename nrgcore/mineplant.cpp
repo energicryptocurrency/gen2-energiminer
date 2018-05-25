@@ -177,14 +177,6 @@ void MinePlant::setWork(const Work& work)
     }
 }
 
-void MinePlant::stopAllWork()
-{
-//    std::lock_guard<std::mutex> lock(m_mutexWork);
-    for (auto &miner: m_miners) {
-        miner->stopMining();
-    }
-}
-
 void MinePlant::submitProof(const Solution& solution) const
 {
     assert(m_onSolutionFound);

@@ -78,7 +78,6 @@ void GetworkClient::trun()
                         }
                     }
                     m_solutionToSubmit.reset();
-                    //m_solutionToSubmit.nonce = 0;
                 } catch (const jsonrpc::JsonRpcException& ex) {
                     cwarn << "Failed to submit solution.";
                     cwarn << boost::diagnostic_information(ex);
