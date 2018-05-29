@@ -53,7 +53,7 @@ void GetworkClient::submitHashrate(const std::string& rate)
 	m_currentHashrateToSubmit = rate;
 }
 
-void GetworkClient::submitSolution(Solution solution)
+void GetworkClient::submitSolution(const Solution& solution)
 {
 	// Store the solution in temp var. Will be handled in workLoop
 	m_solutionToSubmit = solution;
@@ -64,7 +64,7 @@ void GetworkClient::trun()
 {
     while (true) {
         if (m_connected || m_justConnected) {
-            // Submit solution
+            //Submit solution
             if (m_solutionToSubmit.getNonce()) {
                 try {
                     bool accepted = p_client->submitWork(m_solutionToSubmit);

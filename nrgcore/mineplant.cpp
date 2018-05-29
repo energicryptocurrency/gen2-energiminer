@@ -106,12 +106,8 @@ bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
             count = std::thread::hardware_concurrency() - 1;
         }
         for ( unsigned i = 0; i < count; ++i ) {
-            auto miner = createMiner(minerEngine, i, *this);
-            //m_started &= miner->start();
-            //if ( m_started ) {
-                m_miners.push_back(miner);
-                m_miners.back()->startWorking();
-            //}
+            m_miners.push_back(createMiner(minerEngine, i, *this));
+            m_miners.back()->startWorking();
         }
     }
     m_isMining = true;
@@ -151,10 +147,9 @@ void MinePlant::setWork(const Work& work)
     std::lock_guard<std::mutex> lock(x_minerWork);
     // if new work hasnt changed, then ignore
     if (work == m_work) {
-        return;
-//        for (auto& miner : m_miners) {
-//            //reinterpret_cast<Worker*>(miner.get())->setWork(m_work);
-//        }
+        for (auto& miner : m_miners) {
+            miner->startWorking();
+        }
     }
     cnote << "New Work assigned: Height: "
           << work.nHeight
@@ -165,9 +160,8 @@ void MinePlant::setWork(const Work& work)
     // Propagate to all miners
     uint64_t extraNonce = m_work.getExtraNonce();
     const auto minersCount = m_miners.size();
-    const auto kLimitPerThread = std::numeric_limits<uint64_t>::max() - extraNonce / minersCount;
+    const auto kLimitPerThread = (std::numeric_limits<uint64_t>::max() - extraNonce) / minersCount;
     uint32_t index = 0;
-    //m_solutionFound = false;
     for (auto &miner: m_miners) {
         auto first  = index * kLimitPerThread + extraNonce;
         auto end    = first + kLimitPerThread;

@@ -743,7 +743,7 @@ void StratumClient::submitHashrate(const std::string& rate)
 
 }
 
-void StratumClient::submitSolution(Solution solution)
+void StratumClient::submitSolution(const Solution& solution)
 {
     m_responsetimer.cancel();
     m_responsetimer.expires_from_now(boost::posix_time::seconds(m_responsetimeout));

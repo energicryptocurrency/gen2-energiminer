@@ -58,7 +58,7 @@ PoolManager::PoolManager(PoolClient* client,
 		m_farm.rejectedSolution(stale);
 	});
 
-	m_farm.onSolutionFound([&](Solution sol)
+	m_farm.onSolutionFound([&](const Solution& sol)
 	{
         // Solution should passthrough only if client is
         // properly connected. Otherwise we'll have the bad behavior

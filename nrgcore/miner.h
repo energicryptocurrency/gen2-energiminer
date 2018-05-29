@@ -55,6 +55,7 @@ public:
         //Worker::setWork(work);
         m_nonceStart = nonceStart;
         m_nonceEnd = nonceEnd;
+        m_newWorkAssigned = true;
         onSetWork();
         resetHashCount();
     }
@@ -90,7 +91,6 @@ protected:
 	/**
 	 * @brief No work left to be done. Pause until told to kickOff().
 	 */
-	//virtual void kick_miner() = 0;
     virtual void onSetWork() {}
 
     Work getWork() const
@@ -108,6 +108,8 @@ protected:
     static unsigned s_dagCreateDevice;
     static uint8_t* s_dagInHostMemory;
     static bool s_exit;
+
+    bool m_newWorkAssigned = false;
 
     unsigned m_index = 0;
     const Plant &m_plant;
