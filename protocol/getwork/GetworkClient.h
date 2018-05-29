@@ -19,7 +19,7 @@ public:
     std::string ActiveEndPoint() override { return ""; };
 
 	void submitHashrate(const std::string& rate) override;
-	void submitSolution(energi::Solution solution) override;
+	void submitSolution(const energi::Solution& solution) override;
 
 private:
 	void trun() override;

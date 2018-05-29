@@ -35,7 +35,7 @@ public:
 	bool isAuthorized() { return m_authorized.load(std::memory_order_relaxed); }
     std::string ActiveEndPoint() { return " [" + toString(m_endpoint) + "]"; };
 
-	void submitSolution(energi::Solution solution) override;
+	void submitSolution(const energi::Solution& solution) override;
 	void submitHashrate(const std::string& rate);
 
 private:
