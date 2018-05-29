@@ -51,11 +51,10 @@ public:
         {
             std::lock_guard<std::mutex> lock(x_work);
             m_work = work;
+            m_newWorkAssigned = true;
         }
-        //Worker::setWork(work);
         m_nonceStart = nonceStart;
         m_nonceEnd = nonceEnd;
-        m_newWorkAssigned = true;
         onSetWork();
         resetHashCount();
     }

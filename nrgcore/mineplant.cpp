@@ -293,7 +293,6 @@ void MinePlant::processHashRate(const boost::system::error_code& ec)
 {
     if (!ec) {
         collectHashRate();
-
         // Restart timer
         m_hashrateTimer.cancel();
         m_hashrateTimer.expires_from_now(boost::posix_time::milliseconds(1000));
