@@ -37,13 +37,13 @@ void Worker::startWorking()
                         m_state.exchange(ex);
                     }
                     while (m_state == State::Stopped) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                        std::this_thread::sleep_for(std::chrono::milliseconds(20));
                     }
                 }
         }));
-	}
-	while (m_state == State::Starting) {
-		std::this_thread::sleep_for(std::chrono::microseconds(20));
+    }
+    while (m_state == State::Starting) {
+        std::this_thread::sleep_for(std::chrono::microseconds(20));
     }
 }
 

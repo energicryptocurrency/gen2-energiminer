@@ -49,9 +49,10 @@ void CpuMiner::trun()
                     addHashCount(work.nNonce + 1 - last_nonce);
                     cnote << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << work.nNonce;
                     m_plant.submitProof(Solution(work, nExtraNonce));
-                    return;
+                    break;
+                } else {
+                    ++work.nNonce;
                 }
-                ++work.nNonce;
                 // rough guess
                 if ( work.nNonce % 10000 == 0 ) {
                     addHashCount(work.nNonce - last_nonce);
