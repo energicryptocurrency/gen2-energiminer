@@ -70,7 +70,7 @@ public:
     }
 
 	unsigned Index() { return m_index; };
-	HwMonitorInfo hwmonInfo() { return m_hwmoninfo; }
+	HwMonitorInfo& hwmonInfo() { return m_hwmoninfo; }
 
     uint64_t get_start_nonce() const
     {
