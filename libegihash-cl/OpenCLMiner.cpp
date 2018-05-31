@@ -234,7 +234,7 @@ constexpr size_t c_maxSearchResults = 1;
 unsigned OpenCLMiner::s_platformId = 0;
 unsigned OpenCLMiner::s_numInstances = 0;
 // TODO: get smarter about how many miners we support. Why 16?
-int OpenCLMiner::s_devices[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+std::vector<int>  OpenCLMiner::s_devices(MAX_MINERS, -1);
 
 struct CLChannel: public LogChannel
 {
@@ -252,7 +252,7 @@ struct CLChannel: public LogChannel
 
 struct OpenCLMiner::clInfo
 {
-    static std::tuple<bool, cl::Device, int, int, std::string> getDeviceInfo(int index);
+    static std::tuple<bool, cl::Device, int, int, std::string> getDeviceInfo(int index, OpenCLMiner* clMiner);
 
     cl::Context             context_;
     cl::CommandQueue        queue_;
@@ -356,15 +356,10 @@ bool OpenCLMiner::configureGPU(
 
     bool devices_valid = true;
     std::vector<cl::Device> devices = getDevices(platforms, _platformId);
-    for (size_t i = 0; i < devices.size(); i++)
-    {
-        if ((s_devices[i] < 0) || (s_devices[i] >= static_cast<int64_t>(devices.size()))) continue;
-        auto const & device = devices[s_devices[i]];
+    for (const auto& device : devices) {
         cl_ulong gpu_mem_size = 0;
         device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &gpu_mem_size);
-
-        if (gpu_mem_size < dagSize)
-        {
+        if (gpu_mem_size < dagSize) {
             devices_valid = false;
             cwarn << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>() << " has insufficient GPU memory." << gpu_mem_size <<
             " bytes of memory found < " << dagSize << " bytes of memory required";
@@ -470,7 +465,7 @@ void OpenCLMiner::trun()
 }
 
 
-std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::clInfo::getDeviceInfo(int index)
+std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::clInfo::getDeviceInfo(int index, OpenCLMiner* clMiner)
 {
     auto failResult = std::make_tuple(false, cl::Device(), 0, 0, "");
     std::vector<cl::Platform> platforms = getPlatforms();
@@ -483,11 +478,16 @@ std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::clInfo::getDevi
     std::string platformName = platforms[platformIdx].getInfo<CL_PLATFORM_NAME>();
     ETHCL_LOG("Platform: " << platformName);
 
+    HwMonitorInfo& hwInfo = clMiner->hwmonInfo();
     int platformId = OPENCL_PLATFORM_UNKNOWN;
     if (platformName == "NVIDIA CUDA") {
         platformId = OPENCL_PLATFORM_NVIDIA;
+        hwInfo.deviceType = HwMonitorInfoType::NVIDIA;
+        hwInfo.indexSource = HwMonitorIndexSource::OPENCL;
     } else if (platformName == "AMD Accelerated Parallel Processing") {
         platformId = OPENCL_PLATFORM_AMD;
+        hwInfo.deviceType = HwMonitorInfoType::AMD;
+        hwInfo.indexSource = HwMonitorIndexSource::OPENCL;
     } else if (platformName == "Clover") {
         platformId = OPENCL_PLATFORM_CLOVER;
     }
@@ -500,7 +500,10 @@ std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::clInfo::getDevi
     }
 
     // use selected device
-    cl::Device& device = devices[s_devices[index]];
+    int idx = index % devices.size();
+    unsigned deviceId = s_devices[idx] > -1 ? s_devices[idx] : index;
+    hwInfo.deviceIndex = deviceId % devices.size();
+    cl::Device& device = devices[deviceId % devices.size()];
     std::string device_version = device.getInfo<CL_DEVICE_VERSION>();
     ETHCL_LOG("Device:   " << device.getInfo<CL_DEVICE_NAME>() << " / " << device_version);
 
@@ -539,7 +542,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
     try {
         uint32_t const epoch = height / nrghash::constants::EPOCH_LENGTH;
         cllog << name() << "Generating DAG for epoch #" << epoch;
-        auto deviceResult = cl->getDeviceInfo(m_index);
+        auto deviceResult = cl->getDeviceInfo(m_index, this);
         // create context
         auto device = std::get<1>(deviceResult);
         cl->context_  = cl::Context(std::vector<cl::Device>(&device, &device + 1));

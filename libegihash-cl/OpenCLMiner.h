@@ -106,7 +106,7 @@ namespace energi
     static unsigned         s_platformId;
     static unsigned         s_numInstances;
     static unsigned         s_threadsPerHash;
-    static int              s_devices[16];
+    static std::vector<int> s_devices;
 
     /// The local work size for the search
     static unsigned         s_workgroupSize;
