@@ -226,7 +226,7 @@ private:
 
 	/// Mining options
 	static bool g_running;
-	MinerExecutionMode m_minerExecutionMode = MinerExecutionMode::kCPU;
+	MinerExecutionMode m_minerExecutionMode = MinerExecutionMode::kCL;
 
 	unsigned m_openclPlatform = 0;
 	unsigned m_miningThreads = 1;

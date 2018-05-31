@@ -250,7 +250,7 @@ inline std::ostream& operator<<(std::ostream& _out, WorkingProgress _p)
         _out << i.first << " " << EthTeal << std::fixed << std::setw(5) << std::setprecision(2) << mh << EthReset << "  ";
         auto iter = _p.minerMonitors.find(i.first);
         if (iter != _p.minerMonitors.end()) {
-//            _out << " " << EthTeal << _p.minerMonitors[i.first] << EthReset << "  ";
+            _out << " " << EthTeal << _p.minerMonitors[i.first] << EthReset << "  ";
         }
     }
     return _out;
