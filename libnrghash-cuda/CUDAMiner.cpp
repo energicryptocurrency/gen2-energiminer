@@ -450,7 +450,7 @@ void CUDAMiner::search(
 #endif
     while (!done) {
         bool t = true;
-        if (m_new_work.compare_exchange_strong(t, false)) i{
+        if (m_new_work.compare_exchange_strong(t, false)) {
             done = true;
         }
         for (current_index = 0; current_index < s_numStreams; current_index++, current_nonce += batch_size) {
