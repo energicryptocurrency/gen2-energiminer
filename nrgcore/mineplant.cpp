@@ -50,8 +50,9 @@ MinerPtr createMiner(EnumMinerEngine minerEngine, int index, const MinePlant &pl
     return nullptr;
 }
 
-MinePlant::MinePlant()
-    : m_hashrateTimer(m_io_service)
+MinePlant::MinePlant(boost::asio::io_service & io_service)
+    : m_io_strand(io_service)
+    , m_hashrateTimer(io_service)
 {
     std::random_device engine;
     m_nonceScumbler = std::uniform_int_distribution<uint64_t>()(engine);
@@ -115,14 +116,8 @@ bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
     // Start hashrate collector
     m_hashrateTimer.cancel();
     m_hashrateTimer.expires_from_now(boost::posix_time::milliseconds(1000));
-    m_hashrateTimer.async_wait(boost::bind(&MinePlant::processHashRate, this, boost::asio::placeholders::error));
+    m_hashrateTimer.async_wait(m_io_strand.wrap(boost::bind(&MinePlant::processHashRate, this, boost::asio::placeholders::error)));
 
-    if (m_serviceThread.joinable()) {
-        m_io_service.reset();
-        m_serviceThread.join();
-    }
-
-    m_serviceThread = std::thread{ boost::bind(&boost::asio::io_service::run, &m_io_service) };
     return true;
 }
 
@@ -135,7 +130,6 @@ void MinePlant::stop()
     }
 
     m_hashrateTimer.cancel();
-    m_io_service.stop();
 
     m_lastProgresses.clear();
 }
@@ -294,9 +288,8 @@ void MinePlant::processHashRate(const boost::system::error_code& ec)
     if (!ec) {
         collectHashRate();
         // Restart timer
-        m_hashrateTimer.cancel();
         m_hashrateTimer.expires_from_now(boost::posix_time::milliseconds(1000));
-        m_hashrateTimer.async_wait(boost::bind(&MinePlant::processHashRate, this, boost::asio::placeholders::error));
+        m_hashrateTimer.async_wait(m_io_strand.wrap(boost::bind(&MinePlant::processHashRate, this, boost::asio::placeholders::error)));
     }
 }
 

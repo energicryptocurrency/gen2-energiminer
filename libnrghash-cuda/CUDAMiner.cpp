@@ -112,17 +112,17 @@ void CUDAMiner::trun()
                 }
                 m_lastHeight = work.nHeight;
                 current = work;
-
-                energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
-                nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
-
-                // Upper 64 bits of the boundary.
-                const uint64_t upper64OfBoundary = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
-                assert(upper64OfBoundary > 0);
-                startNonce = m_nonceStart.load();
-
-                search(hash_header.data(), upper64OfBoundary, (current.exSizeBits >= 0), startNonce, work, nExtraNonce);
+                work.incrementExtraNonce();
             }
+            energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
+            nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
+
+            // Upper 64 bits of the boundary.
+            const uint64_t upper64OfBoundary = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
+            assert(upper64OfBoundary > 0);
+            startNonce = m_nonceStart.load();
+
+            search(hash_header.data(), upper64OfBoundary, (current.exSizeBits >= 0), startNonce, work, nExtraNonce);
         }
         // Reset miner and stop working
         CUDA_SAFE_CALL(cudaDeviceReset());
@@ -449,6 +449,10 @@ void CUDAMiner::search(
     bool  __attribute__((unused)) stop = false;
 #endif
     while (!done) {
+        bool t = true;
+        if (m_new_work.compare_exchange_strong(t, false)) i{
+            done = true;
+        }
         for (current_index = 0; current_index < s_numStreams; current_index++, current_nonce += batch_size) {
             cudaStream_t stream = m_streams[current_index];
             buffer = m_search_buf[current_index];
@@ -459,9 +463,6 @@ void CUDAMiner::search(
                 done = true;
                 stop = true;
             }
-            bool t = true;
-            if (m_new_work.compare_exchange_strong(t, false))
-                done = true;
 
             // See if we got solutions in this batch
             uint32_t found_count = buffer->count;

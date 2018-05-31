@@ -16,6 +16,8 @@ public:
 	void disconnect() override;
 
 	bool isConnected() override { return m_connected; }
+    bool isPendingState() override { return false; }
+
     std::string ActiveEndPoint() override { return ""; };
 
 	void submitHashrate(const std::string& rate) override;

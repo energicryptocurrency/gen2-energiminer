@@ -2,7 +2,7 @@
 
 #include "MinerAux.h"
 #include <protocol/PoolManager.h>
-#include <protocol/stratum/EthStratumClient.h>
+#include <protocol/stratum/StratumClient.h>
 #include <protocol/getwork/GetworkClient.h>
 
 bool MinerCLI::g_running = false;
@@ -276,7 +276,7 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
     } else if ((arg == "-P") && (i + 1 < argc)) {
         std::string url = argv[++i];
         if (url == "exit") { // add fake scheme and port to 'exit' url
-            url = "stratum://exit:1";
+            url = "stratum+tcp://-:x@exit:0";
         }
         URI uri;
         try {
@@ -326,6 +326,7 @@ void MinerCLI::execute()
                 m_minerExecutionMode == MinerExecutionMode::kMixed) {
             CUDAMiner::listDevices();
 #endif
+            stop_io_service();
             return;
         }
     }
@@ -344,6 +345,7 @@ void MinerCLI::execute()
                     m_openclPlatform,
                     0))
         {
+            stop_io_service();
             exit(1);
         }
 
@@ -372,12 +374,14 @@ void MinerCLI::execute()
                     m_dagCreateDevice,
                     m_cudaNoEval,
                     m_exit
-                    ))
+                    )) {
+            stop_io_service();
             exit(1);
-
+        }
         CUDAMiner::setParallelHash(m_parallelHash);
 #else
         cerr << "CUDA support disabled. Configure project build with -DETHASHCUDA=ON" << endl;
+        stop_io_service();
         exit(1);
 #endif
     }
@@ -470,20 +474,20 @@ void MinerCLI::doMiner()
     if (m_mode == OperationMode::GBT) {
 			client = new GetworkClient(m_farmRecheckPeriod, coinbase_addr_);
     } else if (m_mode == OperationMode::Stratum) {
-        client = new StratumClient(m_worktimeout, m_responsetimeout, m_email, m_report_stratum_hashrate);
+        client = new StratumClient(m_io_service, m_worktimeout, m_responsetimeout, m_email, m_report_stratum_hashrate);
     } else {
         cwarn << "Inwalid OperationMode";
         std::exit(1);
     }
     if (client == nullptr) {
+        stop_io_service();
         //! This should not happen
         std::cerr << "Client is not contsructed normally" << std::endl;
         std::exit(1);
     }
     cnote << "Engines started!";
-    energi::MinePlant plant;
-    PoolManager mgr(client, plant, m_minerExecutionMode);
-    mgr.setReconnectTries(m_maxFarmRetries);
+    energi::MinePlant plant(m_io_service);
+    PoolManager mgr(client, plant, m_minerExecutionMode, m_maxFarmRetries);
 
     // If we are in simulation mode we add a fake connection
     if (m_mode == OperationMode::Simulation) {
@@ -509,5 +513,27 @@ void MinerCLI::doMiner()
         std::this_thread::sleep_for(std::chrono::seconds(m_displayInterval));
     }
     mgr.stop();
+    stop_io_service();
     exit(0);
+}
+
+void MinerCLI::io_work_timer_handler(const boost::system::error_code& ec)
+{
+
+    if (!ec) {
+
+        // This does absolutely nothing aside resubmitting timer
+        // ensuring io_service's queue has always something to do
+        m_io_work_timer.expires_from_now(boost::posix_time::seconds(120));
+        m_io_work_timer.async_wait(m_io_strand.wrap(boost::bind(&MinerCLI::io_work_timer_handler, this, boost::asio::placeholders::error)));
+    }
+
+}
+
+void MinerCLI::stop_io_service()
+{
+    // Here we stop all io_service's related activities
+    m_io_service.stop();
+    m_io_thread.join();
+
 }

@@ -72,7 +72,7 @@ int main(int argc, char** argv)
 	energi::setenv("GPU_MAX_ALLOC_PERCENT", "100");
 	energi::setenv("GPU_SINGLE_ALLOC_PERCENT", "100");
 
-	MinerCLI m(MinerCLI::OperationMode::GBT);
+	MinerCLI m;
 
 	for (int i = 1; i < argc; ++i)
 	{

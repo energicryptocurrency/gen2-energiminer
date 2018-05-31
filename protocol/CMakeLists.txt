@@ -5,8 +5,8 @@ set(SOURCES
     getwork/jsonrpc_getwork.h
     getwork/GetworkClient.h
     getwork/GetworkClient.cpp
-    stratum/EthStratumClient.h
-    stratum/EthStratumClient.cpp
+    stratum/StratumClient.h
+    stratum/StratumClient.cpp
 )
 
 hunter_add_package(OpenSSL)

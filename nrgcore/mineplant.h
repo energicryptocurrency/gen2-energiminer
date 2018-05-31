@@ -65,7 +65,7 @@ inline std::ostream& operator<<(std::ostream& os, SolutionStats s)
 class MinePlant : public Plant
 {
 public:
-    MinePlant();
+    MinePlant(boost::asio::io_service & io_service);
     ~MinePlant();
 
     bool start(const std::vector<EnumMinerEngine> &vMinerEngine);
@@ -131,15 +131,15 @@ private:
 	//std::string                             m_lastSealer;
 	bool                                    b_lastMixed = false;
 
-	std::chrono::steady_clock::time_point   m_lastStart;
-	uint64_t m_hashrateSmoothInterval = 10000;
-	std::thread                             m_serviceThread;  ///< The IO service thread.
-	boost::asio::io_service                 m_io_service;
-	boost::asio::deadline_timer             m_hashrateTimer;
+    std::chrono::steady_clock::time_point   m_lastStart;
+    uint64_t m_hashrateSmoothInterval = 10000;
+
+    boost::asio::io_service::strand m_io_strand;
+    boost::asio::deadline_timer             m_hashrateTimer;
     std::vector<WorkingProgress>            m_lastProgresses;
 
     SolutionStats                           m_solutionStats;
-	std::chrono::steady_clock::time_point   m_farm_launched = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point   m_farm_launched = std::chrono::steady_clock::now();
 
     std::string                             m_pool_addresses;
     uint64_t                                m_nonceScumbler;
