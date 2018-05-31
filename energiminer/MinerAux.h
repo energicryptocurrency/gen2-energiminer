@@ -53,6 +53,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/trim_all.hpp>
 #include <boost/optional.hpp>
+#include <boost/bind.hpp>
 
 #ifdef ETH_ETHASHCL
 #include "libegihash-cl/OpenCLMiner.h"
@@ -90,7 +91,26 @@ public:
 		g_running = false;
 	}
 
-	MinerCLI(OperationMode _mode = OperationMode::Simulation): m_mode(_mode) {}
+	MinerCLI()
+        : m_io_work(m_io_service)
+        , m_io_work_timer(m_io_service)
+        , m_io_strand(m_io_service)
+    {
+        // Post first deadline timer to give io_service
+        // initial work
+        m_io_work_timer.expires_from_now(boost::posix_time::seconds(60));
+        m_io_work_timer.async_wait(m_io_strand.wrap(boost::bind(&MinerCLI::io_work_timer_handler, this, boost::asio::placeholders::error)));
+
+        // Start io_service in it's own thread
+        m_io_thread = std::thread{ boost::bind(&boost::asio::io_service::run, &m_io_service) };
+
+        // Io service is now live and running
+        // All components using io_service should post to reference of m_io_service
+        // and should not start/stop or even join threads (which heavily time consuming)
+    }
+
+	void io_work_timer_handler(const boost::system::error_code& ec);
+    void stop_io_service();
 
 	bool interpretOption(int& i, int argc, char** argv);
 
@@ -196,6 +216,13 @@ private:
 private:
 	/// Operating mode.
 	OperationMode m_mode;
+
+	/// Global boost's io_service
+	std::thread m_io_thread;									// The IO service thread
+	boost::asio::io_service m_io_service;						// The IO service itself
+	boost::asio::io_service::work m_io_work;					// The IO work which prevents io_service.run() to return on no work thus terminating thread
+	boost::asio::deadline_timer m_io_work_timer;				// A dummy timer to keep io_service with something to do and prevent io shutdown
+	boost::asio::io_service::strand m_io_strand;				// A strand to serialize posts in multithreaded environment
 
 	/// Mining options
 	static bool g_running;

@@ -274,6 +274,7 @@ OpenCLMiner::OpenCLMiner(const Plant& plant, unsigned index)
 
 OpenCLMiner::~OpenCLMiner()
 {
+    stopWorking();
     delete cl;
 }
 
