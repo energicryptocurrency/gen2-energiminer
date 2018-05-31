@@ -251,10 +251,6 @@ private:
 
 	unsigned m_defaultStratumFarmRecheckPeriod = 2000;
     std::string m_farmURL = "http://192.168.0.22:9998";
-    std::string m_user;
-    std::string m_pass;
-	std::string m_energiURL = m_farmURL;
-	std::string m_fport = "";
 	std::string coinbase_addr_;
 
     std::string m_email;

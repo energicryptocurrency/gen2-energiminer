@@ -51,6 +51,7 @@ public:
         {
             std::lock_guard<std::mutex> lock(x_work);
             m_work = work;
+            m_work.incrementExtraNonce();
             m_newWorkAssigned = true;
         }
         m_nonceStart = nonceStart;

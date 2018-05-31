@@ -24,9 +24,7 @@ void Worker::startWorking()
         m_work.reset(new std::thread([&]() {
                 while (m_state != State::Killing) {
                     State ex = State::Starting;
-                    bool ok = m_state.compare_exchange_strong(ex, State::Started);
-                    //				cnote << "Trying to set Started: Thread was" << (unsigned)ex << "; " << ok;
-                    (void)ok;
+                    m_state.compare_exchange_strong(ex, State::Started);
                     try {
                         trun();
                     } catch (std::exception const& _e) {
@@ -39,7 +37,7 @@ void Worker::startWorking()
                     while (m_state == State::Stopped) {
                         std::this_thread::sleep_for(std::chrono::milliseconds(20));
                     }
-                }
+               }
         }));
     }
     while (m_state == State::Starting) {
