@@ -79,7 +79,8 @@ public:
 		uint64_t target,
 		bool _ethStratum,
 		uint64_t startNonce,
-		Work& w);
+		Work& w,
+        unsigned int& nExtraNonce);
 
 	/* -- default values -- */
 	/// Default value of the block size. Also known as workgroup size.

@@ -19,11 +19,7 @@ struct MiningChannel: public LogChannel
 bool MinerCLI::interpretOption(int& i, int argc, char** argv)
 {
     std::string arg = argv[i];
-    if ((arg == "--gbt") && i + 1 < argc) {
-        m_mode = OperationMode::GBT;
-        m_farmURL = argv[++i];
-        m_energiURL = m_farmURL;
-    }  else if ((arg == "--work-timeout") && i + 1 < argc) {
+    if ((arg == "--work-timeout") && i + 1 < argc) {
         try {
             m_worktimeout = stoi(argv[++i]);
         } catch (...) {
@@ -62,7 +58,7 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
     } else if ((arg == "--response-timeout") && i + 1 < argc) {
         try {
             m_responsetimeout = stoi(argv[++i]);
-            // Do not allow less than 2 seconds 
+            // Do not allow less than 2 seconds
             // or we may keep disconnecting and reconnecting
             m_responsetimeout = (m_responsetimeout < 2 ? 2 : m_responsetimeout);
         } catch (...) {
@@ -81,21 +77,6 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
                 cerr << "Bad " << arg << " option: " << argv[i] << endl;
             }
         }
-    } else if ((arg == "-S" || arg == "--stratum") && (i + 1 < argc)) {
-        m_mode = OperationMode::Stratum;
-        m_farmURL = argv[++i];
-        m_energiURL = m_farmURL;
-    } else if ((arg == "-O" || arg == "--userpass") && i + 1 < argc) {
-        std::string userpass = std::string(argv[++i]);
-        size_t p = userpass.find_first_of(":");
-        m_user = userpass.substr(0, p);
-        if (p + 1 < userpass.length()) {
-            m_pass = userpass.substr(p + 1);
-        }
-    } else if ((arg == "-u" || arg == "--user") && i + 1 < argc) {
-        m_user = std::string(argv[++i]);
-    } else if ((arg == "-p" || arg == "--pass") && i + 1 < argc) {
-        m_pass = std::string(argv[++i]);
     } else if ((arg == "--coinbase-addr") && i + 1 < argc) {
         coinbase_addr_ = argv[++i];
     } else if (arg == "--farm-recheck" && i + 1 < argc) {
@@ -265,7 +246,7 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
     } else if (arg == "-M" || arg == "--benchmark") {
         m_mode = OperationMode::Benchmark;
         if (i + 1 < argc) {
-            string m = boost::to_lower_copy(string(argv[++i]));
+            std::string m = boost::to_lower_copy(string(argv[++i]));
             try {
                 m_benchmarkBlock = stol(m);
             } catch (...) {
@@ -317,10 +298,6 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
             case ProtocolFamily::GETWORK:
                 mode = OperationMode::GBT;
                 break;
-        }
-        if ((m_mode != OperationMode::None) && (m_mode != mode)) {
-            cerr << "Mixed stratum and getwork endpoints not supported." << endl;
-            throw;
         }
         m_mode = mode;
     //} else if ((arg == "-t" || arg == "--mining-threads") && i + 1 < argc) {
@@ -410,11 +387,12 @@ void MinerCLI::execute()
     signal(SIGTERM, MinerCLI::signalHandler);
 
     if (m_mode == OperationMode::Benchmark) {
-            ///doBenchmark(m_minerExecutionMode, m_benchmarkWarmup, m_benchmarkTrial, m_benchmarkTrials);
+        //doBenchmark(m_minerExecutionMode, m_benchmarkWarmup, m_benchmarkTrial, m_benchmarkTrials);
     } else if (m_mode == OperationMode::GBT || m_mode == OperationMode::Stratum) {
         doMiner();
     } else if (m_mode == OperationMode::Simulation) {
-        doSimulation();
+        //client = new SimulateClent(20, m_benchmarkBlock);
+        //doSimulation();
     } else {
         cerr << "No mining mode selected!" << std::endl;
         exit(1);

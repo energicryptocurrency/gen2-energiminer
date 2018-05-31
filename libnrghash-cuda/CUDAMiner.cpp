@@ -47,6 +47,7 @@ CUDAMiner::CUDAMiner(const Plant& plant, unsigned index)
 
 CUDAMiner::~CUDAMiner()
 {
+    stopWorking();
     onSetWork();
 }
 
@@ -104,7 +105,6 @@ void CUDAMiner::trun()
                 //cudalog << name() << "Valid work.";
             }
 
-            work.incrementExtraNonce(nExtraNonce);
             if (current != work) {
                 if (!m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
                     init_dag(work.nHeight);
@@ -124,7 +124,6 @@ void CUDAMiner::trun()
                 search(hash_header.data(), upper64OfBoundary, (current.exSizeBits >= 0), startNonce, work, nExtraNonce);
             }
         }
-
         // Reset miner and stop working
         CUDA_SAFE_CALL(cudaDeviceReset());
     } catch (cuda_runtime_error const& _e) {
@@ -483,26 +482,25 @@ void CUDAMiner::search(
                     run_ethash_search(s_gridSize, s_blockSize, stream, buffer, current_nonce, m_parallelHash);
                 }
                 // Pass the solutions up to the higher level
-                for (uint32_t i = 0; i < found_count; i++)
+                for (uint32_t i = 0; i < found_count; i++) {
                     work.nNonce = nonces[i];
                     if (s_noeval) {
                         cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
-                        Solution solution(work, nExtraNonce);
-                        m_plant.submitProof(solution);
+                        m_plant.submitProof(Solution(work, nExtraNonce));
                         addHashCount(batch_size);
                         break;
                     } else {
                         auto const powHash = GetPOWHash(work);
                         if (UintToArith256(powHash) <= work.hashTarget) {
                             cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
-                            Solution solution(work, nExtraNonce);
-                            m_plant.submitProof(solution);
+                            m_plant.submitProof(Solution(work, nExtraNonce));
                             addHashCount(batch_size);
                             break;
                         } else {
                             cwarn << name() << "CUDA Miner proposed invalid solution" << work.GetHash().ToString() << "nonce: " << nonces[i];
                         }
                     }
+                }
             } else {
                 // restart the stream on the next batch of nonces
                 if (!done) {
@@ -510,7 +508,6 @@ void CUDAMiner::search(
                 }
             }
             addHashCount(batch_size);
-
         }
     }
 }
