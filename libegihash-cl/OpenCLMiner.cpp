@@ -7,7 +7,11 @@
 
 #include "libegihash-cl/OpenCLMiner.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
+#pragma GCC diagnostic ignored "-Wmissing-braces"
 #include "../libegihash-cl/CL/cl2.hpp"
+#pragma GCC diagnostic pop
 #include "nrghash/nrghash.h"
 #include "CLMiner_kernel.h"
 #include "common/Log.h"
