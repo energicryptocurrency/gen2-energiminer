@@ -8,11 +8,15 @@
 #ifndef OPENCLMINER_H_
 #define OPENCLMINER_H_
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
+#pragma GCC diagnostic ignored "-Wmissing-braces"
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS true
 #define CL_HPP_ENABLE_EXCEPTIONS true
 #define CL_HPP_CL_1_2_DEFAULT_BUILD true
 #define CL_HPP_TARGET_OPENCL_VERSION 120
 #define CL_HPP_MINIMUM_OPENCL_VERSION 120
+#pragma GCC diagnostic pop
 
 #include "nrgcore/plant.h"
 #include "nrgcore/miner.h"
