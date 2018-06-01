@@ -3,7 +3,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/cmake/toolchain.cmake CACHE FILEPATH "CMake toolchain file")
 set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CONFIGURATION_TYPES Release RelWithDebInfo Release)
+set(CMAKE_CONFIGURATION_TYPES Release RelWithDebInfo)
 set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type on single-configuration generators")
 
 set(HUNTER_CONFIGURATION_TYPES Release)
