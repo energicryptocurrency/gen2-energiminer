@@ -395,7 +395,7 @@ void OpenCLMiner::trun()
             }
             Work work = this->getWork(); // This work is a copy of last assigned work the worker was provided by plant
             if ( !work.isValid() ) {
-                cdebug << "No work received. Pause for 1 s.";
+                cnote << "No work received. Pause for 1 s.";
                 std::this_thread::sleep_for(std::chrono::seconds(1));
                 if ( this->shouldStop() ) {
                     break;
