@@ -78,6 +78,9 @@ public:
         return m_plant.get_nonce_scumbler() + ((uint64_t) m_index << 40);
     }
 
+	void update_temperature(unsigned temperature);
+	bool is_mining_paused() const;
+
     //! static interfaces
 public:
     static bool LoadNrgHashDAG();
@@ -120,6 +123,7 @@ protected:
     std::atomic<uint64_t> m_nonceEnd;
 
 private:
+    std::atomic<bool> m_wait_for_tstart_temp = { false };
     std::atomic<uint32_t> m_hashCount;
 	Work m_work;
 	mutable std::mutex x_work;

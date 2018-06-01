@@ -181,6 +181,9 @@ public:
 			<< "        Use at your own risk! If GPU generates errored results they WILL be forwarded to the pool" << endl
 			<< "        Not recommended at high overclock." << endl
 #endif
+            << " Temperature management: (implies -HWMON=0|1)" << endl
+            << "     --tstop  stop mining on a GPU if temperature equals or greater than option (valid range 30...100)." << endl
+            << "     --tstart restart mining on a GPU if --tstop stopped the GPU if the temperature is equal or less than option (default 40, valid range 0 or 30...100)." << endl
 			;
 	}
 
@@ -272,6 +275,9 @@ private:
 
 	bool m_show_hwmonitors = false;
 	bool m_show_power = false;
+
+    unsigned m_tstop = 0;
+    unsigned m_tstart = 40;
 
 	unsigned m_maxFarmRetries = 3;
 	unsigned m_farmRecheckPeriod = 500;

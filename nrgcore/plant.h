@@ -17,6 +17,9 @@ class Plant
 public:
     virtual ~Plant() = default;
 
+    virtual unsigned get_tstart() const = 0;
+    virtual unsigned get_tstop() const = 0;
+
 	/**
 	 * @brief Called from a Miner to note a Work has a solution.
 	 * @param _p The solution.

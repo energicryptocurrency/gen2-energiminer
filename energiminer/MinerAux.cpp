@@ -307,8 +307,40 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
     //        cerr << "Bad " << arg << " option: " << argv[i] << endl;
     //        throw;
     //    }
+    } else if ((arg == "--tstop") && i + 1 < argc) {
+        try {
+            m_tstop = stoul(argv[++i]);
+            if (m_tstop != 0 && (m_tstop < 30 || m_tstop > 100)) {
+                cerr << "Bad " << arg << " option: " << argv[i] << endl;
+                throw;
+            }
+        } catch (...) {
+            cerr << "Bad " << arg << " option: " << argv[i] << endl;
+            throw;
+        }
+    } else if ((arg == "--tstart") && i + 1 < argc) {
+        try {
+            m_tstart = stoul(argv[++i]);
+            if (m_tstart < 30 || m_tstart > 100) {
+                cerr << "Bad " << arg << " option: " << argv[i] << endl;
+                throw;
+            }
+        } catch (...) {
+            cerr << "Bad " << arg << " option: " << argv[i] << endl;
+            throw;
+        }
     } else {
         return false;
+    }
+    // Sanity check --tstart/--tstop
+    if (m_tstop && m_tstop <= m_tstart) {
+        cerr << "--tstop must be greater than --tstart !" << endl;
+        throw;
+    }
+    if (m_tstop && !m_show_hwmonitors) {
+        // if we want stop mining at a specific temperature, we have to
+        // monitor the temperature ==> so auto enable HWMON.
+        m_show_hwmonitors = true;
     }
     return true;
 }
