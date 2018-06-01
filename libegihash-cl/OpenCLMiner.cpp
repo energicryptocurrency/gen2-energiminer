@@ -229,6 +229,7 @@ std::mutex OpenCLMiner::m_device_mutex;
 unsigned OpenCLMiner::s_workgroupSize = OpenCLMiner::c_defaultLocalWorkSize;
 unsigned OpenCLMiner::s_initialGlobalWorkSize = OpenCLMiner::c_defaultGlobalWorkSizeMultiplier * OpenCLMiner::c_defaultLocalWorkSize;
 unsigned OpenCLMiner::s_threadsPerHash = 8;
+bool OpenCLMiner::s_adjustWorkSize = false;
 constexpr size_t c_maxSearchResults = 1;
 
 unsigned OpenCLMiner::s_platformId = 0;
@@ -334,15 +335,18 @@ void OpenCLMiner::listDevices()
 
 bool OpenCLMiner::configureGPU(
         unsigned _localWorkSize,
-        unsigned _globalWorkSizeMultiplier,
+        int _globalWorkSizeMultiplier,
         unsigned _platformId,
-        uint64_t _currentBlock
-        )
+        uint64_t _currentBlock)
 {
     std::lock_guard<std::mutex> lock(m_device_mutex);
     s_platformId = _platformId;
     _localWorkSize = ((_localWorkSize + 7) / 8) * 8;
     s_workgroupSize = _localWorkSize;
+    if (_globalWorkSizeMultiplier < 0) {
+        s_adjustWorkSize = true;
+        _globalWorkSizeMultiplier = -_globalWorkSizeMultiplier;
+    }
     s_initialGlobalWorkSize = _globalWorkSizeMultiplier * _localWorkSize;
 
     uint64_t dagSize = nrghash::dag_t::get_full_size(_currentBlock);
@@ -548,11 +552,24 @@ bool OpenCLMiner::init_dag(uint32_t height)
         cl->context_  = cl::Context(std::vector<cl::Device>(&device, &device + 1));
         cl->queue_    = cl::CommandQueue(cl->context_, device);
 
-        // make sure that global work size is evenly divisible by the local workgroup size
         workgroupSize_        = s_workgroupSize;
         globalWorkSize_       = s_initialGlobalWorkSize;
-        if (globalWorkSize_ % workgroupSize_ != 0) {
-            globalWorkSize_ = ((globalWorkSize_ / workgroupSize_) + 1) * workgroupSize_;
+
+
+        if (s_adjustWorkSize) {
+            unsigned int computeUnits;
+            clGetDeviceInfo(device(), CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(computeUnits), &computeUnits, NULL);
+            // Apparently some 36 CU devices return a bogus 14!!!
+            auto platformId = std::get<2>(deviceResult);
+            computeUnits = computeUnits == 14 ? 36 : computeUnits;
+            if ((platformId == OPENCL_PLATFORM_AMD) && (computeUnits != 36)) {
+                globalWorkSize_ = (globalWorkSize_ * computeUnits) / 36;
+                // make sure that global work size is evenly divisible by the local workgroup size
+                if (globalWorkSize_ % workgroupSize_ != 0)
+                    globalWorkSize_ = ((globalWorkSize_ / workgroupSize_) + 1) * workgroupSize_;
+                cnote << "Adjusting CL work multiplier for " << computeUnits << " CUs."
+                    << "Adjusted work multiplier: " << globalWorkSize_ / workgroupSize_;
+            }
         }
         nrghash::cache_t  cache = nrghash::cache_t(height);
         uint64_t dagSize = nrghash::dag_t::get_full_size(height);//dag->size();

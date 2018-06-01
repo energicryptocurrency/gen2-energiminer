@@ -159,6 +159,8 @@ public:
 #if ETH_ETHASHCL
 			<< "    --cl-local-work Set the OpenCL local work size. Default is " << OpenCLMiner::c_defaultLocalWorkSize << endl
 			<< "    --cl-global-work Set the OpenCL global work size as a multiple of the local work size. Default is " << OpenCLMiner::c_defaultGlobalWorkSizeMultiplier << " * " << OpenCLMiner::c_defaultLocalWorkSize << endl
+            << "        Can be specified as negative (ie. -8192) in which case it it will be made positive," << endl
+            << "        and it will be ajusted appropriately based on the compute power of individual AMD GPUs." << endl
 			//<< "    --cl-parallel-hash <1 2 ..8> Define how many threads to associate per hash. Default=8" << endl
 #endif
 #if ETH_ETHASHCUDA
@@ -234,10 +236,10 @@ private:
 
 #if ETH_ETHASHCL
 	unsigned m_openclDeviceCount = 0;
-	unsigned m_openclDevices[16];
+    std::vector<unsigned> m_openclDevices = std::vector<unsigned>(MAX_MINERS, -1);
 	unsigned m_openclThreadsPerHash = 8;
 
-	unsigned m_globalWorkSizeMultiplier = energi::OpenCLMiner::c_defaultGlobalWorkSizeMultiplier;
+    int m_globalWorkSizeMultiplier = energi::OpenCLMiner::c_defaultGlobalWorkSizeMultiplier;
 	unsigned m_localWorkSize = energi::OpenCLMiner::c_defaultLocalWorkSize;
 #endif
 #if ETH_ETHASHCUDA
