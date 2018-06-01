@@ -121,7 +121,7 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
     //    }
     } else if ((arg == "--cl-global-work" || arg == "--cuda-grid-size")  && i + 1 < argc) {
         try {
-            m_globalWorkSizeMultiplier = stol(argv[++i]);
+            m_globalWorkSizeMultiplier = stoi(argv[++i]);
         }  catch (...) {
             cerr << "Bad " << arg << " option: " << argv[i] << endl;
             throw;

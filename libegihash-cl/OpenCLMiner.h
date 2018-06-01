@@ -62,7 +62,7 @@ namespace energi
     static void listDevices();
     static bool configureGPU(
       unsigned _localWorkSize,
-      unsigned _globalWorkSizeMultiplier,
+      int _globalWorkSizeMultiplier,
       unsigned _platformId,
       uint64_t _currentBlock);
 
@@ -76,7 +76,7 @@ namespace energi
       s_threadsPerHash = _threadsPerHash;
     }
 
-    static void setDevices(unsigned * _devices, unsigned _selectedDeviceCount)
+    static void setDevices(const std::vector<unsigned>& _devices, unsigned _selectedDeviceCount)
     {
       std::lock_guard<std::mutex> lock(m_device_mutex);
       for (unsigned i = 0; i < _selectedDeviceCount; i++)
@@ -112,6 +112,7 @@ namespace energi
     static unsigned         s_workgroupSize;
     /// The initial global work size for the searches
     static unsigned         s_initialGlobalWorkSize;
+    static bool s_adjustWorkSize;
 
     std::chrono::high_resolution_clock::time_point workSwitchStart;
   };
