@@ -29,6 +29,7 @@
 #include "primitives/solution.h"
 #include "primitives/work.h"
 #include "nrgcore/mineplant.h"
+#include "BuildInfo.h"
 #include <protocol/PoolURI.h>
 
 
@@ -112,80 +113,14 @@ public:
 	void io_work_timer_handler(const boost::system::error_code& ec);
     void stop_io_service();
 
-	bool interpretOption(int& i, int argc, char** argv);
+    void ParseCommandLine(int argc,char** argv);
+    void version() const
+    {
+        cout << "v" << ENERGI_PROJECT_VERSION << endl;
+        cout << "Build: " << ENERGI_BUILD_PLATFORM << "/" << ENERGI_BUILD_TYPE << endl;
+    }
 
 	void execute();
-
-	static void streamHelp(ostream& _out)
-	{
-		_out
-			<< "Work farming mode:" << endl
-			<< "	--farm-retries <n> Number of retries until switch to failover (default: 3)" << endl
-			<< "    --work-timeout <n> reconnect/failover after n seconds of working on the same (stratum) job. Defaults to 180. Don't set lower than max. avg. block time" << endl
-			<< "    --response-timeout <n> reconnect/failover after n seconds delay for response from (stratum) pool. Also affects connection timeout. Minimum value 2. Default 2." << endl
-			<< "    -RH, --report-hashrate Report current hashrate to pool (please only enable on pools supporting this)" << endl
-			<< "    -HWMON [0|1], Displays gpu temp, fan percent and power usage. Note: In linux, the program uses sysfs, which may require running with root privileges." << endl
-			<< "        0: Displays only temp and fan percent (default)" << endl
-			<< "        1: Also displays power usage" << endl
-			<< "    --gbt <url>  Put into mining farm mode with the work server at URL (default: http://u:p@127.0.0.1:8545)" << endl
-			<< "    --coinbase-addr ADDRESS  Payout address for solo mining" << endl
-			<< "    -SE, --stratum-email <s> Email address used in eth-proxy (optional)" << endl
-			<< "    --farm-recheck <n>  Leave n ms between checks for changed work (default: 500). When using stratum, use a high value (i.e. 2000) to get more stable hashrate output" << endl
-			<< "Benchmarking mode:" << endl
-			<< "    -M [<n>],--benchmark [<n>] Benchmark for mining and exit; Optionally specify block number to benchmark against specific DAG." << endl
-			<< "    --benchmark-warmup <seconds>  Set the duration of warmup for the benchmark tests (default: 3)." << endl
-			<< "    --benchmark-trial <seconds>  Set the duration for each trial for the benchmark tests (default: 3)." << endl
-			<< "    --benchmark-trials <n>  Set the number of benchmark trials to run (default: 5)." << endl
-			<< "    -P URL Specify a pool URL. Can be used multiple times. The 1st for for the primary pool, and the 2nd for the failover pool." << endl
-			<< "        URL takes the form: scheme://user[:password]@hostname:port[/emailaddress]." << endl
-			<< "        for getwork use one of the following schemes:" << endl
-			<< "          " << URI::KnownSchemes(ProtocolFamily::GETWORK) << endl
-			<< "        for stratum use one of the following schemes: "<< endl
-			<< "          " << URI::KnownSchemes(ProtocolFamily::STRATUM) << endl
-			<< "        Example 1 : stratum+ssl://0x012345678901234567890234567890123.miner1@ethermine.org:5555" << endl
-			<< "        Example 2 : stratum1+tcp://0x012345678901234567890234567890123.miner1@nanopool.org:9999/john.doe@gmail.com" << endl
-			<< "        Example 3 : stratum1+tcp://0x012345678901234567890234567890123@nanopool.org:9999/miner1/john.doe@gmail.com" << endl
-			<< "	-S, --stratum <host:port>  Put into stratum mode with the stratum server at host:port" << endl
-			<< "    -O, --userpass <username.workername:password> Stratum login credentials" << endl
-			<< "Simulation mode:" << endl
-			<< "    -Z [<n>],--simulation [<n>] Mining test mode. Used to validate kernel optimizations. Optionally specify block number." << endl
-			<< "Mining configuration:" << endl
-			<< "    --opencl-platform <n>  When mining use OpenCL platform n (default: 0)." << endl
-			<< "    --opencl-device <n>  When mining use OpenCL device n (default: 0)." << endl
-			<< "    --opencl-devices <0 1 ..n> Select which OpenCL devices to mine on. Default is to use all" << endl
-			//<< "    -t, --mining-threads <n> Limit number of CPU/GPU miners to n (default: use everything available on selected platform)" << endl
-			<< "    --list-devices List the detected OpenCL/CUDA devices and exit." << endl
-			<< "    --display-interval <n> Set mining stats display interval in seconds. (default: every 5 seconds)" << endl			
-#if ETH_ETHASHCL
-			<< "    --cl-local-work Set the OpenCL local work size. Default is " << OpenCLMiner::c_defaultLocalWorkSize << endl
-			<< "    --cl-global-work Set the OpenCL global work size as a multiple of the local work size. Default is " << OpenCLMiner::c_defaultGlobalWorkSizeMultiplier << " * " << OpenCLMiner::c_defaultLocalWorkSize << endl
-            << "        Can be specified as negative (ie. -8192) in which case it it will be made positive," << endl
-            << "        and it will be ajusted appropriately based on the compute power of individual AMD GPUs." << endl
-			//<< "    --cl-parallel-hash <1 2 ..8> Define how many threads to associate per hash. Default=8" << endl
-#endif
-#if ETH_ETHASHCUDA
-			<< " CUDA configuration:" << endl
-			<< "    --cuda-block-size Set the CUDA block work size. Default is " << std::to_string(CUDAMiner::c_defaultBlockSize) << endl
-			<< "    --cuda-grid-size Set the CUDA grid size. Default is " << std::to_string(CUDAMiner::c_defaultGridSize) << endl
-			<< "    --cuda-streams Set the number of CUDA streams. Default is " << std::to_string(CUDAMiner::c_defaultNumStreams) << endl
-			<< "    --cuda-schedule <mode> Set the schedule mode for CUDA threads waiting for CUDA devices to finish work. Default is 'sync'. Possible values are:" << endl
-			<< "        auto  - Uses a heuristic based on the number of active CUDA contexts in the process C and the number of logical processors in the system P. If C > P, then yield else spin." << endl
-			<< "        spin  - Instruct CUDA to actively spin when waiting for results from the device." << endl
-			<< "        yield - Instruct CUDA to yield its thread when waiting for results from the device." << endl
-			<< "        sync  - Instruct CUDA to block the CPU thread on a synchronization primitive when waiting for the results from the device." << endl
-			<< "    --cuda-devices <0 1 ..n> Select which CUDA GPUs to mine on. Default is to use all" << endl
-			<< "    --cuda-parallel-hash <1 2 ..8> Define how many hashes to calculate in a kernel, can be scaled to achieve better performance. Default=4" << endl
-			<< "    --cuda-noeval  bypass host software re-evaluation of GPU solutions." << endl
-			<< "    -L, --dag-load-mode <mode> DAG generation mode." << endl
-			<< "        This will trim some milliseconds off the time it takes to send a result to the pool." << endl
-			<< "        Use at your own risk! If GPU generates errored results they WILL be forwarded to the pool" << endl
-			<< "        Not recommended at high overclock." << endl
-#endif
-            << " Temperature management: (implies -HWMON=0|1)" << endl
-            << "     --tstop  stop mining on a GPU if temperature equals or greater than option (valid range 30...100)." << endl
-            << "     --tstart restart mining on a GPU if --tstop stopped the GPU if the temperature is equal or less than option (default 40, valid range 0 or 30...100)." << endl
-			;
-	}
 
 private:
     void doSimulation(int difficulty = 20);
@@ -231,7 +166,7 @@ private:
 
 	/// Mining options
 	static bool g_running;
-	MinerExecutionMode m_minerExecutionMode = MinerExecutionMode::kCL;
+	MinerExecutionMode m_minerExecutionMode = MinerExecutionMode::kCPU;
 
 	unsigned m_openclPlatform = 0;
 	unsigned m_miningThreads = 1;
@@ -252,11 +187,11 @@ private:
 	unsigned m_cudaSchedule = 4; // sync
 	unsigned m_cudaGridSize = CUDAMiner::c_defaultGridSize;
 	unsigned m_cudaBlockSize = CUDAMiner::c_defaultBlockSize;
-	bool m_cudaNoEval = false;
 	unsigned m_parallelHash    = 4;
-	unsigned m_dagLoadMode = 0; // parallel
 #endif
 
+	unsigned m_dagLoadMode = 0; // parallel
+	bool m_noEval = false;
 	unsigned m_dagCreateDevice = 0;
     bool m_exit = false;
 
@@ -284,9 +219,7 @@ private:
 	unsigned m_displayInterval = 5;
 	bool m_farmRecheckSet = false;
 
-	unsigned m_defaultStratumFarmRecheckPeriod = 2000;
-    std::string m_farmURL = "http://192.168.0.22:9998";
-	std::string coinbase_addr_;
+	std::string m_coinbase_addr;
 
     std::string m_email;
 	bool m_report_stratum_hashrate = false;

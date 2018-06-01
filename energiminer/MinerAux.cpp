@@ -5,6 +5,8 @@
 #include <protocol/stratum/StratumClient.h>
 #include <protocol/getwork/GetworkClient.h>
 
+#include <CLI/CLI.hpp>
+
 bool MinerCLI::g_running = false;
 
 struct MiningChannel: public LogChannel
@@ -16,277 +18,269 @@ struct MiningChannel: public LogChannel
 
 #define minelog clog(MiningChannel)
 
-bool MinerCLI::interpretOption(int& i, int argc, char** argv)
+void MinerCLI::ParseCommandLine(int argc, char** argv)
 {
-    std::string arg = argv[i];
-    if ((arg == "--work-timeout") && i + 1 < argc) {
-        try {
-            m_worktimeout = stoi(argv[++i]);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
 
-    } else if ((arg == "-SE" || arg == "--stratum-email") && i + 1 < argc) {
-        try {
-            m_email = string(argv[++i]);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
-    } else if (arg == "--farm-recheck" && i + 1 < argc) {
-        try {
-            m_farmRecheckSet = true;
-            m_farmRecheckPeriod = stol(argv[++i]);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-        }
-    } else if (arg == "--farm-retries" && i + 1 < argc) {
-        try {
-            m_maxFarmRetries = stol(argv[++i]);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
-    } else if (arg == "--display-interval" && i + 1 < argc) {
-        try {
-            m_displayInterval = stol(argv[++i]);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
-    } else if ((arg == "--response-timeout") && i + 1 < argc) {
-        try {
-            m_responsetimeout = stoi(argv[++i]);
-            // Do not allow less than 2 seconds
-            // or we may keep disconnecting and reconnecting
-            m_responsetimeout = (m_responsetimeout < 2 ? 2 : m_responsetimeout);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
-
-    } else if ((arg == "-RH" || arg == "--report-hashrate")) {
-        m_report_stratum_hashrate = true;
-    } else if (arg == "-HWMON") {
-        m_show_hwmonitors = true;
-        if ((i + 1 < argc) && (*argv[i + 1] != '-')) {
-            try {
-                m_show_power = stoul(argv[++i]) != 0;
-            } catch (...) {
-                cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            }
-        }
-    } else if ((arg == "--coinbase-addr") && i + 1 < argc) {
-        coinbase_addr_ = argv[++i];
-    } else if (arg == "--farm-recheck" && i + 1 < argc) {
-        try {
-            m_farmRecheckSet = true;
-            m_farmRecheckPeriod = stol(argv[++i]);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
-    }
+    const char* CommonGroup = "Common Options";
 #if ETH_ETHASHCL
-    else if (arg == "--opencl-platform" && i + 1 < argc) {
-        try {
-            m_openclPlatform = stol(argv[++i]);
-        }
-        catch (...)
-        {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
-    } else if (arg == "--opencl-devices" || arg == "--opencl-device") {
-        while (m_openclDeviceCount < 16 && i + 1 < argc) {
-            try {
-                m_openclDevices[m_openclDeviceCount] = stol(argv[++i]);
-                ++m_openclDeviceCount;
-            } catch (...) {
-                i--;
-                break;
-            }
-        }
-    //} else if(arg == "--cl-parallel-hash" && i + 1 < argc) {
-    //    try {
-    //        m_openclThreadsPerHash = stol(argv[++i]);
-    //        if(m_openclThreadsPerHash != 1 && m_openclThreadsPerHash != 2 &&
-    //                m_openclThreadsPerHash != 4 && m_openclThreadsPerHash != 8) {
-    //            throw;
-    //        }
-    //    } catch(...) {
-    //        cerr << "Bad " << arg << " option: " << argv[i] << endl;
-    //        throw;
-    //    }
-    } else if ((arg == "--cl-global-work" || arg == "--cuda-grid-size")  && i + 1 < argc) {
-        try {
-            m_globalWorkSizeMultiplier = stoi(argv[++i]);
-        }  catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
-    } else if ((arg == "--cl-local-work" || arg == "--cuda-block-size") && i + 1 < argc) {
-        try {
-            m_localWorkSize = stol(argv[++i]);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
-    }
-#endif
-#if ETH_ETHASHCL || ETH_ETHASHCUDA
-     else if (arg == "--list-devices") {
-        m_shouldListDevices = true;
-     }
+    const char* OpenCLGroup = "OpenCL Options";
 #endif
 #if ETH_ETHASHCUDA
-     else if (arg == "--cuda-grid-size" && i + 1 < argc) {
-         try {
-             m_cudaGridSize = stol(argv[++i]);
-         } catch (...) {
-             cerr << "Bad " << arg << " option: " << argv[i] << endl;
-             throw;
-         }
-     } else if (arg == "--cuda-block-size" && i + 1 < argc) {
-         try {
-             m_cudaBlockSize = stol(argv[++i]);
-         } catch (...) {
-             cerr << "Bad " << arg << " option: " << argv[i] << endl;
-             throw;
-         }
-     } else if (arg == "--cuda-devices") {
-         while (m_cudaDeviceCount < 16 && i + 1 < argc) {
-             try {
-                 m_cudaDevices[m_cudaDeviceCount] = stol(argv[++i]);
-                 ++m_cudaDeviceCount;
-             } catch (...) {
-                 --i;
-                 break;
-             }
-         }
-     } else if (arg == "--cuda-parallel-hash" && i + 1 < argc) {
-         try {
-             m_parallelHash = stol(argv[++i]);
-             if (m_parallelHash == 0 || m_parallelHash > 8) {
-                 throw;
-             }
-         } catch(...) {
-             cerr << "Bad " << arg << " option: " << argv[i] << endl;
-             throw;
-         }
-     } else if (arg == "--cuda-schedule" && i + 1 < argc) {
-         std::string mode = argv[++i];
-         if (mode == "auto")
-             m_cudaSchedule = 0;
-         else if (mode == "spin")
-             m_cudaSchedule = 1;
-         else if (mode == "yield")
-             m_cudaSchedule = 2;
-         else if (mode == "sync")
-             m_cudaSchedule = 4;
-         else {
-             cerr << "Bad " << arg << "option: " << argv[i] << endl;
-             throw;
-         }
-     } else if (arg == "--cuda-streams" && i + 1 < argc) {
-         m_numStreams = stol(argv[++i]);
-     } else if (arg == "--cuda-noeval") {
-         m_cudaNoEval = true;
-     } else if ((arg == "-L" || arg == "--dag-load-mode") && i + 1 < argc) {
-         string mode = argv[++i];
-         if (mode == "parallel") {
-             m_dagLoadMode = DAG_LOAD_MODE_PARALLEL;
-         } else if (mode == "sequential") {
-             m_dagLoadMode = DAG_LOAD_MODE_SEQUENTIAL;
-         } else if (mode == "single") {
-             m_dagLoadMode = DAG_LOAD_MODE_SINGLE;
-             try {
-                 m_dagCreateDevice = stol(argv[++i]);
-             } catch (...) {
-                 cerr << "Bad " << arg << " option: " << argv[i] << endl;
-                 --i;
-                 throw;
-             }
-         } else {
-             cerr << "Bad " << arg << " option: " << argv[i] << endl;
-             throw;
-         }
-     }
+    const char* CUDAGroup =   "CUDA Options";
 #endif
-     else if ((arg == "--exit")) {
-         m_exit = true;
-     } else if (arg == "--benchmark-warmup" && i + 1 < argc) {
-        try {
-            m_benchmarkWarmup = stol(argv[++i]);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
+    CLI::App app("Ethminer - GPU Ethereum miner");
+
+    bool help = false;
+    app.set_help_flag();
+    app.add_flag("-h,--help", help, "Show help")
+        ->group(CommonGroup);
+
+    bool vers = false;
+    app.add_flag("-V,--version", vers,
+            "Show program version")
+        ->group(CommonGroup);
+
+    app.add_option("-v,--verbosity", g_logVerbosity,
+            "Set log verbosity level", true)
+        ->group(CommonGroup)
+        ->check(CLI::Range(9));
+
+    app.add_option("--farm-recheck", m_farmRecheckPeriod,
+            "Set check interval in ms.for changed work", true)
+        ->group(CommonGroup)
+        ->check(CLI::Range(1, 99999));
+
+    app.add_option("--farm-retries", m_maxFarmRetries,
+            "Set number of reconnection retries", true)
+        ->group(CommonGroup)
+        ->check(CLI::Range(1, 99999));
+
+    app.add_option("--stratum-email", m_email,
+            "Set email address for eth-proxy")
+        ->group(CommonGroup);
+
+    app.add_option("--work-timeout", m_worktimeout,
+            "Set disconnect timeout in seconds of working on the same job", true)
+        ->group(CommonGroup)
+        ->check(CLI::Range(1, 99999));
+
+    app.add_option("--response-timeout", m_responsetimeout,
+            "Set disconnect timeout in seconds for pool responses", true)
+        ->group(CommonGroup)
+        ->check(CLI::Range(2, 999));
+
+    app.add_flag("-R,--report-hashrate", m_report_stratum_hashrate,
+            "Report current hashrate to pool")
+        ->group(CommonGroup);
+
+    app.add_option("--display-interval", m_displayInterval,
+            "Set mining stats log interval in seconds", true)
+        ->group(CommonGroup)
+        ->check(CLI::Range(1, 99999));
+
+    unsigned hwmon;
+    auto hwmon_opt = app.add_option("--HWMON", hwmon,
+            "0 - Displays gpu temp, fan percent. 1 - and power usage."
+            " Note for Linux: The program uses sysfs for power, which requires running with root privileges.");
+    hwmon_opt->group(CommonGroup)
+        ->check(CLI::Range(1));
+
+    app.add_flag("--exit", m_exit,
+            "Stops the miner whenever an error is encountered")
+        ->group(CommonGroup);
+    std::vector<std::string> pools;
+    app.add_option("-P,--pool,pool", pools,
+            "Specify one or more pool URLs. See below for URL syntax")
+        ->group(CommonGroup);
+#if ETH_ETHASHCL || ETH_ETHASHCUDA
+    app.add_flag("--list-devices", m_shouldListDevices,
+            "List the detected OpenCL/CUDA devices and exit. Should be combined with -G, -U, or -X flag")
+        ->group(CommonGroup);
+#endif
+#if ETH_ETHASHCL
+    app.add_option("--opencl-platform", m_openclPlatform,
+            "Use OpenCL platform n", true)
+        ->group(OpenCLGroup);
+
+    app.add_option("--opencl-device,--opencl-devices", m_openclDevices,
+            "Select list of devices to mine on (default: use all available)")
+        ->group(OpenCLGroup);
+
+    app.add_set("--cl-parallel-hash", m_openclThreadsPerHash, {1, 2, 4, 8},
+            "Set the number of threads per hash", true)
+        ->group(OpenCLGroup);
+
+    app.add_option("--cl-global-work", m_globalWorkSizeMultiplier,
+            "Set the global work size multipler", true)
+        ->group(OpenCLGroup)
+        ->check(CLI::Range(1, 999999999));
+
+    app.add_option("--cl-local-work", m_localWorkSize,
+            "Set the local work size", true)
+        ->group(OpenCLGroup)
+        ->check(CLI::Range(32, 99999));
+#endif
+#if ETH_ETHASHCUDA
+    app.add_option("--cuda-grid-size", m_cudaGridSize,
+            "Set the grid size", true)
+        ->group(CUDAGroup)
+        ->check(CLI::Range(1, 999999999));
+
+    app.add_option("--cuda-block-size", m_cudaBlockSize,
+            "Set the block size", true)
+        ->group(CUDAGroup)
+        ->check(CLI::Range(1, 999999999));
+
+    app.add_option("--cuda-devices", m_cudaDevices,
+            "Select list of devices to mine on (default: use all available)")
+        ->group(CUDAGroup);
+
+    app.add_set("--cuda-parallel-hash", m_cudaParallelHash, {1, 2, 4, 8},
+            "Set the number of hashes per kernel", true)
+        ->group(CUDAGroup);
+
+    string sched = "sync";
+    app.add_set("--cuda-schedule", sched, {"auto", "spin", "yield", "sync"},
+            "Set the scheduler mode", true)
+        ->group(CUDAGroup);
+
+    app.add_option("--cuda-streams", m_numStreams,
+            "Set the number of streams", true)
+        ->group(CUDAGroup)
+        ->check(CLI::Range(1, 99));
+#endif
+    app.add_flag("--noeval", m_noEval,
+            "Bypass host software re-evaluation of GPU solutions")
+        ->group(CommonGroup);
+
+    app.add_option("-L,--dag-load-mode", m_dagLoadMode,
+            "Set the DAG load mode. 0=parallel, 1=sequential, 2=sequential", true)
+        ->group(CommonGroup)
+        ->check(CLI::Range(2));
+
+    app.add_option("--dag-single-dev", m_dagCreateDevice,
+            "Set the DAG creation device in single mode", true)
+        ->group(CommonGroup);
+
+    app.add_option("--benchmark-warmup", m_benchmarkWarmup,
+            "Set the duration in seconds of warmup for the benchmark tests", true)
+        ->group(CommonGroup);
+
+    app.add_option("--benchmark-trial", m_benchmarkTrial,
+            "Set the number of benchmark trials to run", true)
+        ->group(CommonGroup)
+        ->check(CLI::Range(1, 99));
+
+    bool cl_miner = false;
+    app.add_flag("-G,--opencl", cl_miner,
+            "When mining use the GPU via OpenCL")
+        ->group(CommonGroup);
+
+    bool cuda_miner = false;
+    app.add_flag("-U,--cuda", cuda_miner,
+            "When mining use the GPU via CUDA")
+        ->group(CommonGroup);
+
+    bool mixed_miner = false;
+    app.add_flag("-X,--cuda-opencl", mixed_miner,
+            "When mining with mixed AMD(OpenCL) and CUDA GPUs")
+        ->group(CommonGroup);
+
+    auto bench_opt = app.add_option("-M,--benchmark", m_benchmarkBlock,
+            "Benchmark mining and exit; Specify block number to benchmark against specific DAG", true);
+    bench_opt->group(CommonGroup);
+
+    auto sim_opt = app.add_option("-Z,--simulation", m_benchmarkBlock,
+            "Mining test. Used to validate kernel optimizations. Specify block number", true);
+    sim_opt->group(CommonGroup);
+
+    app.add_option("--tstop", m_tstop,
+            "Stop mining on a GPU if temperature exceeds value. 0 is disabled, valid: 30..100", true)
+        ->group(CommonGroup)
+        ->check(CLI::Range(30, 100));
+
+    app.add_option("--tstart", m_tstart,
+            "Restart mining on a GPU if the temperature drops below, valid: 30..100", true)
+        ->group(CommonGroup)
+        ->check(CLI::Range(30, 100));
+    app.add_option("--coinbase-addr", m_coinbase_addr,
+            "iCoinbase address")
+        ->group(CommonGroup);
+
+
+    std::stringstream ssHelp;
+    ssHelp
+        << "Pool URL Specification:" << endl
+        << "    URL takes the form: scheme://user[:password]@hostname:port[/emailaddress]." << endl
+        << "    for getwork use one of the following schemes:" << endl
+        << "      " << URI::KnownSchemes(ProtocolFamily::GETWORK) << endl
+        << "    for stratum use one of the following schemes: "<< endl
+        << "      " << URI::KnownSchemes(ProtocolFamily::STRATUM) << endl
+        << "    Stratum variants:" << endl
+        << "      stratum:  official stratum spec: ethpool, ethermine, coinotron, mph, nanopool (default)" << endl
+        << "      stratum1: eth-proxy compatible: dwarfpool, f2pool, nanopool (required for hashrate reporting to work with nanopool)" << endl
+        << "      stratum2: EthereumStratum/1.0.0: nicehash" << endl
+        << "    Example 1: stratum+ssl://0x012345678901234567890234567890123.miner1@ethermine.org:5555" << endl
+        << "    Example 2: stratum1+tcp://0x012345678901234567890234567890123.miner1@nanopool.org:9999/john.doe@gmail.com" << endl
+        << "    Example 3: stratum1+tcp://0x012345678901234567890234567890123@nanopool.org:9999/miner1/john.doe@gmail.com"
+        << endl << endl
+        << "Environment Variables:" << endl
+        << "    NO_COLOR - set to any value to disable color output. Unset to re-enable color output." << endl
+        << "    SYSLOG   - set to any value to strip time and disable color from output, for logging under systemd";
+    app.set_footer(ssHelp.str());
+
+    try {
+        app.parse(argc, argv);
+        if (help) {
+            std::cerr << endl << app.help() << endl;
+            exit(0);
+        } else if (vers) {
+            version();
+            exit(0);
         }
-    } else if (arg == "--benchmark-trial" && i + 1 < argc) {
-        try {
-            m_benchmarkTrial = stol(argv[++i]);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
+    } catch(const CLI::ParseError &e) {
+        cerr << endl << e.what() << "\n\n";
+        exit(-1);
+    }
+
+    if (hwmon_opt->count()) {
+        m_show_hwmonitors = true;
+        if (hwmon)
+            m_show_power = true;
+    }
+
+    if (m_minerExecutionMode != MinerExecutionMode::kCPU) {
+        if (!cl_miner && !cuda_miner && !mixed_miner && !bench_opt->count() && !sim_opt->count()) {
+            cerr << endl << "One of -G, -U, -X, -M, or -Z must be specified" << "\n\n";
+            exit(-1);
         }
-    } else if (arg == "--benchmark-trials" && i + 1 < argc) {
-        try {
-            m_benchmarkTrials = stol(argv[++i]);
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
-    } else if (arg == "-G" || arg == "--opencl") {
+    }
+
+    if (cl_miner) {
         m_minerExecutionMode = MinerExecutionMode::kCL;
-    } else if (arg == "-U" || arg == "--cuda") {
+    } else if (cuda_miner) {
         m_minerExecutionMode = MinerExecutionMode::kCUDA;
-    } else if (arg == "-X" || arg == "--cuda-opencl") {
+    } else if (mixed_miner) {
         m_minerExecutionMode = MinerExecutionMode::kMixed;
-    } else if (arg == "-M" || arg == "--benchmark") {
+    }
+    if (bench_opt->count()) {
         m_mode = OperationMode::Benchmark;
-        if (i + 1 < argc) {
-            std::string m = boost::to_lower_copy(string(argv[++i]));
-            try {
-                m_benchmarkBlock = stol(m);
-            } catch (...) {
-                if (argv[i][0] == 45) { // check next arg
-                    i--;
-                } else {
-                    cerr << "Bad " << arg << " option: " << argv[i] << endl;
-                    throw;
-                }
-            }
-        }
-    } else if (arg == "-Z" || arg == "--simulation") {
+    } else if (sim_opt->count()) {
         m_mode = OperationMode::Simulation;
-        if (i + 1 < argc) {
-            string m = boost::to_lower_copy(string(argv[++i]));
-            try {
-                m_benchmarkBlock = stol(m);
-            } catch (...) {
-                if (argv[i][0] == 45) { // check next arg
-                    i--;
-                } else {
-                    cerr << "Bad " << arg << " option: " << argv[i] << endl;
-                    throw;
-                }
-            }
-        }
-    } else if ((arg == "-P") && (i + 1 < argc)) {
-        std::string url = argv[++i];
-        if (url == "exit") { // add fake scheme and port to 'exit' url
+    }
+    for (auto url : pools) {
+        if (url == "exit") // add fake scheme and port to 'exit' url
             url = "stratum+tcp://-:x@exit:0";
-        }
         URI uri;
         try {
             uri = url;
         } catch (...) {
-            cerr << "Bad endpoint address: " << url << endl;
-            throw;
-        } if (!uri.KnownScheme()) {
-            cerr << "Unknown URI scheme " << uri.Scheme() << endl;
-            throw;
+            cerr << endl << "Bad endpoint address: " << url << "\n\n";
+            exit(-1);
+        }
+        if (!uri.KnownScheme()) {
+            cerr << endl << "Unknown URI scheme " << uri.Scheme() << "\n\n";
+            exit(-1);
         }
         m_endpoints.push_back(uri);
 
@@ -299,50 +293,44 @@ bool MinerCLI::interpretOption(int& i, int argc, char** argv)
                 mode = OperationMode::GBT;
                 break;
         }
+        //if ((m_mode != OperationMode::None) && (m_mode != mode)) {
+        //    cerr << endl << "Mixed stratum and getwork endpoints not supported." << "\n\n";
+        //    exit(-1);
+        //}
         m_mode = mode;
-    //} else if ((arg == "-t" || arg == "--mining-threads") && i + 1 < argc) {
-    //    try {
-    //        m_miningThreads = stol(argv[++i]);
-    //    } catch (...) {
-    //        cerr << "Bad " << arg << " option: " << argv[i] << endl;
-    //        throw;
-    //    }
-    } else if ((arg == "--tstop") && i + 1 < argc) {
-        try {
-            m_tstop = stoul(argv[++i]);
-            if (m_tstop != 0 && (m_tstop < 30 || m_tstop > 100)) {
-                cerr << "Bad " << arg << " option: " << argv[i] << endl;
-                throw;
-            }
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
-    } else if ((arg == "--tstart") && i + 1 < argc) {
-        try {
-            m_tstart = stoul(argv[++i]);
-            if (m_tstart < 30 || m_tstart > 100) {
-                cerr << "Bad " << arg << " option: " << argv[i] << endl;
-                throw;
-            }
-        } catch (...) {
-            cerr << "Bad " << arg << " option: " << argv[i] << endl;
-            throw;
-        }
-    } else {
-        return false;
     }
-    // Sanity check --tstart/--tstop
-    if (m_tstop && m_tstop <= m_tstart) {
-        cerr << "--tstop must be greater than --tstart !" << endl;
-        throw;
+
+    if ((m_mode == OperationMode::None) && !m_shouldListDevices) {
+        cerr << endl << "At least one pool URL must be specified" << "\n\n";
+        exit(-1);
+    }
+
+#if ETH_ETHASHCL
+    m_openclDeviceCount = m_openclDevices.size();
+#endif
+
+#if ETH_ETHASHCUDA
+    m_cudaDeviceCount = m_cudaDevices.size();
+    if (sched == "auto") {
+        m_cudaSchedule = 0;
+    } else if (sched == "spin") {
+        m_cudaSchedule = 1;
+    } else if (sched == "yield") {
+        m_cudaSchedule = 2;
+    } else if (sched == "sync") {
+        m_cudaSchedule = 4;
+    }
+#endif
+
+    if (m_tstop && (m_tstop <= m_tstart)) {
+        cerr << endl << "tstop must be greater than tstart" << "\n\n";
+        exit(-1);
     }
     if (m_tstop && !m_show_hwmonitors) {
         // if we want stop mining at a specific temperature, we have to
         // monitor the temperature ==> so auto enable HWMON.
         m_show_hwmonitors = true;
     }
-    return true;
 }
 
 void MinerCLI::execute()
@@ -404,7 +392,7 @@ void MinerCLI::execute()
                     m_cudaSchedule,
                     m_dagLoadMode,
                     m_dagCreateDevice,
-                    m_cudaNoEval,
+                    m_noEval,
                     m_exit
                     )) {
             stop_io_service();
@@ -504,7 +492,7 @@ void MinerCLI::doMiner()
 {
     PoolClient* client = nullptr;
     if (m_mode == OperationMode::GBT) {
-			client = new GetworkClient(m_farmRecheckPeriod, coinbase_addr_);
+			client = new GetworkClient(m_farmRecheckPeriod, m_coinbase_addr);
     } else if (m_mode == OperationMode::Stratum) {
         client = new StratumClient(m_io_service, m_worktimeout, m_responsetimeout, m_email, m_report_stratum_hashrate);
     } else {
