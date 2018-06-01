@@ -231,6 +231,7 @@ struct WorkingProgress
     uint64_t rate() const { return ms == 0 ? 0 : hashes * 1000 / ms; }
 
     std::map<std::string, uint64_t> minersHashes; // maps a miner's device name to it's hash count
+    std::map<std::string, bool> miningIsPaused;
     std::map<std::string, HwMonitor> minerMonitors;
 
     uint64_t minerRate(const uint64_t hashCount) const
@@ -246,6 +247,12 @@ inline std::ostream& operator<<(std::ostream& _out, WorkingProgress _p)
         << EthTealBold << std::fixed << std::setw(6) << std::setprecision(2) << mh << EthReset
         << " Mh/s    ";
     for (auto const & i : _p.minersHashes) {
+        auto pauseIter = _p.miningIsPaused.find(i.first);
+        if (pauseIter != _p.miningIsPaused.end()) {
+            if (pauseIter->second) {
+                _out << EthRed;
+            }
+        }
         mh = _p.minerRate(i.second) / 1000000.0f;
         _out << i.first << " " << EthTeal << std::fixed << std::setw(5) << std::setprecision(2) << mh << EthReset << "  ";
         auto iter = _p.minerMonitors.find(i.first);

@@ -93,6 +93,10 @@ void CUDAMiner::trun()
     try {
         unsigned int nExtraNonce = 0;
         while(!shouldStop()) {
+            if (is_mining_paused()) {
+                std::this_thread::sleep_for(std::chrono::seconds(3));
+                continue;
+            }
             Work work = this->getWork();
             if(!work.isValid()) {
                 cnote << "No work. Pause for 1 s.";

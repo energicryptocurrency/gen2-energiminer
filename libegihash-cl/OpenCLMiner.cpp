@@ -389,6 +389,10 @@ void OpenCLMiner::trun()
     try {
         unsigned int nExtraNonce = 0;
         while (!shouldStop()) {
+            if (is_mining_paused()) {
+                std::this_thread::sleep_for(std::chrono::seconds(3));
+                continue;
+            }
             Work work = this->getWork(); // This work is a copy of last assigned work the worker was provided by plant
             if ( !work.isValid() ) {
                 cdebug << "No work received. Pause for 1 s.";

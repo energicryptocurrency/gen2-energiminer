@@ -72,6 +72,18 @@ public:
     void stop();
 
     uint64_t get_nonce_scumbler() const override;
+    //! Temperature
+    void setTStartTStop(unsigned tstart, unsigned tstop);
+    unsigned get_tstart() const override
+    {
+        return m_tstart;
+    }
+
+    unsigned get_tstop() const override
+    {
+        return m_tstop;
+    }
+
     void set_pool_addresses(const std::string& host, unsigned port);
     const std::string& get_pool_addresses() const;
 
@@ -143,6 +155,8 @@ private:
 
     std::string                             m_pool_addresses;
     uint64_t                                m_nonceScumbler;
+    unsigned m_tstart;
+    unsigned m_tstop;
 
     wrap_nvml_handle *nvmlh = nullptr;
     wrap_adl_handle *adlh = nullptr;

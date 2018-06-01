@@ -211,6 +211,7 @@ const WorkingProgress& MinePlant::miningProgress(bool hwmon, bool power) const
     p.ms = 0;
     p.hashes = 0;
     for (auto const& i : m_miners) {
+        p.miningIsPaused.insert(std::make_pair<std::string, bool>(i->name(), i->is_mining_paused()));
         p.minersHashes.insert(std::make_pair<std::string, uint64_t>(i->name(), 0));
         if (hwmon) {
             HwMonitorInfo hwInfo = i->hwmonInfo();
@@ -264,11 +265,12 @@ const WorkingProgress& MinePlant::miningProgress(bool hwmon, bool power) const
                 }
 #endif
             }
+            i->update_temperature(tempC);
+
             hw.tempC = tempC;
             hw.fanP = fanpcnt;
             hw.powerW = powerW/((double)1000.0);
             p.minerMonitors[i->name()] = hw;
-            //p.minerMonitors.insert(std::make_pair<std::string, HwMonitor>(i->name(), hw));
         }
     }
 
@@ -281,6 +283,12 @@ const WorkingProgress& MinePlant::miningProgress(bool hwmon, bool power) const
     }
     m_progress = p;
     return m_progress;
+}
+
+void MinePlant::setTStartTStop(unsigned tstart, unsigned tstop)
+{
+    m_tstart = tstart;
+    m_tstop = tstop;
 }
 
 void MinePlant::processHashRate(const boost::system::error_code& ec)

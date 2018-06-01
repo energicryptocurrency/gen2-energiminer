@@ -163,3 +163,34 @@ void Miner::InitDAG(nrghash::progress_callback_type callback)
     }
     printf("\nDAG has been initialized already. Use ActiveDAG() to swap.\n");
 }
+
+void Miner::update_temperature(unsigned temperature)
+{
+    /*
+       cnote << "Setting temp" << temperature << " for gpu" << index <<
+       " tstop=" << farm.get_tstop() << " tstart=" << farm.get_tstart();
+       */
+    bool _wait_for_tstart_temp = m_wait_for_tstart_temp.load(std::memory_order_relaxed);
+    if(!_wait_for_tstart_temp) {
+        unsigned tstop = m_plant.get_tstop();
+        if (tstop && temperature >= tstop) {
+            cwarn << "Pause mining on gpu" << m_index << " due -tstop";
+            m_wait_for_tstart_temp.store(true, std::memory_order_relaxed);
+        }
+    } else {
+        unsigned tstart = m_plant.get_tstart();
+        if (tstart && temperature <= tstart) {
+            cnote << "(Re)starting mining on gpu" << m_index << " due -tstart";
+            m_wait_for_tstart_temp.store(false, std::memory_order_relaxed);
+        }
+    }
+}
+
+bool Miner::is_mining_paused() const
+{
+    bool _wait_for_tstart_temp = m_wait_for_tstart_temp.load(std::memory_order_relaxed);
+    if (_wait_for_tstart_temp)
+        return true;
+    /* Add here some other reasons why mining on the GPU is paused */
+    return false;
+}
