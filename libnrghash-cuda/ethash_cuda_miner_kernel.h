@@ -63,8 +63,8 @@ void set_target(
 	);
 
 void run_ethash_search(
-	uint32_t search_batch_size,
-	uint32_t workgroup_size,
+	uint32_t gridSize,
+	uint32_t blockSize,
 	cudaStream_t stream,
 	volatile search_results* g_output,
 	uint64_t start_nonce,
@@ -75,8 +75,7 @@ void ethash_generate_dag(
 	uint64_t dag_size,
 	uint32_t blocks,
 	uint32_t threads,
-	cudaStream_t stream,
-	int device
+	cudaStream_t stream
 	);
 
 struct cuda_runtime_error : public virtual std::runtime_error

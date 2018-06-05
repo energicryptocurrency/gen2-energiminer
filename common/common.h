@@ -10,7 +10,6 @@
 
 #include "Log.h"
 #include "portable_endian.h"
-#include <boost/asio.hpp>
 #include <cstdint>
 #include <cstring>
 #include <iomanip>

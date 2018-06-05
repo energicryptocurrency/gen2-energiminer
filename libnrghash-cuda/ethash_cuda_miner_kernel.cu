@@ -16,7 +16,7 @@
 #include "dagger_shuffled.cuh"
 
 template <uint32_t _PARALLEL_HASH>
-__global__ void 
+__global__ void
 ethash_search(
 	volatile search_results* g_output,
 	uint64_t start_nonce
@@ -41,8 +41,8 @@ ethash_search(
 }
 
 void run_ethash_search(
-	uint32_t blocks,
-	uint32_t threads,
+	uint32_t gridSize,
+	uint32_t blockSize,
 	cudaStream_t stream,
 	volatile search_results* g_output,
 	uint64_t start_nonce,
@@ -51,11 +51,11 @@ void run_ethash_search(
 {
 	switch (parallelHash)
 	{
-		case 1: ethash_search <1> <<<blocks, threads, 0, stream >>>(g_output, start_nonce); break;
-		case 2: ethash_search <2> <<<blocks, threads, 0, stream >>>(g_output, start_nonce); break;
-		case 4: ethash_search <4> <<<blocks, threads, 0, stream >>>(g_output, start_nonce); break;
-		case 8: ethash_search <8> <<<blocks, threads, 0, stream >>>(g_output, start_nonce); break;
-		default: ethash_search <4> <<<blocks, threads, 0, stream >>>(g_output, start_nonce); break;
+		case 1: ethash_search <1> <<<gridSize, blockSize, 0, stream >>>(g_output, start_nonce); break;
+		case 2: ethash_search <2> <<<gridSize, blockSize, 0, stream >>>(g_output, start_nonce); break;
+		case 4: ethash_search <4> <<<gridSize, blockSize, 0, stream >>>(g_output, start_nonce); break;
+		case 8: ethash_search <8> <<<gridSize, blockSize, 0, stream >>>(g_output, start_nonce); break;
+		default: ethash_search <4> <<<gridSize, blockSize, 0, stream >>>(g_output, start_nonce); break;
 	}
 	CUDA_SAFE_CALL(cudaGetLastError());
 }
@@ -110,18 +110,15 @@ void ethash_generate_dag(
 	uint64_t dag_size,
 	uint32_t blocks,
 	uint32_t threads,
-	cudaStream_t stream,
-	int device
+	cudaStream_t stream
 	)
 {
-	uint32_t const work = (uint32_t)(dag_size / sizeof(hash64_t));
+	const uint32_t work = (uint32_t)(dag_size / sizeof(hash64_t));
+	const uint32_t run = blocks * threads;
 
-	uint32_t fullRuns = work / (blocks * threads);
-	uint32_t const restWork = work % (blocks * threads);
-	if (restWork > 0) fullRuns++;
-	for (uint32_t i = 0; i < fullRuns; i++)
+	for (uint32_t base = 0; base < work; base += run)
 	{
-		ethash_calculate_dag_item <<<blocks, threads, 0, stream >>>(i * blocks * threads);
+		ethash_calculate_dag_item <<<blocks, threads, 0, stream>>>(base);
 		CUDA_SAFE_CALL(cudaDeviceSynchronize());
 	}
 	CUDA_SAFE_CALL(cudaGetLastError());

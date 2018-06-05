@@ -11,6 +11,7 @@
 #include "plant.h"
 #include "miner.h"
 #include "primitives/solution.h"
+#include <boost/asio.hpp>
 
 
 #include <memory>

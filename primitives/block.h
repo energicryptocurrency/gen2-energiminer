@@ -137,7 +137,6 @@ struct Block : public BlockHeader
         if (coinbaseAddress.empty()) {
             auto obj = ExtraNonceSingleton::getInstance();
             std::string hexData = coinbase1 + extraNonce + obj->genAndSendExtraNonce() + coinbase2;
-            //std::reverse(hexData.begin(), hexData.end());
             CTransaction coinbaseTx;
             DecodeHexTx(coinbaseTx, hexData);
             vtx.push_back(coinbaseTx);
