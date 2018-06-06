@@ -36,7 +36,12 @@ struct Work : public Block
     Work(Work &&) = default; // -> Blank work for comparisons
     Work& operator=(Work &&) = default;
     Work(const Work &) = default; // -> Blank work for comparisons
-    Work(const Json::Value &gbt, const std::string &coinbase_addr, const std::string& job = std::string()); // -> coinbase to transfer miners reward
+    Work(const Json::Value& gbt,
+         const std::string& coinbase_addr,
+         const std::string& coinbase1 = std::string(),
+         const std::string& coinbase2 = std::string(),
+         const std::string& job = std::string(),
+         const std::string& extraNonce = std::string()); // -> coinbase to transfer miners reward
     Work& operator=(const Work &) = default;
 
     bool operator==(const Work& other) const
@@ -77,10 +82,21 @@ struct Work : public Block
         READWRITE(*(Block*)this);
     }
 
+    inline uint64_t getExtraNonce() const
+    {
+        return std::strtol(m_extraNonce.c_str(), nullptr, 16);
+    }
+
+    void setExtraNonce(const std::string& exNonce)
+    {
+        m_extraNonce = exNonce;
+    }
+
 
     //!TODO keep only this part
     int            exSizeBits = -1;
     std::string    m_jobName;
+    std::string    m_extraNonce;
     arith_uint256  hashTarget;
 
     std::string ToString() const

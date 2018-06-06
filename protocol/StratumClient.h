@@ -75,6 +75,7 @@ public:
     boost::asio::deadline_timer m_worktimer;
 
     double m_nextWorkDifficulty;
+    std::string m_extraNonce;
     int m_extraNonceHexSize;
 
 	void processExtranonce(std::string& enonce);

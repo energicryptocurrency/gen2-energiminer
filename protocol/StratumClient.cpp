@@ -41,6 +41,7 @@ void StratumClient::processExtranonce(std::string& enonce)
     for (int i = enonce.length(); i < 16; ++i) {
         enonce += "0";
     }
+    m_extraNonce = enonce;
 }
 
 StratumClient::~StratumClient()
@@ -62,15 +63,11 @@ void StratumClient::setFailover(const std::string& failOverURL)
 
 bool StratumClient::submit(const energi::Solution& solution)
 {
-    std::string solutionNonce = std::to_string(solution.m_nonce);
-    std::string minernonce;
-    std::string nonceHex = energi::GetHex(reinterpret_cast<uint8_t*>(&solutionNonce[0]), 8);
-    minernonce = nonceHex.substr(m_extraNonceHexSize, 16 - m_extraNonceHexSize);
     std::ostream os(&m_requestBuffer);
     os << "{\"id\": 4, \"method\": \"mining.submit\", \"params\": [\"" +
             p_active->user + "\",\"" + solution.getJobName() +
-            "\",\"" + minernonce + "\", \"" + solution.getTime() +
-            "\", \"" + minernonce + "\", \"" + solution.m_mixhash.GetHex() + "\"]}\n";
+            "\",\"" + solution.getExtraNonce() + "\", \"" + solution.getTime() +
+            "\", \"" + std::to_string(solution.m_nonce) + "\", \"" + solution.m_mixhash.GetHex() + "\"]}\n";
     write(m_socket, m_requestBuffer);
     cnote << "Solution found; Submitted to" << p_active->host;
     return true;
@@ -184,9 +181,10 @@ bool StratumClient::processResponse(Json::Value& responseObject)
                 params = responseObject.get(workattr, Json::Value::null);
                 if (params.isArray()) {
                     auto workGBT = params.get((Json::Value::ArrayIndex)0, "");
-                    const auto& master = workGBT["masternode"];
                     std::string job = params.get((Json::Value::ArrayIndex)1, "").asString();
-                    m_current = energi::Work(workGBT, master["payee"].asString(), job);
+                    std::string coinbase1 = params.get((Json::Value::ArrayIndex)3, "").asString();
+                    std::string coinbase2 = params.get((Json::Value::ArrayIndex)4, "").asString();
+                    m_current = energi::Work(workGBT, std::string(), coinbase1, coinbase2, job, m_extraNonce);
                     m_current.exSizeBits = m_extraNonceHexSize * 4;
                     m_worktimer.cancel();
                     m_worktimer.expires_from_now(boost::posix_time::seconds(m_worktimeout));

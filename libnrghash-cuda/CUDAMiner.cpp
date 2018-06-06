@@ -90,6 +90,7 @@ void CUDAMiner::trun()
     Work current;
     uint64_t startNonce = 0;
     try {
+        unsigned int nExtraNonce = 0;
         while(!shouldStop()) {
             Work work = this->getWork();
             if(!work.isValid()) {
@@ -103,6 +104,7 @@ void CUDAMiner::trun()
                 //cudalog << name() << "Valid work.";
             }
 
+            work.incrementExtraNonce(nExtraNonce);
             if (current != work) {
                 if (!m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
                     init_dag(work.nHeight);
@@ -119,7 +121,7 @@ void CUDAMiner::trun()
                 assert(upper64OfBoundary > 0);
                 startNonce = m_nonceStart.load();
 
-                search(hash_header.data(), upper64OfBoundary, (current.exSizeBits >= 0), startNonce, work);
+                search(hash_header.data(), upper64OfBoundary, (current.exSizeBits >= 0), startNonce, work, nExtraNonce);
             }
         }
 
@@ -410,7 +412,8 @@ void CUDAMiner::search(
     uint64_t target,
     bool _ethStratum,
     uint64_t startNonce,
-    Work& work)
+    Work& work,
+    unsigned& nExtraNonce)
 {
     set_header(*reinterpret_cast<hash32_t const *>(header));
     if (m_current_target != target) {
@@ -484,7 +487,7 @@ void CUDAMiner::search(
                     if (s_noeval) {
                         work.nNonce = nonces[i];
                         cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
-                        Solution solution(work, nonces[i], work.hashMix);
+                        Solution solution(work, nonces[i], nExtraNonce, work.hashMix);
                         m_plant.submit(solution);
                         addHashCount(batch_size);
                         break;
@@ -493,7 +496,7 @@ void CUDAMiner::search(
                         auto const powHash = GetPOWHash(work);
                         if (UintToArith256(powHash) <= work.hashTarget) {
                             cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
-                            Solution solution(work, nonces[i], work.hashMix);
+                            Solution solution(work, nonces[i], nExtraNonce, work.hashMix);
                             m_plant.submit(solution);
                             addHashCount(batch_size);
                             break;
