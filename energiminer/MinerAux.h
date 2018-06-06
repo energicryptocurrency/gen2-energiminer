@@ -187,7 +187,7 @@ private:
 	unsigned m_cudaSchedule = 4; // sync
 	unsigned m_cudaGridSize = CUDAMiner::c_defaultGridSize;
 	unsigned m_cudaBlockSize = CUDAMiner::c_defaultBlockSize;
-	unsigned m_parallelHash    = 4;
+	unsigned m_cudaParallelHash    = 4;
 #endif
 
 	unsigned m_dagLoadMode = 0; // parallel

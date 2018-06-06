@@ -397,7 +397,7 @@ void MinerCLI::execute()
             stop_io_service();
             exit(1);
         }
-        CUDAMiner::setParallelHash(m_parallelHash);
+        CUDAMiner::setParallelHash(m_cudaParallelHash);
 #else
         cerr << "CUDA support disabled. Configure project build with -DETHASHCUDA=ON" << endl;
         stop_io_service();
