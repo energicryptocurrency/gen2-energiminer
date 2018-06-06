@@ -338,17 +338,16 @@ void MinerCLI::execute()
     if (m_shouldListDevices) {
 #if ETH_ETHASHCL
         if (m_minerExecutionMode == MinerExecutionMode::kCL ||
-                m_minerExecutionMode == MinerExecutionMode::kMixed) {
+                m_minerExecutionMode == MinerExecutionMode::kMixed)
             OpenCLMiner::listDevices();
 #endif
 #if ETH_ETHASHCUDA
         if (m_minerExecutionMode == MinerExecutionMode::kCUDA ||
-                m_minerExecutionMode == MinerExecutionMode::kMixed) {
+                m_minerExecutionMode == MinerExecutionMode::kMixed)
             CUDAMiner::listDevices();
 #endif
-            stop_io_service();
-            return;
-        }
+        stop_io_service();
+        return;
     }
 
     if (m_minerExecutionMode == MinerExecutionMode::kCL ||
