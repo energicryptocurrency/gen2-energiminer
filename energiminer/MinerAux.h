@@ -25,10 +25,10 @@
 #include <jsonrpccpp/client/connectors/httpclient.h>
 
 #include "nrghash/nrghash.h"
-#include "energiminer/common/common.h"
-#include "energiminer/solution.h"
-#include "energiminer/work.h"
-#include "energiminer/mineplant.h"
+#include "common/common.h"
+#include "primitives/solution.h"
+#include "primitives/work.h"
+#include "nrgcore/mineplant.h"
 
 
 #include <memory>
@@ -52,7 +52,14 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/trim_all.hpp>
 #include <boost/optional.hpp>
+
+#ifdef ETH_ETHASHCL
 #include "libegihash-cl/OpenCLMiner.h"
+#endif
+
+#ifdef ETH_ETHASHCUDA
+#include "libnrghash-cuda/CUDAMiner.h"
+#endif
 
 // Win32 GetMessage macro intereferes with jsonrpc::JsonRpcException::GetMessage() member function
 #if defined(_WIN32) && defined(GetMessage)
@@ -103,9 +110,29 @@ public:
 			<< "    --opencl-devices <0 1 ..n> Select which OpenCL devices to mine on. Default is to use all" << endl
 			//<< "    -t, --mining-threads <n> Limit number of CPU/GPU miners to n (default: use everything available on selected platform)" << endl
 			<< "    --list-devices List the detected OpenCL/CUDA devices and exit." << endl
+#if ETH_ETHASHCL
 			<< "    --cl-local-work Set the OpenCL local work size. Default is " << OpenCLMiner::c_defaultLocalWorkSize << endl
 			<< "    --cl-global-work Set the OpenCL global work size as a multiple of the local work size. Default is " << OpenCLMiner::c_defaultGlobalWorkSizeMultiplier << " * " << OpenCLMiner::c_defaultLocalWorkSize << endl
 			//<< "    --cl-parallel-hash <1 2 ..8> Define how many threads to associate per hash. Default=8" << endl
+#endif
+#if ETH_ETHASHCUDA
+			<< " CUDA configuration:" << endl
+			<< "    --cuda-block-size Set the CUDA block work size. Default is " << std::to_string(CUDAMiner::c_defaultBlockSize) << endl
+			<< "    --cuda-grid-size Set the CUDA grid size. Default is " << std::to_string(CUDAMiner::c_defaultGridSize) << endl
+			<< "    --cuda-streams Set the number of CUDA streams. Default is " << std::to_string(CUDAMiner::c_defaultNumStreams) << endl
+			<< "    --cuda-schedule <mode> Set the schedule mode for CUDA threads waiting for CUDA devices to finish work. Default is 'sync'. Possible values are:" << endl
+			<< "        auto  - Uses a heuristic based on the number of active CUDA contexts in the process C and the number of logical processors in the system P. If C > P, then yield else spin." << endl
+			<< "        spin  - Instruct CUDA to actively spin when waiting for results from the device." << endl
+			<< "        yield - Instruct CUDA to yield its thread when waiting for results from the device." << endl
+			<< "        sync  - Instruct CUDA to block the CPU thread on a synchronization primitive when waiting for the results from the device." << endl
+			<< "    --cuda-devices <0 1 ..n> Select which CUDA GPUs to mine on. Default is to use all" << endl
+			<< "    --cuda-parallel-hash <1 2 ..8> Define how many hashes to calculate in a kernel, can be scaled to achieve better performance. Default=4" << endl
+			<< "    --cuda-noeval  bypass host software re-evaluation of GPU solutions." << endl
+			<< "    -L, --dag-load-mode <mode> DAG generation mode." << endl
+			<< "        This will trim some milliseconds off the time it takes to send a result to the pool." << endl
+			<< "        Use at your own risk! If GPU generates errored results they WILL be forwarded to the pool" << endl
+			<< "        Not recommended at high overclock." << endl
+#endif
 			;
 	}
 
@@ -152,19 +179,31 @@ private:
 	unsigned m_miningThreads = 1;
 	bool m_shouldListDevices = false;
 
+#if ETH_ETHASHCL
 	unsigned m_openclDeviceCount = 0;
 	unsigned m_openclDevices[16];
 	unsigned m_openclThreadsPerHash = 8;
 
 	unsigned m_globalWorkSizeMultiplier = energi::OpenCLMiner::c_defaultGlobalWorkSizeMultiplier;
 	unsigned m_localWorkSize = energi::OpenCLMiner::c_defaultLocalWorkSize;
+#endif
+#if ETH_ETHASHCUDA
+	unsigned m_cudaDeviceCount = 0;
+	vector<unsigned> m_cudaDevices = vector<unsigned>(MAX_MINERS, -1);
+	unsigned m_numStreams = CUDAMiner::c_defaultNumStreams;
+	unsigned m_cudaSchedule = 4; // sync
+	unsigned m_cudaGridSize = CUDAMiner::c_defaultGridSize;
+	unsigned m_cudaBlockSize = CUDAMiner::c_defaultBlockSize;
+	bool m_cudaNoEval = false;
+	unsigned m_parallelHash    = 4;
 	unsigned m_dagLoadMode = 0; // parallel
-	unsigned m_dagCreateDevice = 0;
+#endif
 
+	unsigned m_dagCreateDevice = 0;
+    bool m_exit = false;
 
 	/// Benchmarking params
 	unsigned m_benchmarkWarmup = 15;
-	unsigned m_parallelHash    = 4;
 	unsigned m_benchmarkTrial = 3;
 	unsigned m_benchmarkTrials = 5;
 	unsigned m_benchmarkBlock = 0;

@@ -10,8 +10,8 @@ set(HUNTER_CONFIGURATION_TYPES Release)
 set(HUNTER_CACHE_SERVERS "https://github.com/ethereum/hunter-cache")
 include(HunterGate)
 HunterGate(
-    URL "https://github.com/ruslo/hunter/archive/v0.19.86.tar.gz"
-    SHA1 "aafb99b93d466f963d53a39271f20d5074996cb0"
+	URL "https://github.com/ruslo/hunter/archive/v0.20.34.tar.gz"
+	SHA1 "2f04d1beffdf39db1c40d8347beb8c10bbe9b8ed"
 	LOCAL
 )
 
@@ -56,10 +56,16 @@ cmake_policy(SET CMP0054 NEW)
 ######################################################################################################
 
 option(ETHASHCL "Build with OpenCL mining" ON)
+option(ETHASHCUDA "Build with CUDA mining" OFF)
 
 # propagates CMake configuration options to the compiler
 function(configureProject)
-    add_definitions(-DETH_ETHASHCL -Wno-unused-private-field -Wno-unused-function)
+    if (ETHASHCL)
+        add_definitions(-DETH_ETHASHCL)
+    endif()
+	if (ETHASHCUDA)
+        add_definitions(-DETH_ETHASHCUDA)
+	endif()
 endfunction()
 
 function(createBuildInfo)
@@ -114,6 +120,7 @@ message("-- CMake ${CMAKE_VERSION}")
 message("-- Build ${CMAKE_BUILD_TYPE} / ${CMAKE_SYSTEM_NAME}")
 message("------------------------------------------------------------- components")
 message("-- ETHASHCL         Build OpenCL components                  ${ETHASHCL}")
+message("-- ETHASHCUDA       Build CUDA components                    ${ETHASHCUDA}")
 message("------------------------------------------------------------------------")
 message("")
 
@@ -121,7 +128,18 @@ include(EthCompilerSettings)
 
 createBuildInfo()
 
-add_subdirectory(libegihash-cl)
+add_subdirectory(protocol)
+add_subdirectory(primitives)
+add_subdirectory(common)
+add_subdirectory(nrghash)
+add_subdirectory(nrgcore)
+
+if (ETHASHCL)
+    add_subdirectory(libegihash-cl)
+endif()
+if (ETHASHCUDA)
+    add_subdirectory(libnrghash-cuda)
+endif()
 add_subdirectory(energiminer)
 
 
