@@ -99,7 +99,6 @@ to configuration options.
 Pass these options to CMake configuration command, e.g.
 
 ```sh
-sudo apt-get install libudev-dev libjson0 libjson0-dev libcurl4-gnutls-dev
 cmake .. -DETHASHCUDA=ON -DETHASHCL=OFF
 ```
 

@@ -52,9 +52,9 @@ void StratumClient::connect()
     m_authorized.store(false, std::memory_order_relaxed);
 
     // Prepare Socket
-    if (m_conn.SecLevel() != SecureLevel::NONE) {
+    if (m_conn->SecLevel() != SecureLevel::NONE) {
         boost::asio::ssl::context::method method = boost::asio::ssl::context::tls_client;
-        if (m_conn.SecLevel() == SecureLevel::TLS12) {
+        if (m_conn->SecLevel() == SecureLevel::TLS12) {
             method = boost::asio::ssl::context::tlsv12;
         }
         boost::asio::ssl::context ctx(method);
@@ -122,7 +122,7 @@ void StratumClient::connect()
     m_endpoints = std::queue<boost::asio::ip::basic_endpoint<boost::asio::ip::tcp>>();
     m_resolver = tcp::resolver(m_io_service);
 
-    tcp::resolver::query q(m_conn.Host(), toString(m_conn.Port()));
+    tcp::resolver::query q(m_conn->Host(), toString(m_conn->Port()));
     m_resolver.async_resolve(q,
             m_io_strand.wrap(boost::bind(&StratumClient::resolve_handler, this, boost::asio::placeholders::error, boost::asio::placeholders::iterator)));
 }
@@ -151,7 +151,7 @@ void StratumClient::disconnect()
     if (m_socket && m_socket->is_open()) {
         try {
             boost::system::error_code sec;
-            if (m_conn.SecLevel() != SecureLevel::NONE) {
+            if (m_conn->SecLevel() != SecureLevel::NONE) {
                 // This will initiate the exchange of "close_notify" message among parties.
                 // If both client and server are connected then we expect the handler with success
                 // As there may be a connection issue we also endorse a timeout
@@ -174,7 +174,7 @@ void StratumClient::disconnect()
 
 void StratumClient::disconnect_finalize()
 {
-    if (m_conn.SecLevel() != SecureLevel::NONE) {
+    if (m_conn->SecLevel() != SecureLevel::NONE) {
         if (m_securesocket->lowest_layer().is_open()) {
             m_securesocket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
             m_securesocket->lowest_layer().close();
@@ -210,7 +210,7 @@ void StratumClient::resolve_handler(const boost::system::error_code& ec, tcp::re
         m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::start_connect, this)));
     } else {
         // Release locking flag and set connection status
-        cwarn << "Could not resolve host " << m_conn.Host() << ", " << ec.message();
+        cwarn << "Could not resolve host " << m_conn->Host() << ", " << ec.message();
         m_connected.store(false, std::memory_order_relaxed);
         m_connecting.store(false, std::memory_order::memory_order_relaxed);
         // Trigger handlers
@@ -240,7 +240,7 @@ void StratumClient::start_connect()
         m_conntimer.async_wait(m_io_strand.wrap(boost::bind(&StratumClient::check_connect_timeout, this, boost::asio::placeholders::error)));
 
         // Start connecting async
-        if (m_conn.SecLevel() != SecureLevel::NONE) {
+        if (m_conn->SecLevel() != SecureLevel::NONE) {
             m_securesocket->lowest_layer().async_connect(m_endpoint, m_io_strand.wrap(boost::bind(&StratumClient::connect_handler, this, _1)));
         } else {
             m_socket->async_connect(m_endpoint,
@@ -248,7 +248,7 @@ void StratumClient::start_connect()
         }
     } else {
         m_connecting.store(false, std::memory_order_relaxed);
-        cwarn << "No more ip addresses to try for host:" << m_conn.Host();
+        cwarn << "No more ip addresses to try for host:" << m_conn->Host();
         // Trigger handlers
         if (m_onDisconnected) {
             m_onDisconnected();
@@ -264,14 +264,14 @@ void StratumClient::check_connect_timeout(const boost::system::error_code& ec)
     // deadline before this actor had a chance to run.
     if (isPendingState()) {
         if (m_conntimer.expires_at() <= boost::asio::deadline_timer::traits_type::now()) {
-			// The deadline has passed. 
+			// The deadline has passed.
 			if (m_connecting.load(std::memory_order_relaxed)) {
 				// The socket is closed so that any outstanding
 				// asynchronous connection operations are cancelled.
 				m_socket->close();
 			}
 			// This is set for SSL disconnection
-			if (m_disconnecting.load(std::memory_order_relaxed) && (m_conn.SecLevel() != SecureLevel::NONE)) {
+			if (m_disconnecting.load(std::memory_order_relaxed) && (m_conn->SecLevel() != SecureLevel::NONE)) {
 				if (m_securesocket->lowest_layer().is_open()) {
 					m_securesocket->lowest_layer().close();
 				}
@@ -306,7 +306,7 @@ void StratumClient::connect_handler(const boost::system::error_code& ec)
         m_connecting.store(false, std::memory_order_relaxed);
         m_conntimer.cancel();
 
-        if (m_conn.SecLevel() != SecureLevel::NONE) {
+        if (m_conn->SecLevel() != SecureLevel::NONE) {
             boost::system::error_code hec;
             m_securesocket->lowest_layer().set_option(boost::asio::socket_base::keep_alive(true));
             m_securesocket->lowest_layer().set_option(tcp::no_delay(true));
@@ -360,26 +360,22 @@ void StratumClient::connect_handler(const boost::system::error_code& ec)
         jReq["params"] = Json::Value(Json::arrayValue);
 
         m_worker.clear();
-        p = m_conn.User().find_first_of(".");
+        p = m_conn->User().find_first_of(".");
         if (p != std::string::npos) {
-            user = m_conn.User().substr(0, p);
+            user = m_conn->User().substr(0, p);
             // There should be at least one char after dot
             // returned p is zero based
-            if (p < (m_conn.User().length() -1))
-                m_worker = m_conn.User().substr(++p);
+            if (p < (m_conn->User().length() -1))
+                m_worker = m_conn->User().substr(++p);
         } else {
-            user = m_conn.User();
+            user = m_conn->User();
         }
 
-        switch (m_conn.Version()) {
+        switch (m_conn->Version()) {
             case StratumClient::STRATUM:
                 jReq["jsonrpc"] = "2.0";
                 break;
             case StratumClient::ETHPROXY:
-               // jReq["method"] = "eth_submitLogin";
-               // if (m_worker.length()) jReq["worker"] = m_worker;
-               // jReq["params"].append(user + m_conn.Path());
-               // if (!m_email.empty()) jReq["params"].append(m_email);
                 break;
             case StratumClient::ETHEREUMSTRATUM:
                 jReq["params"].append("energiminerminer " + std::string(ENERGI_PROJECT_VERSION));
@@ -452,7 +448,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
     _isNotification = (_id == unsigned(0) || _method != "");
 
     // Notifications of new jobs are like responses to get_work requests
-    if (_isNotification && _method == "" && m_conn.Version() == StratumClient::ETHPROXY && responseObject["result"].isArray()) {
+    if (_isNotification && _method == "" && m_conn->Version() == StratumClient::ETHPROXY && responseObject["result"].isArray()) {
         _method = "mining.notify";
     }
 
@@ -482,7 +478,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
         case 1:
             // Response to "mining.subscribe" (https://en.bitcoin.it/wiki/Stratum_mining_protocol#mining.subscribe)
             // Result should be an array with multiple dimensions, we only care about the data if StratumClient::ETHEREUMSTRATUM
-            switch (m_conn.Version()) {
+            switch (m_conn->Version()) {
 
             case StratumClient::STRATUM:
                 m_subscribed.store(_isSuccess, std::memory_order_relaxed);
@@ -496,8 +492,8 @@ void StratumClient::processReponse(Json::Value& responseObject)
                     jReq["jsonrpc"] = "2.0";
                     jReq["method"] = "mining.authorize";
                     jReq["params"] = Json::Value(Json::arrayValue);
-                    jReq["params"].append(m_conn.User() + m_conn.Path());
-                    jReq["params"].append(m_conn.Pass());
+                    jReq["params"].append(m_conn->User() + m_conn->Path());
+                    jReq["params"].append(m_conn->Pass());
                 }
                 break;
             case StratumClient::ETHPROXY:
@@ -536,8 +532,8 @@ void StratumClient::processReponse(Json::Value& responseObject)
                     // Eventually request authorization
                     jReq["id"] = unsigned(3);
                     jReq["method"] = "mining.authorize";
-                    jReq["params"].append(m_conn.User() + m_conn.Path());
-                    jReq["params"].append(m_conn.Pass());
+                    jReq["params"].append(m_conn->User() + m_conn->Path());
+                    jReq["params"].append(m_conn->Pass());
                 }
                 break;
             }
@@ -561,11 +557,11 @@ void StratumClient::processReponse(Json::Value& responseObject)
             }
             m_authorized.store(_isSuccess, std::memory_order_relaxed);
             if (!m_authorized) {
-                cnote << "Worker not authorized" << m_conn.User() << _errReason;
+                cnote << "Worker not authorized" << m_conn->User() << _errReason;
                 disconnect();
                 return;
             } else {
-                cnote << "Authorized worker " + m_conn.User();
+                cnote << "Authorized worker " + m_conn->User();
             }
             break;
         case 4:
@@ -597,7 +593,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
             // This is the response we get on first get_work request issued 
             // in mode StratumClient::ETHPROXY
             // thus we change it to a mining.notify notification
-            if (m_conn.Version() == StratumClient::ETHPROXY && responseObject["result"].isArray()) {
+            if (m_conn->Version() == StratumClient::ETHPROXY && responseObject["result"].isArray()) {
                 _method = "mining.notify";
                 _isNotification = true;
             }
@@ -746,10 +742,10 @@ void StratumClient::submitSolution(const Solution& solution)
     jReq["method"] = "mining.submit";
     jReq["params"] = Json::Value(Json::arrayValue);
 
-    switch (m_conn.Version()) {
+    switch (m_conn->Version()) {
         case StratumClient::STRATUM:
             jReq["jsonrpc"] = "2.0";
-            jReq["params"].append(m_conn.User());
+            jReq["params"].append(m_conn->User());
             jReq["params"].append(solution.getJobName());
             jReq["params"].append(solution.getExtraNonce());
             jReq["params"].append(solution.getTime());
@@ -771,7 +767,7 @@ void StratumClient::submitSolution(const Solution& solution)
             }
             break;
         case StratumClient::ETHEREUMSTRATUM:
-            jReq["params"].append(m_conn.User());
+            jReq["params"].append(m_conn->User());
             jReq["params"].append(solution.getJobName());
             jReq["params"].append(solution.getExtraNonce());
             jReq["params"].append(solution.getTime());
@@ -786,7 +782,7 @@ void StratumClient::submitSolution(const Solution& solution)
 
 void StratumClient::recvSocketData()
 {
-    if (m_conn.SecLevel() != SecureLevel::NONE) {
+    if (m_conn->SecLevel() != SecureLevel::NONE) {
         async_read_until(*m_securesocket, m_recvBuffer, "\n",
                 m_io_strand.wrap(boost::bind(&StratumClient::onRecvSocketDataCompleted, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
     } else {
@@ -827,9 +823,9 @@ void StratumClient::onRecvSocketDataCompleted(const boost::system::error_code& e
                     (ERR_GET_REASON(ec.value()) == SSL_RECEIVED_SHUTDOWN)
                )
             {
-                cnote << "SSL Stream remotely closed by" << m_conn.Host();
+                cnote << "SSL Stream remotely closed by" << m_conn->Host();
             } else if (ec == boost::asio::error::eof) {
-                cnote << "Connection remotely closed by" << m_conn.Host();
+                cnote << "Connection remotely closed by" << m_conn->Host();
             } else {
                 cwarn << "Socket read failed:" << ec.message();
             }
@@ -845,7 +841,7 @@ void StratumClient::sendSocketData(Json::Value const & jReq)
     }
     std::ostream os(&m_sendBuffer);
     os << m_jWriter.write(jReq);		// Do not add lf. It's added by writer.
-    if (m_conn.SecLevel() != SecureLevel::NONE) {
+    if (m_conn->SecLevel() != SecureLevel::NONE) {
         async_write(*m_securesocket, m_sendBuffer,
                 m_io_strand.wrap(boost::bind(&StratumClient::onSendSocketDataCompleted, this, boost::asio::placeholders::error)));
     } else {

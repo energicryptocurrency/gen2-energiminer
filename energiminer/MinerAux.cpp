@@ -111,9 +111,8 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         ->group(OpenCLGroup);
 
     app.add_option("--cl-global-work", m_globalWorkSizeMultiplier,
-            "Set the global work size multipler", true)
-        ->group(OpenCLGroup)
-        ->check(CLI::Range(1, 999999999));
+            "Set the global work size multipler. Specify negative value for automatic scaling based on # of compute units", true)
+        ->group(OpenCLGroup);
 
     app.add_option("--cl-local-work", m_localWorkSize,
             "Set the local work size", true)
@@ -141,7 +140,13 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
 
     string sched = "sync";
     app.add_set("--cuda-schedule", sched, {"auto", "spin", "yield", "sync"},
-            "Set the scheduler mode", true)
+            "Set the scheduler mode."
+            "  auto  - Uses a heuristic based on the number of active CUDA contexts in the process C "
+            "          and the number of logical processors in the system P. If C > P then yield else spin."
+            "  spin  - Instruct CUDA to actively spin when waiting for results from the device."
+            "  yield - Instruct CUDA to yield its thread when waiting for results from the device."
+            "  sync  - Instruct CUDA to block the CPU thread on a synchronization primitive when waiting for the results from the device."
+            "  ", true)
         ->group(CUDAGroup);
 
     app.add_option("--cuda-streams", m_numStreams,
@@ -154,7 +159,11 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         ->group(CommonGroup);
 
     app.add_option("-L,--dag-load-mode", m_dagLoadMode,
-            "Set the DAG load mode. 0=parallel, 1=sequential, 2=sequential", true)
+            "Set the DAG load mode. 0=parallel, 1=sequential, 2=single."
+            "  parallel    - load DAG on all GPUs at the same time"
+            "  sequential  - load DAG on GPUs one after another. Use this when the miner crashes during DAG generation"
+            "  single      - generate DAG on device, then copy to other devices. Implies --dag-single-dev"
+            "  ", true)
         ->group(CommonGroup)
         ->check(CLI::Range(2));
 
@@ -215,18 +224,15 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         << "    for getwork use one of the following schemes:" << endl
         << "      " << URI::KnownSchemes(ProtocolFamily::GETWORK) << endl
         << "    for stratum use one of the following schemes: "<< endl
-        << "      " << URI::KnownSchemes(ProtocolFamily::STRATUM) << endl
-        << "    Stratum variants:" << endl
-        << "      stratum:  official stratum spec: ethpool, ethermine, coinotron, mph, nanopool (default)" << endl
-        << "      stratum1: eth-proxy compatible: dwarfpool, f2pool, nanopool (required for hashrate reporting to work with nanopool)" << endl
-        << "      stratum2: EthereumStratum/1.0.0: nicehash" << endl
-        << "    Example 1: stratum+ssl://0x012345678901234567890234567890123.miner1@ethermine.org:5555" << endl
-        << "    Example 2: stratum1+tcp://0x012345678901234567890234567890123.miner1@nanopool.org:9999/john.doe@gmail.com" << endl
-        << "    Example 3: stratum1+tcp://0x012345678901234567890234567890123@nanopool.org:9999/miner1/john.doe@gmail.com"
-        << endl << endl
-        << "Environment Variables:" << endl
-        << "    NO_COLOR - set to any value to disable color output. Unset to re-enable color output." << endl
-        << "    SYSLOG   - set to any value to strip time and disable color from output, for logging under systemd";
+        << "      " << URI::KnownSchemes(ProtocolFamily::STRATUM) << endl;
+       // << "    Stratum variants:" << endl
+       // << "      stratum:  official stratum spec: ethpool, ethermine, coinotron, mph, nanopool (default)" << endl
+       // << "      stratum1: nrg-proxy compatible: dwarfpool, f2pool, nanopool (required for hashrate reporting to work with nanopool)" << endl
+       // << "      stratum2: EthereumStratum/1.0.0: nicehash" << endl
+       // << "    Example 1: stratum+ssl://0x012345678901234567890234567890123.<minername>@<host>:<port>" << endl
+       // << "    Example 2: stratum1+tcp://0x012345678901234567890234567890123.<miner name>@<host>:<port/email" << endl
+       // << "    Example 3: stratum1+tcp://0x012345678901234567890234567890123@<host>:<port>/<miner name>/email"
+       // << endl << endl
     app.set_footer(ssHelp.str());
 
     try {
@@ -424,67 +430,6 @@ void MinerCLI::execute()
 
 void MinerCLI::doSimulation(int difficulty)
 {
-//    auto vEngineModes = getEngineModes(m_minerExecutionMode);
-//
-//    for( auto mode : vEngineModes ) {
-//        cnote << "Starting Miner Engine: " << to_string(mode);
-//    }
-//    std::mutex mutex_solution;
-//    bool solution_found = false;
-//    energi::Solution solution;
-//
-//    SolutionFoundCallback solution_found_cb = [&solution_found, &mutex_solution, &solution](const energi::Solution& found_solution)
-//    {
-//        std::lock_guard<std::mutex> lock(mutex_solution);
-//        solution = found_solution;
-//        solution_found = true;
-//    };
-//
-//    // Use Test Miner
-//    {
-//        energi::MinePlant plant(solution_found_cb);
-//        if ( !plant.start({EnumMinerEngine::kTest}) ) {
-//            return;
-//        }
-//
-//        energi::SimulatedWork new_work;
-//        plant.setWork(new_work);
-//
-//        solution_found = false;
-//        while(!solution_found) {
-//            auto mp = plant.miningProgress();
-//            mp.rate();
-//
-//            this_thread::sleep_for(chrono::milliseconds(1000));
-//            cnote << "Mining on difficulty " << difficulty << " " << mp;
-//        }
-//
-//        std::lock_guard<std::mutex> lock(mutex_solution);
-//        std::cout << "Solution found!!" << std::endl;
-//    }
-//
-//    // Use CPU Miner
-//    {
-//        energi::MinePlant plant(solution_found_cb);
-//        if ( !plant.start({EnumMinerEngine::kCPU}) ) {
-//            return;
-//        }
-//
-//        energi::SimulatedWork new_work;
-//        plant.setWork(new_work);
-//
-//        solution_found = false;
-//        while(!solution_found) {
-//            auto mp = plant.miningProgress();
-//            mp.rate();
-//
-//            this_thread::sleep_for(chrono::milliseconds(1000));
-//            cnote << "Mining on difficulty " << difficulty << " " << mp;
-//        }
-//
-//        std::lock_guard<std::mutex> lock(mutex_solution);
-//        std::cout << "Solution found!!" << std::endl;
-//    }
 }
 
 void MinerCLI::doMiner()
@@ -515,6 +460,7 @@ void MinerCLI::doMiner()
         mgr.addConnection(con);
     } else {
         for (auto conn : m_endpoints) {
+            cnote << "Configured pool " << conn.Host() + ":" + to_string(conn.Port());
             mgr.addConnection(conn);
         }
     }
@@ -523,13 +469,16 @@ void MinerCLI::doMiner()
 
     // Run CLI in loop
     while (g_running && mgr.isRunning()) {
+        // Wait at the beginning of the loop to give some time
+        // services to start properly. Otherwise we get a "not-connected"
+        // message immediately
+        std::this_thread::sleep_for(std::chrono::seconds(m_displayInterval));
         if (mgr.isConnected()) {
             auto mp = plant.miningProgress(m_show_hwmonitors, m_show_power);
             minelog << mp << plant.getSolutionStats() << plant.farmLaunchedFormatted();
         } else {
             minelog << "not-connected";
         }
-        std::this_thread::sleep_for(std::chrono::seconds(m_displayInterval));
     }
     mgr.stop();
     stop_io_service();
