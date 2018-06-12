@@ -77,10 +77,8 @@ public:
 	void search(
 		uint8_t const* header,
 		uint64_t target,
-		bool _ethStratum,
 		uint64_t startNonce,
-		Work& w,
-        unsigned int& nExtraNonce);
+		Work& w);
 
 	/* -- default values -- */
 	/// Default value of the block size. Also known as workgroup size.

@@ -91,7 +91,6 @@ void CUDAMiner::trun()
     Work current;
     uint64_t startNonce = 0;
     try {
-        unsigned int nExtraNonce = 0;
         while(!shouldStop()) {
             if (is_mining_paused()) {
                 std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -116,7 +115,6 @@ void CUDAMiner::trun()
                 }
                 m_lastHeight = work.nHeight;
                 current = work;
-                work.incrementExtraNonce();
             }
             energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
             nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
@@ -126,17 +124,14 @@ void CUDAMiner::trun()
             assert(upper64OfBoundary > 0);
             startNonce = m_nonceStart.load();
 
-            search(hash_header.data(), upper64OfBoundary, (current.exSizeBits >= 0), startNonce, work, nExtraNonce);
+            search(hash_header.data(), upper64OfBoundary, startNonce, work);
         }
         // Reset miner and stop working
         CUDA_SAFE_CALL(cudaDeviceReset());
     } catch (cuda_runtime_error const& _e) {
-        cwarn << "Fatal GPU error: " << _e.what();
-        cwarn << "Terminating.";
-        exit(-1);
-    } catch (std::runtime_error const& _e) {
-        cwarn << "Error CUDA mining: " << _e.what();
+        cwarn << "GPU error: " << _e.what();
         if(s_exit) {
+            cwarn << "Terminating.";
             exit(1);
         }
     }
@@ -306,6 +301,9 @@ bool CUDAMiner::cuda_init(
         }
         // use selected device
         m_device_num = _deviceId < numDevices -1 ? _deviceId : numDevices - 1;
+        m_hwmoninfo.deviceType = HwMonitorInfoType::NVIDIA;
+        m_hwmoninfo.indexSource = HwMonitorIndexSource::CUDA;
+        m_hwmoninfo.deviceIndex = m_device_num;
 
         cudaDeviceProp device_props;
         CUDA_SAFE_CALL(cudaGetDeviceProperties(&device_props, m_device_num));
@@ -355,7 +353,7 @@ bool CUDAMiner::cuda_init(
             CUDA_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&light), lightSize));
         }
         // copy lightData to device
-        CUDA_SAFE_CALL(cudaMemcpy(light, /*cache.data()*/vData.data(), lightSize, cudaMemcpyHostToDevice));
+        CUDA_SAFE_CALL(cudaMemcpy(light, vData.data(), lightSize, cudaMemcpyHostToDevice));
         m_light[m_device_num] = light;
 
         if (dagNumItems != m_dag_size || !dag) { // create buffer for dag
@@ -418,10 +416,8 @@ cpyDag:
 void CUDAMiner::search(
     uint8_t const* header,
     uint64_t target,
-    bool _ethStratum,
     uint64_t startNonce,
-    Work& work,
-    unsigned& nExtraNonce)
+    Work& work)
 {
     set_header(*reinterpret_cast<hash32_t const *>(header));
     if (m_current_target != target) {
@@ -430,7 +426,7 @@ void CUDAMiner::search(
     }
 
     // choose the starting nonce
-    uint64_t current_nonce = _ethStratum ? startNonce : 0; //get_start_nonce();
+    uint64_t current_nonce = startNonce;
 
     // clear all the stream search result buffers
     for (unsigned int i = 0; i < s_numStreams; i++)
@@ -496,14 +492,15 @@ void CUDAMiner::search(
                     work.nNonce = nonces[i];
                     if (s_noeval) {
                         cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
-                        m_plant.submitProof(Solution(work, nExtraNonce));
+                        m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
+
                         addHashCount(batch_size);
                         break;
                     } else {
                         auto const powHash = GetPOWHash(work);
                         if (UintToArith256(powHash) <= work.hashTarget) {
                             cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
-                            m_plant.submitProof(Solution(work, nExtraNonce));
+                            m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
                             addHashCount(batch_size);
                             break;
                         } else {
