@@ -33,11 +33,10 @@ PoolManager::PoolManager(PoolClient* client,
         // Workloop will determine if we're trying a fast reconnect to same pool
         // or if we're switching to failover(s)
 	});
-	p_client->onWorkReceived([&](const Work& wp)
-	{
-        cnote << "New job";
-		m_farm.setWork(wp);
-	});
+    p_client->onWorkReceived([&](const Work& wp)
+    {
+        m_farm.setWork(wp);
+    });
 	p_client->onSolutionAccepted([&](const bool& stale)
 	{
 		using namespace std::chrono;

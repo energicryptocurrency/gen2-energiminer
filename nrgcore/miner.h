@@ -57,7 +57,6 @@ public:
         m_nonceStart = nonceStart;
         m_nonceEnd = nonceEnd;
         onSetWork();
-        resetHashCount();
     }
 
     uint32_t hashCount() const

@@ -184,6 +184,7 @@ void MinePlant::collectHashRate()
     //Collect
     for (auto const& miner : m_miners) {
         auto minerHashCount = miner->hashCount();
+        miner->resetHashCount();
         p.hashes += minerHashCount;
         p.minersHashes.insert(std::make_pair<std::string, uint64_t>(miner->name(), uint64_t(minerHashCount)));
     }
