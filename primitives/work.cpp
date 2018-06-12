@@ -27,25 +27,19 @@ Work::Work(const Json::Value &gbt,
     hashTarget = arith_uint256().SetCompact(this->nBits);
 }
 
-void Work::incrementExtraNonce(unsigned int& nExtraNonce)
+void Work::incrementExtraNonce()
 {
     static uint256 hashPrev;
     if (hashPrev != this->hashPrevBlock) {
-        nExtraNonce = 0;
+        m_secondaryExtraNonce = 0;
         hashPrev = this->hashPrevBlock;
     }
-    ++nExtraNonce;
+    ++m_secondaryExtraNonce;
     CMutableTransaction txCoinbase(this->vtx[0]);
-    txCoinbase.vin[0].scriptSig = (CScript() << this->nHeight << CScriptNum(nExtraNonce)) + COINBASE_FLAGS;
+    txCoinbase.vin[0].scriptSig = (CScript() << this->nHeight << CScriptNum(m_secondaryExtraNonce)) + COINBASE_FLAGS;
 
    this->vtx[0] = txCoinbase;
    this->hashMerkleRoot = BlockMerkleRoot(*this);
-}
-
-void Work::incrementExtraNonce()
-{
-    unsigned int extraNonce=0;
-    incrementExtraNonce(extraNonce);
 }
 
 void Work::updateTimestamp()

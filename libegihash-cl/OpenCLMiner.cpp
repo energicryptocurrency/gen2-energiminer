@@ -387,7 +387,6 @@ void OpenCLMiner::trun()
     uint64_t const nonceSegment = static_cast<uint64_t>(m_index) << (64 - 4);
     Work current_work; // Here we need current work as to initialize gpu
     try {
-        unsigned int nExtraNonce = 0;
         while (!shouldStop()) {
             if (is_mining_paused()) {
                 std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -450,14 +449,11 @@ void OpenCLMiner::trun()
             if (nonce != 0) {
                 work.nNonce = nonce;
                 auto const powHash = GetPOWHash(work);
-                if (UintToArith256(powHash) <= work.hashTarget)
-                {
+                if (UintToArith256(powHash) <= work.hashTarget) {
                     cllog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonce;
-                    Solution solution(work, nExtraNonce);
+                    Solution solution(work, work.getSecondaryExtraNonce());
                     m_plant.submitProof(solution);
-                }
-                else
-                {
+                } else {
                     cwarn << name() << "CL Miner proposed invalid solution" << work.GetHash().ToString() << "nonce: " << nonce;
                 }
             }

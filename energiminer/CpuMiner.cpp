@@ -22,7 +22,6 @@ CpuMiner::CpuMiner(const Plant &plant, int index)
 void CpuMiner::trun()
 {
     try {
-        unsigned int nExtraNonce = 0;
         while (true) {
             Work work = this->getWork(); // This work is a copy of last assigned work the worker was provided by plant
             if ( !work.isValid() ) {
@@ -35,7 +34,6 @@ void CpuMiner::trun()
             } else {
                 //cnote << "Valid work.";
             }
-            work.incrementExtraNonce(nExtraNonce);
             const uint64_t first_nonce = m_nonceStart.load();
             const uint64_t max_nonce = m_nonceEnd.load();
 
@@ -48,7 +46,7 @@ void CpuMiner::trun()
                 if (UintToArith256(hash) < work.hashTarget) {
                     addHashCount(work.nNonce + 1 - last_nonce);
                     cnote << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << work.nNonce;
-                    m_plant.submitProof(Solution(work, nExtraNonce));
+                    m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
                     break;
                 } else {
                     ++work.nNonce;

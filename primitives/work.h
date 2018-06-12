@@ -72,7 +72,6 @@ struct Work : public Block
     }
 
     void incrementExtraNonce();
-    void incrementExtraNonce(unsigned int& nExtraNonce);
 
     void updateTimestamp();
 
@@ -89,6 +88,11 @@ struct Work : public Block
         return std::strtol(m_extraNonce.c_str(), nullptr, 16);
     }
 
+    inline uint32_t getSecondaryExtraNonce() const
+    {
+        return m_secondaryExtraNonce;
+    }
+
     void setExtraNonce(const std::string& exNonce)
     {
         m_extraNonce = exNonce;
@@ -97,6 +101,7 @@ struct Work : public Block
 
     //!TODO keep only this part
     int            exSizeBits = -1;
+    uint32_t       m_secondaryExtraNonce = 0;
     std::string    m_jobName;
     std::string    m_extraNonce;
     arith_uint256  hashTarget;
