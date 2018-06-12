@@ -28,8 +28,6 @@ StratumClient::StratumClient(boost::asio::io_service & io_service,
     , m_email(email)
     , m_submit_hashrate(submitHashrate)
 {
-//	if (m_submit_hashrate)
-//		m_submit_hashrate_id = h256::random().hex();
 }
 
 StratumClient::~StratumClient()
@@ -374,12 +372,13 @@ void StratumClient::connect_handler(const boost::system::error_code& ec)
 
         switch (m_conn->Version()) {
             case StratumClient::STRATUM:
-                jReq["jsonrpc"] = "2.0";
+                jReq["params"].append("energiminer " + std::string(ENERGI_PROJECT_VERSION));
+                jReq["params"].append("EnergiStratum/1.0.0");
                 break;
             case StratumClient::ETHPROXY:
                 break;
             case StratumClient::ETHEREUMSTRATUM:
-                jReq["params"].append("energiminerminer " + std::string(ENERGI_PROJECT_VERSION));
+                jReq["params"].append("energiminer " + std::string(ENERGI_PROJECT_VERSION));
                 jReq["params"].append("EnergiStratum/1.0.0");
                 break;
         }
