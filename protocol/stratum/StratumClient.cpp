@@ -264,7 +264,8 @@ void StratumClient::check_connect_timeout(const boost::system::error_code& ec)
     // deadline before this actor had a chance to run.
     if (isPendingState()) {
         if (m_conntimer.expires_at() <= boost::asio::deadline_timer::traits_type::now()) {
-			// The deadline has passed.
+   			// The deadline has passed.
+
 			if (m_connecting.load(std::memory_order_relaxed)) {
 				// The socket is closed so that any outstanding
 				// asynchronous connection operations are cancelled.
@@ -479,7 +480,6 @@ void StratumClient::processReponse(Json::Value& responseObject)
             // Response to "mining.subscribe" (https://en.bitcoin.it/wiki/Stratum_mining_protocol#mining.subscribe)
             // Result should be an array with multiple dimensions, we only care about the data if StratumClient::ETHEREUMSTRATUM
             switch (m_conn->Version()) {
-
             case StratumClient::STRATUM:
                 m_subscribed.store(_isSuccess, std::memory_order_relaxed);
                 if (!m_subscribed) {

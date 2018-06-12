@@ -78,7 +78,7 @@ public:
 		uint8_t const* header,
 		uint64_t target,
 		uint64_t startNonce,
-		Work& w)
+		Work& w);
 
 	/* -- default values -- */
 	/// Default value of the block size. Also known as workgroup size.

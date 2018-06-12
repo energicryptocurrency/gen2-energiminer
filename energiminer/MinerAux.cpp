@@ -114,6 +114,7 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
             "Set the global work size multipler. Specify negative value for automatic scaling based on # of compute units", true)
         ->group(OpenCLGroup);
 
+
     app.add_option("--cl-local-work", m_localWorkSize,
             "Set the local work size", true)
         ->group(OpenCLGroup)
@@ -140,6 +141,7 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
 
     string sched = "sync";
     app.add_set("--cuda-schedule", sched, {"auto", "spin", "yield", "sync"},
+
             "Set the scheduler mode."
             "  auto  - Uses a heuristic based on the number of active CUDA contexts in the process C "
             "          and the number of logical processors in the system P. If C > P then yield else spin."

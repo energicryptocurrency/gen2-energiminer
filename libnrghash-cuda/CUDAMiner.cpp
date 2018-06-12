@@ -493,6 +493,7 @@ void CUDAMiner::search(
                     if (s_noeval) {
                         cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
                         m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
+
                         addHashCount(batch_size);
                         break;
                     } else {
