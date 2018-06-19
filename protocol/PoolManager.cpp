@@ -55,7 +55,7 @@ PoolManager::PoolManager(PoolClient* client,
 		ss << std::setw(4) << std::setfill(' ') << ms.count();
 		ss << "ms." << "   " << m_connections[m_activeConnectionIdx].Host() + p_client->ActiveEndPoint();
 		cwarn << EthRed "**Rejected" EthReset << (stale ? "(stale)" : "") << ss.str();
-		m_farm.rejectedSolution(stale);
+		m_farm.rejectedSolution();
 	});
 
 	m_farm.onSolutionFound([&](const Solution& sol)
@@ -133,8 +133,7 @@ void PoolManager::trun()
                     cnote << "Selected pool" << (m_connections[m_activeConnectionIdx].Host() + ":" + toString(m_connections[m_activeConnectionIdx].Port()));
                     p_client->connect();
 
-                }
-                else {
+                } else {
 
                     cnote << "No more failover connections.";
 
@@ -147,7 +146,6 @@ void PoolManager::trun()
                     m_running.store(false, std::memory_order_relaxed);
                     continue;
                 }
-
             }
 
         }

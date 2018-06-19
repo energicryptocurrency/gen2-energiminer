@@ -1,5 +1,4 @@
 #include "BuildInfo.h"
-#include <primitives/extranoncesingleton.h>
 
 #include "StratumClient.h"
 
@@ -101,7 +100,7 @@ void StratumClient::connect()
     // Activate keep alive to detect disconnects
     unsigned int keepAlive = 10000;
 
-#if defined _WIN32 || defined WIN32 || defined OS_WIN64 || defined _WIN64 || defined WIN64 || defined WINNT
+#if defined _WIN32
     int32_t timeout = keepAlive;
     setsockopt(m_socket->native_handle(), SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
     setsockopt(m_socket->native_handle(), SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(timeout));
@@ -246,7 +245,7 @@ void StratumClient::start_connect()
         }
     } else {
         m_connecting.store(false, std::memory_order_relaxed);
-        cwarn << "No more ip addresses to try for host:" << m_conn->Host();
+        cwarn << "No more Ip addresses to try for host: " << m_conn->Host();
         // Trigger handlers
         if (m_onDisconnected) {
             m_onDisconnected();
@@ -639,15 +638,11 @@ void StratumClient::processReponse(Json::Value& responseObject)
         jPrm = responseObject.get("params", Json::Value::null);
         if (_method == "mining.notify") {
             if (jPrm.isArray()) {
-                auto workGBT = jPrm.get((Json::Value::ArrayIndex)0, "");
-                std::string job = jPrm.get((Json::Value::ArrayIndex)1, "").asString();
-                std::string coinbase1 = jPrm.get((Json::Value::ArrayIndex)3, "").asString();
-                std::string coinbase2 = jPrm.get((Json::Value::ArrayIndex)4, "").asString();
-                if (!coinbase1.empty() && !coinbase2.empty()) {
+                if (!jPrm.get((Json::Value::ArrayIndex)2, "").asString().empty() &&
+                    !jPrm.get((Json::Value::ArrayIndex)3, "").asString().empty()) {
                     reset_work_timeout();
 
-                    m_current = energi::Work(workGBT, std::string(), coinbase1,
-                            coinbase2, job, m_extraNonce);
+                    m_current = energi::Work(jPrm, m_extraNonce, true);
                     m_current.exSizeBits = m_extraNonceHexSize * 4;
                     if (m_onWorkReceived) {
                         m_onWorkReceived(m_current);

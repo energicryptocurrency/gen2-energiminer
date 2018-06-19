@@ -29,8 +29,6 @@ private:
 
     std::string m_coinbase;
     std::string m_currentHashrateToSubmit = "";
-    energi::Solution m_solutionToSubmit;
-	bool m_justConnected = false;
-	JsonrpcGetwork *p_client;
+    JsonrpcGetwork *p_client;
     energi::Work m_prevWork;
 };

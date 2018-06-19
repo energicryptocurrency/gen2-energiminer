@@ -14,15 +14,18 @@ namespace energi {
 
 CScript COINBASE_FLAGS;
 
-Work::Work(const Json::Value &gbt,
-           const std::string &coinbase_addr,
-           const std::string& coinbase1,
-           const std::string& coinbase2,
-           const std::string& job,
-           const std::string& extraNonce)
-    : Block(gbt, coinbase_addr, coinbase1, coinbase2, extraNonce)
-    , m_jobName(job)
+Work::Work(const Json::Value& gbt,
+           const std::string& extraNonce, bool)
+    : Block(gbt, extraNonce, true)
     , m_extraNonce(extraNonce)
+{
+    m_jobName = gbt.get((Json::Value::ArrayIndex)0, "").asString();
+    hashTarget = arith_uint256().SetCompact(this->nBits);
+}
+
+Work::Work(const Json::Value &gbt,
+           const std::string &coinbase_addr)
+    : Block(gbt, coinbase_addr)
 {
     hashTarget = arith_uint256().SetCompact(this->nBits);
 }

@@ -35,8 +35,6 @@ public:
     {
         return (m_connecting.load(std::memory_order_relaxed) || m_disconnecting.load(std::memory_order_relaxed));
     }
-	bool isSubscribed() { return m_subscribed.load(std::memory_order_relaxed); }
-	bool isAuthorized() { return m_authorized.load(std::memory_order_relaxed); }
     std::string ActiveEndPoint() override { return " [" + toString(m_endpoint) + "]"; };
 
 	void submitHashrate(const std::string& rate) override;
@@ -66,9 +64,6 @@ private:
 
     std::string m_worker; // eth-proxy only; No ! It's for all !!!
 
-    std::atomic<bool> m_subscribed = { false };
-    std::atomic<bool> m_authorized = { false };
-    std::atomic<bool> m_connected = { false };
     std::atomic<bool> m_disconnecting = { false };
     std::atomic<bool> m_connecting = { false };
 

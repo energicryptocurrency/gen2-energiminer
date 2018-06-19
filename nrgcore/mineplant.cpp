@@ -338,13 +338,9 @@ void MinePlant::acceptedSolution(bool _stale)
     }
 }
 
-void MinePlant::rejectedSolution(bool _stale)
+void MinePlant::rejectedSolution()
 {
-    if (!_stale) {
-        m_solutionStats.rejected();
-    } else {
-        m_solutionStats.rejectedStale();
-    }
+    m_solutionStats.rejected();
 }
 
 const Work& MinePlant::getWork() const

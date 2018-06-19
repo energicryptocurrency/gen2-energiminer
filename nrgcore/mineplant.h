@@ -38,28 +38,35 @@ public:
     void failed()   { failures++; }
 
     void acceptedStale() { acceptedStales++; }
-    void rejectedStale() { rejectedStales++; }
 
 
-    void reset() { accepts = rejects = failures = acceptedStales = rejectedStales = 0; }
+    void reset() { accepts = rejects = failures = acceptedStales = 0; }
 
     unsigned getAccepts()     { return accepts; }
     unsigned getRejects()     { return rejects; }
     unsigned getFailures()      { return failures; }
     unsigned getAcceptedStales()  { return acceptedStales; }
-    unsigned getRejectedStales()  { return rejectedStales; }
 private:
     unsigned accepts  = 0;
     unsigned rejects  = 0;
     unsigned failures = 0;
 
     unsigned acceptedStales = 0;
-    unsigned rejectedStales = 0;
 };
 
 inline std::ostream& operator<<(std::ostream& os, SolutionStats s)
 {
-    return os << "[A" << s.getAccepts() << "+" << s.getAcceptedStales() << ":R" << s.getRejects() << "+" << s.getRejectedStales() << ":F" << s.getFailures() << "]";
+    os << "[A" << s.getAccepts();
+    if (s.getAcceptedStales()) {
+        os << "+" << s.getAcceptedStales();
+    }
+    if (s.getRejects()) {
+        os << ":R" << s.getRejects();
+    }
+    if (s.getFailures()) {
+        os << ":F" << s.getFailures();
+    }
+    return os << "]";
 }
 
 
@@ -120,7 +127,7 @@ public:
 	SolutionStats getSolutionStats();
 	void failedSolution() override;
 	void acceptedSolution(bool _stale);
-	void rejectedSolution(bool _stale);
+	void rejectedSolution();
     const Work& getWork() const;
 	std::chrono::steady_clock::time_point farmLaunched();
     std::string farmLaunchedFormatted() const;

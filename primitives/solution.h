@@ -66,6 +66,11 @@ public:
         return m_work.getHashMix();
     }
 
+    const uint256& getMerkleRoot() const
+    {
+        return m_work.getMerkleRoot();
+    }
+
     void reset()
     {
         m_extraNonce = 0;

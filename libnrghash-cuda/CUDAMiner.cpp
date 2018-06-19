@@ -429,21 +429,18 @@ void CUDAMiner::search(
     // choose the starting nonce
     uint64_t current_nonce = startNonce;
 
-    // clear all the stream search result buffers
-    for (unsigned int i = 0; i < s_numStreams; i++)
-        m_search_buf[i]->count = 0;
-
     // Nonces processed in one pass by a single stream
     const uint32_t batch_size = s_gridSize * s_blockSize;
     // Nonces processed in one pass by all streams
     const uint32_t streams_batch_size = batch_size * s_numStreams;
     volatile search_results* buffer;
 
-    // prime each stream
+    // prime each stream and clear search result buffers
     uint32_t current_index;
     for (current_index = 0; current_index < s_numStreams; current_index++, current_nonce += batch_size) {
         cudaStream_t stream = m_streams[current_index];
         buffer = m_search_buf[current_index];
+        buffer->count = 0;
         run_ethash_search(s_gridSize, s_blockSize, stream, buffer, current_nonce, m_parallelHash);
     }
 

@@ -52,6 +52,11 @@ struct BlockHeader
         return hashMix;
     }
 
+    const uint256& getMerkleRoot() const
+    {
+        return hashMerkleRoot;
+    }
+
     ADD_SERIALIZE_METHODS
 
     template <typename Stream, typename Operation>
@@ -109,17 +114,35 @@ struct Block : public BlockHeader
         SetNull();
     }
 
+    Block(const Json::Value& jPrm,
+          const std::string& extraNonce, bool)
+    {
+        hashPrevBlock = uint256S(jPrm.get((Json::Value::ArrayIndex)1, "").asString());
+        hashMerkleRoot.SetNull();
+        nVersion = std::stoul(jPrm.get((Json::Value::ArrayIndex)5, "").asString(), 0, 16);
+        nTime = std::stoul(jPrm.get((Json::Value::ArrayIndex)7, "").asString(), 0, 16);
+        nBits = std::stoul(jPrm.get((Json::Value::ArrayIndex)6, "").asString(), 0, 16);
+        hashMix.SetNull();
+        nNonce = 0;
+        nHeight = jPrm.get((Json::Value::ArrayIndex)9, "").asUInt();
+
+        std::string coinbase1 = jPrm.get((Json::Value::ArrayIndex)2, "").asString();
+        std::string coinbase2 = jPrm.get((Json::Value::ArrayIndex)3, "").asString();
+        std::string hexData = coinbase1 + extraNonce + "00000000" + coinbase2;
+        CTransaction coinbaseTx;
+        DecodeHexTx(coinbaseTx, hexData);
+        vtx.push_back(coinbaseTx);
+        vtx[0].UpdateHash();
+    }
+
     Block(const Json::Value& gbt,
-          const std::string& coinbaseAddress,
-          const std::string& coinbase1 = std::string(),
-          const std::string& coinbase2 = std::string(),
-          const std::string& extraNonce = std::string())
+          const std::string& coinbaseAddress)
         : BlockHeader(gbt)
     {
         if ( !( gbt.isMember("height") && gbt.isMember("version") && gbt.isMember("previousblockhash") ) ) {
             throw WorkException("Height or Version or Previous Block Hash not found");
         }
-        fillTransactions(gbt, coinbaseAddress, coinbase1, coinbase2, extraNonce);
+        fillTransactions(gbt, coinbaseAddress);
     }
 
     Block(const BlockHeader& header)
@@ -129,18 +152,11 @@ struct Block : public BlockHeader
     }
 
     void fillTransactions(const Json::Value& gbt,
-                          const std::string& coinbaseAddress,
-                          const std::string& coinbase1,
-                          const std::string& coinbase2,
-                          const std::string& extraNonce)
+                          const std::string& coinbaseAddress)
     {
         if (coinbaseAddress.empty()) {
-            auto obj = ExtraNonceSingleton::getInstance();
-            std::string hexData = coinbase1 + extraNonce + obj->genAndSendExtraNonce() + coinbase2;
-            CTransaction coinbaseTx;
-            DecodeHexTx(coinbaseTx, hexData);
-            vtx.push_back(coinbaseTx);
-            vtx[0].UpdateHash();
+            std::cerr << "Empty coinbase address" << std::endl;
+            exit(1);
         } else {
             //! first transaction for coinbase output
             //! CoinbaseTransaction

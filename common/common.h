@@ -73,13 +73,11 @@ struct HwMonitor
 
 inline std::ostream& operator<<(std::ostream& os, HwMonitor _hw)
 {
-    std::string power = "";
-    if(_hw.powerW != 0){
-        std::ostringstream stream;
-        stream << std::fixed << std::setprecision(0) << _hw.powerW << "W";
-        power = stream.str();
+    os << _hw.tempC << "C " << _hw.fanP << "%";
+    if(_hw.powerW) {
+        os << ' ' << std::fixed << std::setprecision(0) << _hw.powerW << "W";
     }
-    return os << _hw.tempC << "C " << _hw.fanP << "% " << power;
+    return os;
 }
 
 
@@ -243,7 +241,7 @@ inline std::ostream& operator<<(std::ostream& _out, WorkingProgress _p)
 {
     float mh = _p.rate() / 1000000.0f;
     _out << "Speed "
-        << EthTealBold << std::fixed << std::setw(6) << std::setprecision(2) << mh << EthReset
+         << EthTealBold << std::fixed << std::setprecision(2) << mh << EthReset
         << " Mh/s    ";
     for (auto const & i : _p.minersHashes) {
         auto pauseIter = _p.miningIsPaused.find(i.first);
@@ -253,7 +251,7 @@ inline std::ostream& operator<<(std::ostream& _out, WorkingProgress _p)
             }
         }
         mh = _p.minerRate(i.second) / 1000000.0f;
-        _out << i.first << " " << EthTeal << std::fixed << std::setw(5) << std::setprecision(2) << mh << EthReset << "  ";
+        _out << i.first << " " << EthTeal << std::fixed << std::setprecision(2) << mh << EthReset << "  ";
         auto iter = _p.minerMonitors.find(i.first);
         if (iter != _p.minerMonitors.end()) {
             _out << " " << EthTeal << _p.minerMonitors[i.first] << EthReset << "  ";

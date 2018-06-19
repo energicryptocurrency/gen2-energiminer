@@ -37,11 +37,11 @@ struct Work : public Block
     Work& operator=(Work &&) = default;
     Work(const Work &) = default; // -> Blank work for comparisons
     Work(const Json::Value& gbt,
-         const std::string& coinbase_addr,
-         const std::string& coinbase1 = std::string(),
-         const std::string& coinbase2 = std::string(),
-         const std::string& job = std::string(),
-         const std::string& extraNonce = std::string()); // -> coinbase to transfer miners reward
+         const std::string& extraNonce, bool);
+
+    Work(const Json::Value& gbt,
+         const std::string& coinbase_addr); // -> coinbase to transfer miners reward
+
     Work& operator=(const Work &) = default;
 
     bool operator==(const Work& other) const

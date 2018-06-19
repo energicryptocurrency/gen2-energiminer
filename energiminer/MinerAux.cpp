@@ -477,7 +477,7 @@ void MinerCLI::doMiner()
         std::this_thread::sleep_for(std::chrono::seconds(m_displayInterval));
         if (mgr.isConnected()) {
             auto mp = plant.miningProgress(m_show_hwmonitors, m_show_power);
-            minelog << mp << plant.getSolutionStats() << plant.farmLaunchedFormatted();
+            minelog << mp << ' ' << plant.getSolutionStats() << ' ' << plant.farmLaunchedFormatted();
         } else {
             minelog << "not-connected";
         }
