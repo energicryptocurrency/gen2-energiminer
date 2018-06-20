@@ -38,7 +38,7 @@ wrap_nvml_handle * wrap_nvml_create() {
    * deep scouring of the filesystem on one of the Mac CUDA build boxes
    * I used turned up nothing, so for now it's not going to work on OSX.
    */
-#if defined(__WIN32)
+#if defined(_WIN32)
   /* Windows */
 #define  libnvidia_ml "%PROGRAMFILES%/NVIDIA Corporation/NVSMI/nvml.dll"
 #elif defined(__linux) && (defined(__i386__) || defined(__ARM_ARCH_7A__))

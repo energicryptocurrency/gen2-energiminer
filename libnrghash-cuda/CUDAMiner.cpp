@@ -98,8 +98,8 @@ void CUDAMiner::trun()
             }
             Work work = this->getWork();
             if(!work.isValid()) {
-                cnote << "No work. Pause for 1 s.";
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                cnote << "No work. Pause for 3 s.";
+                std::this_thread::sleep_for(std::chrono::seconds(3));
                 if ( this->shouldStop() ) {
                     break;
                 }

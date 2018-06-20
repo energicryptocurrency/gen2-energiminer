@@ -22,12 +22,10 @@ GetworkClient::~GetworkClient()
 
 void GetworkClient::connect()
 {
-    std::stringstream ss;
-    ss <<  "http://" + m_conn->User()  << ":" << m_conn->Pass() << "@" << m_conn->Host() << ':' << m_conn->Port();
+    std::string uri = "http://" + m_conn->User() + ":" + m_conn->Pass() + "@" + m_conn->Host() + ":" + std::to_string(m_conn->Port());
     if (m_conn->Path().length())
-        ss << m_conn->Path();
-    std::cout << ss.str() << std::endl;
-    p_client = new ::JsonrpcGetwork(new jsonrpc::HttpClient(ss.str()), m_coinbase);
+        uri += m_conn->Path();
+    p_client = new ::JsonrpcGetwork(new jsonrpc::HttpClient(uri), m_coinbase);
     // Since we do not have a real connected state with getwork, we just fake it
     if (m_onConnected) {
         m_onConnected();
