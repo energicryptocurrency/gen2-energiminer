@@ -163,8 +163,8 @@ private:
 
     std::string                             m_pool_addresses;
     uint64_t                                m_nonceScumbler;
-    unsigned m_tstart;
-    unsigned m_tstop;
+    unsigned m_tstart = 0;
+    unsigned m_tstop = 0;
 
     wrap_nvml_handle *nvmlh = nullptr;
     wrap_adl_handle *adlh = nullptr;

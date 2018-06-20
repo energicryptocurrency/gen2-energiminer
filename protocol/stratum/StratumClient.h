@@ -102,7 +102,7 @@ private:
 
     //h64 m_extraNonce;
     std::string m_extraNonce;
-    int m_extraNonceHexSize;
+    int m_extraNonceHexSize = 0;
 
     bool m_submit_hashrate;
     std::string m_submit_hashrate_id;

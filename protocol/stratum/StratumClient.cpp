@@ -135,7 +135,9 @@ void StratumClient::disconnect()
         m_disconnecting.store(true, std::memory_order::memory_order_relaxed);
     }
     // Cancel any outstanding async operation
-    m_socket->cancel();
+    if (m_socket) {
+        m_socket->cancel();
+    }
 
     m_io_service.post([&] {
         m_conntimer.cancel();

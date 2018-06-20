@@ -44,18 +44,19 @@ int main(int argc, char** argv)
         exit(-1);
     }
 
-    // Set env vars controlling GPU driver behavior.
-    energi::setenv("GPU_MAX_HEAP_SIZE", "100");
-    energi::setenv("GPU_MAX_ALLOC_PERCENT", "100");
-    energi::setenv("GPU_SINGLE_ALLOC_PERCENT", "100");
-
-	MinerCLI m;
-    m.ParseCommandLine(argc, argv);
     try {
+        // Set env vars controlling GPU driver behavior.
+        energi::setenv("GPU_MAX_HEAP_SIZE", "100");
+        energi::setenv("GPU_MAX_ALLOC_PERCENT", "100");
+        energi::setenv("GPU_SINGLE_ALLOC_PERCENT", "100");
+
+        MinerCLI m;
+        m.ParseCommandLine(argc, argv);
+
         m.execute();
     } catch (const std::exception& ex) {
         std::cerr << "Error: " << ex.what() << std::endl;
-        return 1;
+        return -1;
     }
     return 0;
 }
