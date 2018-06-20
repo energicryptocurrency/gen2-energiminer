@@ -10,10 +10,12 @@
 class PoolManager : public energi::Worker
 {
 public:
-    PoolManager(PoolClient* client,
+    PoolManager(boost::asio::io_service & io_service,
+                PoolClient* client,
                 energi::MinePlant& farm,
                 const MinerExecutionMode& minerType,
-                 unsigned maxTries);
+                unsigned maxTries,
+                unsigned failovertimeout);
     void addConnection(URI &conn);
     void clearConnections();
     bool start();
@@ -25,6 +27,9 @@ public:
 private:
     unsigned m_hashrateReportingTime = 60;
     unsigned m_hashrateReportingTimePassed = 0;
+    // After this amount of time in minutes of mining on a failover pool return to "primary"
+    unsigned m_failoverTimeout = 0;
+    void check_failover_timeout(const boost::system::error_code& ec);
 
     std::atomic<bool> m_running = { false };
     void trun() override;
@@ -35,6 +40,8 @@ private:
     std::vector <URI> m_connections;
     std::thread m_workThread;
 
+    boost::asio::io_service::strand m_io_strand;
+    boost::asio::deadline_timer m_failovertimer;
     PoolClient *p_client;
     energi::MinePlant &m_farm;
     MinerExecutionMode m_minerType;

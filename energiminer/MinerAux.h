@@ -207,6 +207,8 @@ private:
 	int m_worktimeout = 180;
 	// Number of seconds to wait before triggering a response timeout from pool
 	int m_responsetimeout = 2;
+    // Number of minutes to wait on a failover pool before trying to go back to primary. In minutes !!
+    unsigned m_failovertimeout = 0;
 
 	bool m_show_hwmonitors = false;
 	bool m_show_power = false;

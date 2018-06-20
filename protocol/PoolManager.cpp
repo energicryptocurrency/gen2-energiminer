@@ -5,21 +5,35 @@
 
 using namespace energi;
 
-PoolManager::PoolManager(PoolClient* client,
+PoolManager::PoolManager(boost::asio::io_service& io_service,
+                         PoolClient* client,
                          energi::MinePlant &farm,
                          const MinerExecutionMode& minerType,
-                         unsigned maxTries)
+                         unsigned maxTries,
+                         unsigned failoverTimeout)
     : Worker("main")
+    , m_io_strand(io_service)
+    , m_failovertimer(io_service)
     , m_farm(farm)
     , m_minerType(minerType)
 {
 	p_client = client;
     m_maxConnectionAttempts = maxTries;
+    m_failoverTimeout = failoverTimeout;
 
 	p_client->onConnected([&]()
 	{
         m_connectionAttempt = 0;
         cnote << "Connected to " << m_connections[m_activeConnectionIdx].Host() << p_client->ActiveEndPoint();
+        // Rough implementation to return to primary pool
+        // after specified amount of time
+        if (m_activeConnectionIdx != 0 && m_failoverTimeout > 0) {
+            m_failovertimer.expires_from_now(boost::posix_time::minutes(m_failoverTimeout));
+            m_failovertimer.async_wait(m_io_strand.wrap(boost::bind(&PoolManager::check_failover_timeout, this, boost::asio::placeholders::error)));
+        } else {
+            m_failovertimer.cancel();
+        }
+
         if (!m_farm.isMining()) {
             cnote << "Spinning up miners...";
             auto vEngineModes = getEngineModes(m_minerType);
@@ -87,6 +101,8 @@ void PoolManager::stop()
     if (m_running.load(std::memory_order_relaxed)) {
         cnote << "Shutting down...";
         m_running.store(false, std::memory_order_relaxed);
+        m_failovertimer.cancel();
+
         if (p_client->isConnected()) {
             p_client->disconnect();
         }
@@ -192,3 +208,18 @@ bool PoolManager::start()
     }
     return true;
 }
+
+void PoolManager::check_failover_timeout(const boost::system::error_code& ec)
+{
+
+    if (!ec) {
+        if (m_running.load(std::memory_order_relaxed)) {
+            if (m_activeConnectionIdx != 0) {
+                p_client->disconnect();
+                m_activeConnectionIdx = 0;
+                m_connectionAttempt = 0;
+            }
+        }
+    }
+}
+

@@ -92,6 +92,10 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
     app.add_option("-P,--pool,pool", pools,
             "Specify one or more pool URLs. See below for URL syntax")
         ->group(CommonGroup);
+    app.add_option("--failover-timeout", m_failovertimeout,
+            "Set the amount of time in minutes to stay on a failover pool before trying to reconnect to primary. If = 0 then no switch back.", true)
+        ->group(CommonGroup)
+        ->check(CLI::Range(0, 999));
 #if ETH_ETHASHCL || ETH_ETHASHCUDA
     app.add_flag("--list-devices", m_shouldListDevices,
             "List the detected OpenCL/CUDA devices and exit. Should be combined with -G, -U, or -X flag")
@@ -453,7 +457,7 @@ void MinerCLI::doMiner()
     }
     cnote << "Engines started!";
     energi::MinePlant plant(m_io_service);
-    PoolManager mgr(client, plant, m_minerExecutionMode, m_maxFarmRetries);
+    PoolManager mgr(m_io_service, client, plant, m_minerExecutionMode, m_maxFarmRetries, m_failovertimeout);
 
     // If we are in simulation mode we add a fake connection
     if (m_mode == OperationMode::Simulation) {
