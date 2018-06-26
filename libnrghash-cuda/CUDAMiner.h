@@ -98,7 +98,6 @@ private:
 
     bool init_dag(uint32_t height);
 
-    bool     m_dagLoaded = false;
 
     ///Constants on GPU
     hash128_t* m_dag = nullptr;

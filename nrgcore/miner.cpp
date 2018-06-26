@@ -24,10 +24,10 @@ unsigned Miner::s_dagCreateDevice = 0;
 
 uint8_t* Miner::s_dagInHostMemory = nullptr;
 
-bool Miner::LoadNrgHashDAG()
+bool Miner::LoadNrgHashDAG(uint64_t blockHeight)
 {
     // initialize the DAG
-    InitDAG([](::std::size_t step, ::std::size_t max, int phase) -> bool {
+    InitDAG(blockHeight, [](::std::size_t step, ::std::size_t max, int phase) -> bool {
         std::stringstream ss;
         ss << std::fixed << std::setprecision(2)
            << static_cast<double>(step) / static_cast<double>(max) * 100.0 << "%"
@@ -126,14 +126,13 @@ boost::filesystem::path Miner::GetDataDir()
 #endif
 }
 
-void Miner::InitDAG(nrghash::progress_callback_type callback)
+void Miner::InitDAG(uint64_t blockHeight, nrghash::progress_callback_type callback)
 {
     using namespace nrghash;
 
     auto const & dag = ActiveDAG();
     if (!dag) {
-        auto const height = 0;// TODO (max)(GetHeight(), 0);
-        auto const epoch = height / constants::EPOCH_LENGTH;
+        auto const epoch = blockHeight / constants::EPOCH_LENGTH;
         auto const & seedhash = cache_t::get_seedhash(0).to_hex();
         std::stringstream ss;
         ss << std::hex << std::setw(4) << std::setfill('0') << epoch << "-" << seedhash.substr(0, 12) << ".dag";
@@ -152,7 +151,7 @@ void Miner::InitDAG(nrghash::progress_callback_type callback)
         }
         // try to generate the DAG
         try {
-            std::unique_ptr<dag_t> new_dag(new dag_t(height, callback));
+            std::unique_ptr<dag_t> new_dag(new dag_t(blockHeight, callback));
             boost::filesystem::create_directories(epoch_file.parent_path());
             new_dag->save(epoch_file.string());
             ActiveDAG(move(new_dag));

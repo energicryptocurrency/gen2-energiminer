@@ -14,9 +14,6 @@ using namespace energi;
 CpuMiner::CpuMiner(const Plant &plant, int index)
     :Miner("CPU/", plant, index)
 {
-    // First time init egi hash dag
-    // We got to do for every epoch change below
-    LoadNrgHashDAG();
 }
 
 void CpuMiner::trun()
@@ -34,6 +31,12 @@ void CpuMiner::trun()
             } else {
                 //cnote << "Valid work.";
             }
+
+	    if (!m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
+		    LoadNrgHashDAG(work.nHeight);
+		    cnote << "End initialising";
+		    m_dagLoaded = true;
+	    }
             const uint64_t first_nonce = m_nonceStart.load();
             const uint64_t max_nonce = m_nonceEnd.load();
 

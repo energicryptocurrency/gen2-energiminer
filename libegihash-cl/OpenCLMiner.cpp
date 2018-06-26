@@ -404,9 +404,9 @@ void OpenCLMiner::trun()
                 //cllog << name() << "Valid work.";
             }
             if ( current_work != work ) {
-                if (!dagLoaded_ || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
+                if (!m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
                     init_dag(work.nHeight);
-                    dagLoaded_ = true;
+                    m_dagLoaded = true;
                 }
                 m_lastHeight = work.nHeight;
                 current_work = work;

@@ -82,9 +82,9 @@ public:
 
     //! static interfaces
 public:
-    static bool LoadNrgHashDAG();
+    static bool LoadNrgHashDAG(uint64_t blockHeight = 0);
     static boost::filesystem::path GetDataDir();
-    static void InitDAG(nrghash::progress_callback_type callback);
+    static void InitDAG(uint64_t blockHeight, nrghash::progress_callback_type callback);
     static uint256 GetPOWHash(const BlockHeader& header);
 
     static std::unique_ptr<nrghash::dag_t> const & ActiveDAG(std::unique_ptr<nrghash::dag_t> next_dag  = std::unique_ptr<nrghash::dag_t>());
@@ -112,6 +112,7 @@ protected:
     static bool s_exit;
 
     bool m_newWorkAssigned = false;
+    bool     m_dagLoaded = false;
 
     unsigned m_index = 0;
     const Plant &m_plant;
