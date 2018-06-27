@@ -26,13 +26,14 @@ void GetworkClient::connect()
     if (m_conn->Path().length())
         uri += m_conn->Path();
     p_client = new ::JsonrpcGetwork(new jsonrpc::HttpClient(uri), m_coinbase);
+
+    m_connected.store(true, std::memory_order_relaxed);
     // Since we do not have a real connected state with getwork, we just fake it
     if (m_onConnected) {
         m_onConnected();
     }
     // No need to worry about starting again.
     // Worker class prevents that
-    m_connected.store(true, std::memory_order_relaxed);
     startWorking();
 }
 
@@ -52,12 +53,12 @@ void GetworkClient::submitHashrate(const std::string& rate)
 	m_currentHashrateToSubmit = rate;
 }
 
-void GetworkClient::submitSolution(const Solution& solution)
+void GetworkClient::submit()
 {
     if (m_connected.load(std::memory_order_relaxed)) {
         try {
             m_prevWork.reset();
-            bool accepted = p_client->submitWork(solution);
+            bool accepted = p_client->submitWork(m_solutionToSubmit);
             if (accepted) {
                 if (m_onSolutionAccepted) {
                     m_onSolutionAccepted(false);
@@ -72,6 +73,12 @@ void GetworkClient::submitSolution(const Solution& solution)
             cwarn << boost::diagnostic_information(ex);
         }
     }
+    m_solutionToSubmit.reset();
+}
+
+void GetworkClient::submitSolution(const Solution& solution)
+{
+    m_solutionToSubmit = solution;
 }
 
 // Handles all getwork communication.
@@ -81,6 +88,9 @@ void GetworkClient::trun()
         if (m_connected.load(std::memory_order_relaxed)) {
             // Get Work
             try {
+                if (m_solutionToSubmit.getNonce() > 0) {
+                    submit();
+                }
                 energi::Work newWork = p_client->getWork();
                 // Check if header changes so the new workpackage is really new
                 if (newWork != m_prevWork) {
@@ -97,5 +107,8 @@ void GetworkClient::trun()
         }
         // Sleep
         std::this_thread::sleep_for(std::chrono::milliseconds(m_farmRecheckPeriod));
+    }
+    if (m_onDisconnected) {
+        m_onDisconnected();
     }
 }

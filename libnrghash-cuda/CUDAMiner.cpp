@@ -41,7 +41,6 @@ struct CUDAChannel: public LogChannel
 CUDAMiner::CUDAMiner(const Plant& plant, unsigned index)
     : Miner("GPU/", plant, index)
     , m_light(getNumDevices())
-    , m_lastHeight(0)
 {
 }
 

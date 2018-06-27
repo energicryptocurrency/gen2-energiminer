@@ -23,10 +23,14 @@ public:
 	void submitHashrate(const std::string& rate) override;
 	void submitSolution(const energi::Solution& solution) override;
 
+    void submit();
+
 private:
 	void trun() override;
 	unsigned m_farmRecheckPeriod = 500;
 
+private:
+    energi::Solution m_solutionToSubmit;
     std::string m_coinbase;
     std::string m_currentHashrateToSubmit = "";
     JsonrpcGetwork *p_client = nullptr;

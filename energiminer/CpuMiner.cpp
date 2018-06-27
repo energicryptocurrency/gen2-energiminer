@@ -33,10 +33,13 @@ void CpuMiner::trun()
             }
 
             if (!m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
+                static std::mutex mtx;
+                std::lock_guard<std::mutex> lock(mtx);
                 LoadNrgHashDAG(work.nHeight);
                 cnote << "End initialising";
                 m_dagLoaded = true;
             }
+            m_lastHeight = work.nHeight;
             const uint64_t first_nonce = work.startNonce |
                          ((uint64_t)m_index << (64 - LOG2_MAX_MINERS - work.exSizeBits));
 
@@ -49,7 +52,6 @@ void CpuMiner::trun()
                 if (UintToArith256(hash) < work.hashTarget) {
                     addHashCount(work.nNonce + 1 - last_nonce);
                     Solution sol = Solution(work, work.getSecondaryExtraNonce());
-                    std::cout << sol.getSubmitBlockData() << std::endl;
                     cnote << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << work.nNonce;
                     m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
                     break;

@@ -106,8 +106,6 @@ namespace energi
     unsigned                globalWorkSize_ = 0;
     unsigned                workgroupSize_ = 0;
 
-    uint32_t                m_lastHeight;
-
     static std::mutex       m_device_mutex;
 
     static unsigned         s_platformId;

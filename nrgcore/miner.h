@@ -35,6 +35,7 @@ class Miner : public Worker
 public:
     Miner(const std::string& name, const Plant &plant, unsigned index)
         : Worker(name + std::to_string(index))
+        , m_lastHeight(0)
         , m_index(index)
         , m_plant(plant)
         , m_hashCount(0)
@@ -108,8 +109,9 @@ protected:
     static bool s_exit;
     static bool s_noeval;
 
-    bool m_newWorkAssigned = false;
+    bool     m_newWorkAssigned = false;
     bool     m_dagLoaded = false;
+    uint64_t m_lastHeight;
 
     unsigned m_index = 0;
     const Plant &m_plant;

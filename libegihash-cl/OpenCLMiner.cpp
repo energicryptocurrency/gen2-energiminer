@@ -273,7 +273,6 @@ struct OpenCLMiner::clInfo
 OpenCLMiner::OpenCLMiner(const Plant& plant, unsigned index)
     : Miner("GPU/", plant, index)
     , cl(new clInfo)
-    , m_lastHeight(0)
 {
 }
 
