@@ -78,7 +78,7 @@ public:
     {
         static std::recursive_mutex s_rMutex;
         std::lock_guard<std::recursive_mutex> lock(s_rMutex);
-        m_work.updateWorkTimeistamp()
+        m_work.updateTimestamp();
     }
 
 	void update_temperature(unsigned temperature);

@@ -389,7 +389,7 @@ void OpenCLMiner::trun()
     uint64_t startNonce = 0;
     // this gives each miner a pretty big range of nonces, supporting up to 16 miners.
     // TODO: get smarter about how many miners we support.
-    uint64_t const nonceSegment = static_cast<uint64_t>(m_index) << (64 - 4);
+    //uint64_t const nonceSegment = static_cast<uint64_t>(m_index) << (64 - 4);
     Work current_work; // Here we need current work as to initialize gpu
     try {
         while (!shouldStop()) {
@@ -410,6 +410,11 @@ void OpenCLMiner::trun()
             }
             if ( current_work != work ) {
                 if (!m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
+                    if (s_dagLoadMode == DAG_LOAD_MODE_SEQUENTIAL) {
+                        while (s_dagLoadIndex < m_index)
+                            std::this_thread::sleep_for(std::chrono::seconds(1));
+                        ++s_dagLoadIndex;
+                    }
                     init_dag(work.nHeight);
                     m_dagLoaded = true;
                 }
@@ -423,13 +428,19 @@ void OpenCLMiner::trun()
                 assert(target > 0);
 
                 // Update header constant buffer.
-                m_queue.enqueueWriteBuffer(m_header, CL_TRUE, 0, hash_header.hash_size, &hash_header.b[0]);
-                m_queue.enqueueWriteBuffer(m_searchBuffer, CL_TRUE, 0, sizeof(c_zero), &c_zero);
+                m_queue.enqueueWriteBuffer(m_header, CL_FALSE, 0, hash_header.hash_size, &hash_header.b[0]);
+                m_queue.enqueueWriteBuffer(m_searchBuffer, CL_FALSE, 0, sizeof(c_zero), &c_zero);
 
                 m_searchKernel.setArg(0, m_searchBuffer);  // Supply output buffer to kernel.
                 m_searchKernel.setArg(4, target);
 
-                startNonce = nonceSegment;
+                //startNonce = nonceSegment;
+                if (work.exSizeBits >= 0) {
+                     // This can support up to 2^c_log2MaxMiners devices.
+                    startNonce = work.startNonce | ((uint64_t)m_index << (64 - LOG2_MAX_MINERS - work.exSizeBits));
+                } else {
+                    startNonce = get_start_nonce();
+                }
             }
 
             // Run the kernel.
