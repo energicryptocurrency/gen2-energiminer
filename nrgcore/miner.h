@@ -77,6 +77,9 @@ public:
 	void update_temperature(unsigned temperature);
 	bool is_mining_paused() const;
 
+    void set_mining_paused(MinigPauseReason pause_reason);
+    void clear_mining_paused(MinigPauseReason pause_reason);
+
     //! static interfaces
 public:
     static bool LoadNrgHashDAG(uint64_t blockHeight = 0);
@@ -119,7 +122,7 @@ protected:
 	HwMonitorInfo m_hwmoninfo;
 
 private:
-    std::atomic<bool> m_wait_for_tstart_temp = { false };
+    MiningPause m_mining_paused;
     std::atomic<uint32_t> m_hashCount;
 	Work m_work;
 	mutable std::mutex x_work;

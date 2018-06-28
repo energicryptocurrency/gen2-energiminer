@@ -140,7 +140,7 @@ void Miner::InitDAG(uint64_t blockHeight, nrghash::progress_callback_type callba
         ss << std::hex << std::setw(4) << std::setfill('0') << epoch << "-" << seedhash.substr(0, 12) << ".dag";
         auto const epoch_file = GetDataDir() / "dag" / ss.str();
 
-        printf("\nDAG file for epoch %u is \"%s\"", epoch, epoch_file.string().c_str());
+        printf("\nDAG file for epoch %lu is \"%s\"", epoch, epoch_file.string().c_str());
         // try to load the DAG from disk
         try {
             std::unique_ptr<dag_t> new_dag(new dag_t(epoch_file.string(), callback));
@@ -159,7 +159,7 @@ void Miner::InitDAG(uint64_t blockHeight, nrghash::progress_callback_type callba
             ActiveDAG(move(new_dag));
             printf("\nDAG generated successfully. Saved to \"%s\".\n", epoch_file.string().c_str());
         } catch (hash_exception const & e) {
-            printf("\nDAG for epoch %u could not be generated: %s", epoch, e.what());
+            printf("\nDAG for epoch %lu could not be generated: %s", epoch, e.what());
         }
     }
     printf("\nDAG has been initialized already. Use ActiveDAG() to swap.\n");
@@ -171,27 +171,34 @@ void Miner::update_temperature(unsigned temperature)
        cnote << "Setting temp" << temperature << " for gpu" << index <<
        " tstop=" << farm.get_tstop() << " tstart=" << farm.get_tstart();
        */
-    bool _wait_for_tstart_temp = m_wait_for_tstart_temp.load(std::memory_order_relaxed);
+    bool _wait_for_tstart_temp = (m_mining_paused.get_mining_paused() &
+                                 MinigPauseReason::MINING_PAUSED_WAIT_FOR_T_START) == MinigPauseReason::MINING_PAUSED_WAIT_FOR_T_START;
     if(!_wait_for_tstart_temp) {
         unsigned tstop = m_plant.get_tstop();
         if (tstop && temperature >= tstop) {
             cwarn << "Pause mining on gpu" << m_index << " due -tstop";
-            m_wait_for_tstart_temp.store(true, std::memory_order_relaxed);
+            m_mining_paused.set_mining_paused(MinigPauseReason::MINING_PAUSED_WAIT_FOR_T_START);
         }
     } else {
         unsigned tstart = m_plant.get_tstart();
         if (tstart && temperature <= tstart) {
             cnote << "(Re)starting mining on gpu" << m_index << " due -tstart";
-            m_wait_for_tstart_temp.store(false, std::memory_order_relaxed);
+            m_mining_paused.clear_mining_paused(MinigPauseReason::MINING_PAUSED_WAIT_FOR_T_START);
         }
     }
 }
 
 bool Miner::is_mining_paused() const
 {
-    bool _wait_for_tstart_temp = m_wait_for_tstart_temp.load(std::memory_order_relaxed);
-    if (_wait_for_tstart_temp)
-        return true;
-    /* Add here some other reasons why mining on the GPU is paused */
-    return false;
+    return m_mining_paused.is_mining_paused();
+}
+
+void Miner::set_mining_paused(MinigPauseReason pause_reason)
+{
+    m_mining_paused.set_mining_paused(pause_reason);
+}
+
+void Miner::clear_mining_paused(MinigPauseReason pause_reason)
+{
+    m_mining_paused.clear_mining_paused(pause_reason);
 }

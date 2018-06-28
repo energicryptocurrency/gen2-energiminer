@@ -4,19 +4,7 @@
  *  Created on: Dec 13, 2017
  *      Author: ranjeet
  */
-
-#ifndef OPENCLMINER_H_
-#define OPENCLMINER_H_
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wignored-attributes"
-#pragma GCC diagnostic ignored "-Wmissing-braces"
-#define CL_USE_DEPRECATED_OPENCL_1_2_APIS true
-#define CL_HPP_ENABLE_EXCEPTIONS true
-#define CL_HPP_CL_1_2_DEFAULT_BUILD true
-#define CL_HPP_TARGET_OPENCL_VERSION 120
-#define CL_HPP_MINIMUM_OPENCL_VERSION 120
-#pragma GCC diagnostic pop
+#pragma once
 
 #include "nrgcore/plant.h"
 #include "nrgcore/miner.h"
@@ -24,6 +12,19 @@
 #include <cstdint>
 #include <mutex>
 #include <tuple>
+
+#pragma GCC diagnostic push
+#if __GNUC__ >= 6
+    #pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
+#pragma GCC diagnostic ignored "-Wmissing-braces"
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS true
+#define CL_HPP_ENABLE_EXCEPTIONS true
+#define CL_HPP_CL_1_2_DEFAULT_BUILD true
+#define CL_HPP_TARGET_OPENCL_VERSION 120
+#define CL_HPP_MINIMUM_OPENCL_VERSION 120
+#include "CL/cl2.hpp"
+#pragma GCC diagnostic pop
 
 // macOS OpenCL fix:
 #ifndef CL_DEVICE_COMPUTE_CAPABILITY_MAJOR_NV
@@ -84,6 +85,8 @@ namespace energi
       s_threadsPerHash = _threadsPerHash;
     }
 
+    std::tuple<bool, cl::Device, int, int, std::string> getDeviceInfo(int index);
+
     static void setDevices(const std::vector<unsigned>& _devices, unsigned _selectedDeviceCount)
     {
       std::lock_guard<std::mutex> lock(m_device_mutex);
@@ -102,6 +105,15 @@ namespace energi
 
     struct clInfo;
     clInfo * cl;
+
+	cl::Context m_context;
+	cl::CommandQueue m_queue;
+	cl::Kernel m_searchKernel;
+	cl::Kernel m_dagKernel;
+	cl::Buffer m_dag;
+	cl::Buffer m_light;
+	cl::Buffer m_header;
+	cl::Buffer m_searchBuffer;
 
     unsigned                globalWorkSize_ = 0;
     unsigned                workgroupSize_ = 0;
@@ -124,4 +136,3 @@ namespace energi
 
 } /* namespace energi */
 
-#endif /* OPENCLMINER_H_ */
