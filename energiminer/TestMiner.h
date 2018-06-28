@@ -24,7 +24,7 @@ namespace energi
 
     void setWork(const Work& work)
     {
-        Miner::setWork(work, 0, std::numeric_limits<uint64_t>::max());
+        Miner::setWork(work);
     }
 
 

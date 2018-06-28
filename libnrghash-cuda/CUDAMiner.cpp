@@ -89,7 +89,6 @@ bool CUDAMiner::init_dag(uint32_t height)
 void CUDAMiner::trun()
 {
     Work current;
-    uint64_t startNonce = 0;
     try {
         while(!shouldStop()) {
             if (is_mining_paused()) {
@@ -123,9 +122,16 @@ void CUDAMiner::trun()
             // Upper 64 bits of the boundary.
             const uint64_t upper64OfBoundary = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
             assert(upper64OfBoundary > 0);
-            startNonce = m_nonceStart.load();
+            uint64_t startN = current.startNonce;
+            if (current.exSizeBits >= 0) {
+                // this can support up to 2^c_log2Max_miners devices
+                startN = current.startNonce |
+                         ((uint64_t)m_index << (64 - LOG2_MAX_MINERS - current.exSizeBits));
+            } else {
+                startN = get_start_nonce();
+            }
 
-            search(hash_header.data(), upper64OfBoundary, startNonce, work);
+            search(hash_header.data(), upper64OfBoundary, startN, work);
         }
         // Reset miner and stop working
         CUDA_SAFE_CALL(cudaDeviceReset());
@@ -286,7 +292,6 @@ unsigned CUDAMiner::s_blockSize = CUDAMiner::c_defaultBlockSize;
 unsigned CUDAMiner::s_gridSize = CUDAMiner::c_defaultGridSize;
 unsigned CUDAMiner::s_numStreams = CUDAMiner::c_defaultNumStreams;
 unsigned CUDAMiner::s_scheduleFlag = 0;
-bool CUDAMiner::s_noeval = false;
 
 bool CUDAMiner::cuda_init(
     size_t numDevices,
@@ -417,7 +422,7 @@ cpyDag:
 void CUDAMiner::search(
     uint8_t const* header,
     uint64_t target,
-    uint64_t startNonce,
+    uint64_t startN,
     Work& work)
 {
     set_header(*reinterpret_cast<hash32_t const *>(header));
@@ -427,7 +432,7 @@ void CUDAMiner::search(
     }
 
     // choose the starting nonce
-    uint64_t current_nonce = startNonce;
+    uint64_t current_nonce = startN;
 
     // Nonces processed in one pass by a single stream
     const uint32_t batch_size = s_gridSize * s_blockSize;

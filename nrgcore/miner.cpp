@@ -24,6 +24,8 @@ unsigned Miner::s_dagCreateDevice = 0;
 
 uint8_t* Miner::s_dagInHostMemory = nullptr;
 
+bool Miner::s_noeval = false;
+
 bool Miner::LoadNrgHashDAG(uint64_t blockHeight)
 {
     // initialize the DAG

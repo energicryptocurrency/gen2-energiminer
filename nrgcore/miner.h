@@ -37,8 +37,6 @@ public:
         : Worker(name + std::to_string(index))
         , m_index(index)
         , m_plant(plant)
-        , m_nonceStart(0)
-        , m_nonceEnd(0)
         , m_hashCount(0)
     {
     }
@@ -46,7 +44,7 @@ public:
     virtual ~Miner() = default;
 
 public:
-    void setWork(const Work& work, uint64_t nonceStart, uint64_t nonceEnd)
+    void setWork(const Work& work)
     {
         {
             std::lock_guard<std::mutex> lock(x_work);
@@ -54,8 +52,6 @@ public:
             m_work.incrementExtraNonce();
             m_newWorkAssigned = true;
         }
-        m_nonceStart = nonceStart;
-        m_nonceEnd = nonceEnd;
         onSetWork();
     }
 
@@ -110,6 +106,7 @@ protected:
     static unsigned s_dagCreateDevice;
     static uint8_t* s_dagInHostMemory;
     static bool s_exit;
+    static bool s_noeval;
 
     bool m_newWorkAssigned = false;
     bool     m_dagLoaded = false;
@@ -118,9 +115,6 @@ protected:
     const Plant &m_plant;
     std::chrono::high_resolution_clock::time_point workSwitchStart_;
 	HwMonitorInfo m_hwmoninfo;
-
-    std::atomic<uint64_t> m_nonceStart;
-    std::atomic<uint64_t> m_nonceEnd;
 
 private:
     std::atomic<bool> m_wait_for_tstart_temp = { false };

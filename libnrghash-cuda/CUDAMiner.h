@@ -77,7 +77,7 @@ public:
 	void search(
 		uint8_t const* header,
 		uint64_t target,
-		uint64_t startNonce,
+		uint64_t startN,
 		Work& w);
 
 	/* -- default values -- */
@@ -123,8 +123,6 @@ private:
 
     static unsigned s_numInstances;
     static std::vector<int> s_devices;
-
-    static bool s_noeval;
 
 };
 

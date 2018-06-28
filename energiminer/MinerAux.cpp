@@ -374,7 +374,11 @@ void MinerCLI::execute()
                     m_localWorkSize,
                     m_globalWorkSizeMultiplier,
                     m_openclPlatform,
-                    0))
+                    0,
+                    m_dagLoadMode,
+                    m_dagCreateDevice,
+                    m_noEval,
+                    m_exit))
         {
             stop_io_service();
             exit(1);

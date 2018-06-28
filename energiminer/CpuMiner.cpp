@@ -32,13 +32,13 @@ void CpuMiner::trun()
                 //cnote << "Valid work.";
             }
 
-	    if (!m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
-		    LoadNrgHashDAG(work.nHeight);
-		    cnote << "End initialising";
-		    m_dagLoaded = true;
-	    }
-            const uint64_t first_nonce = m_nonceStart.load();
-            const uint64_t max_nonce = m_nonceEnd.load();
+            if (!m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
+                LoadNrgHashDAG(work.nHeight);
+                cnote << "End initialising";
+                m_dagLoaded = true;
+            }
+            const uint64_t first_nonce = work.startNonce |
+                         ((uint64_t)m_index << (64 - LOG2_MAX_MINERS - work.exSizeBits));
 
             work.nNonce = first_nonce;
             uint64_t last_nonce = first_nonce;
@@ -48,6 +48,8 @@ void CpuMiner::trun()
                 auto hash = GetPOWHash(work);
                 if (UintToArith256(hash) < work.hashTarget) {
                     addHashCount(work.nNonce + 1 - last_nonce);
+                    Solution sol = Solution(work, work.getSecondaryExtraNonce());
+                    std::cout << sol.getSubmitBlockData() << std::endl;
                     cnote << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << work.nNonce;
                     m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
                     break;
@@ -59,7 +61,7 @@ void CpuMiner::trun()
                     addHashCount(work.nNonce - last_nonce);
                     last_nonce = work.nNonce;
                 }
-            } while (!m_newWorkAssigned && (work.nNonce < max_nonce || !this->shouldStop()));
+            } while (!m_newWorkAssigned && !this->shouldStop());
             addHashCount(work.nNonce - last_nonce);
         }
     } catch(WorkException &ex) {

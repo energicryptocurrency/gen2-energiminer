@@ -341,9 +341,17 @@ bool OpenCLMiner::configureGPU(
         unsigned _localWorkSize,
         int _globalWorkSizeMultiplier,
         unsigned _platformId,
-        uint64_t _currentBlock)
+        uint64_t _currentBlock,
+        unsigned _dagLoadMode,
+        unsigned _dagCreateDevice,
+        bool _noeval,
+        bool _exit)
 {
     std::lock_guard<std::mutex> lock(m_device_mutex);
+    s_noeval = _noeval;
+    s_dagLoadMode = _dagLoadMode;
+    s_dagCreateDevice = _dagCreateDevice;
+    s_exit = _exit;
     s_platformId = _platformId;
     _localWorkSize = ((_localWorkSize + 7) / 8) * 8;
     s_workgroupSize = _localWorkSize;

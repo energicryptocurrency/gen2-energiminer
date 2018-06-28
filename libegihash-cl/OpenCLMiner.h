@@ -65,10 +65,14 @@ namespace energi
     static unsigned getNumDevices();
     static void listDevices();
     static bool configureGPU(
-      unsigned _localWorkSize,
-      int _globalWorkSizeMultiplier,
-      unsigned _platformId,
-      uint64_t _currentBlock);
+                             unsigned _localWorkSize,
+                             int _globalWorkSizeMultiplier,
+                             unsigned _platformId,
+                             uint64_t _currentBlock,
+                             unsigned _dagLoadMode,
+                             unsigned _dagCreateDevice,
+                             bool noeval,
+                             bool exit);
 
     static void setNumInstances(unsigned _instances)
     {
