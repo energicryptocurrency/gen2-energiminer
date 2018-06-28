@@ -272,15 +272,12 @@ struct OpenCLMiner::clInfo
 
 OpenCLMiner::OpenCLMiner(const Plant& plant, unsigned index)
     : Miner("GPU/", plant, index)
-    , cl(new clInfo)
-    , m_lastHeight(0)
 {
 }
 
 OpenCLMiner::~OpenCLMiner()
 {
     stopWorking();
-    delete cl;
 }
 
 unsigned OpenCLMiner::getNumDevices()
@@ -341,9 +338,17 @@ bool OpenCLMiner::configureGPU(
         unsigned _localWorkSize,
         int _globalWorkSizeMultiplier,
         unsigned _platformId,
-        uint64_t _currentBlock)
+        uint64_t _currentBlock,
+        unsigned _dagLoadMode,
+        unsigned _dagCreateDevice,
+        bool _noeval,
+        bool _exit)
 {
     std::lock_guard<std::mutex> lock(m_device_mutex);
+    s_noeval = _noeval;
+    s_dagLoadMode = _dagLoadMode;
+    s_dagCreateDevice = _dagCreateDevice;
+    s_exit = _exit;
     s_platformId = _platformId;
     _localWorkSize = ((_localWorkSize + 7) / 8) * 8;
     s_workgroupSize = _localWorkSize;
@@ -384,7 +389,7 @@ void OpenCLMiner::trun()
     uint64_t startNonce = 0;
     // this gives each miner a pretty big range of nonces, supporting up to 16 miners.
     // TODO: get smarter about how many miners we support.
-    uint64_t const nonceSegment = static_cast<uint64_t>(m_index) << (64 - 4);
+    //uint64_t const nonceSegment = static_cast<uint64_t>(m_index) << (64 - 4);
     Work current_work; // Here we need current work as to initialize gpu
     try {
         while (!shouldStop()) {
@@ -404,9 +409,14 @@ void OpenCLMiner::trun()
                 //cllog << name() << "Valid work.";
             }
             if ( current_work != work ) {
-                if (!dagLoaded_ || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
+                if (!m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
+                    if (s_dagLoadMode == DAG_LOAD_MODE_SEQUENTIAL) {
+                        while (s_dagLoadIndex < m_index)
+                            std::this_thread::sleep_for(std::chrono::seconds(1));
+                        ++s_dagLoadIndex;
+                    }
                     init_dag(work.nHeight);
-                    dagLoaded_ = true;
+                    m_dagLoaded = true;
                 }
                 m_lastHeight = work.nHeight;
                 current_work = work;
@@ -418,30 +428,36 @@ void OpenCLMiner::trun()
                 assert(target > 0);
 
                 // Update header constant buffer.
-                cl->queue_.enqueueWriteBuffer(cl->bufferHeader_, CL_TRUE, 0, hash_header.hash_size, &hash_header.b[0]);
-                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(c_zero), &c_zero);
+                m_queue.enqueueWriteBuffer(m_header, CL_FALSE, 0, hash_header.hash_size, &hash_header.b[0]);
+                m_queue.enqueueWriteBuffer(m_searchBuffer, CL_FALSE, 0, sizeof(c_zero), &c_zero);
 
-                cl->kernelSearch_.setArg(0, cl->searchBuffer_);  // Supply output buffer to kernel.
-                cl->kernelSearch_.setArg(4, target);
+                m_searchKernel.setArg(0, m_searchBuffer);  // Supply output buffer to kernel.
+                m_searchKernel.setArg(4, target);
 
-                startNonce = nonceSegment;
+                //startNonce = nonceSegment;
+                if (work.exSizeBits >= 0) {
+                     // This can support up to 2^c_log2MaxMiners devices.
+                    startNonce = work.startNonce | ((uint64_t)m_index << (64 - LOG2_MAX_MINERS - work.exSizeBits));
+                } else {
+                    startNonce = get_start_nonce();
+                }
             }
 
             // Run the kernel.
-            cl->kernelSearch_.setArg(3, startNonce);
-            cl->queue_.enqueueNDRangeKernel(cl->kernelSearch_, cl::NullRange, globalWorkSize_, workgroupSize_);
+            m_searchKernel.setArg(3, startNonce);
+            m_queue.enqueueNDRangeKernel(m_searchKernel, cl::NullRange, globalWorkSize_, workgroupSize_);
 
             // Read results.
             // TODO: could use pinned host pointer instead.
             uint32_t results[c_maxSearchResults + 1] = { 0 };
-            cl->queue_.enqueueReadBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(results), &results);
+            m_queue.enqueueReadBuffer(m_searchBuffer, CL_TRUE, 0, sizeof(results), &results);
 
             uint64_t nonce = 0;
             if (results[0] > 0) {
                 // Ignore results except the first one.
                 nonce = startNonce + results[1];
                 // Reset search buffer if any solution found.
-                cl->queue_.enqueueWriteBuffer(cl->searchBuffer_, CL_TRUE, 0, sizeof(c_zero), &c_zero);
+                m_queue.enqueueWriteBuffer(m_searchBuffer, CL_TRUE, 0, sizeof(c_zero), &c_zero);
             }
 
             // Report results while the kernel is running.
@@ -464,16 +480,16 @@ void OpenCLMiner::trun()
 
             // Make sure the last buffer write has finished --
             // it reads local variable.
-            cl->queue_.finish();
+            m_queue.finish();
         }
-        cl->queue_.finish();
+        m_queue.finish();
     } catch (cl::Error const& _e) {
         cwarn << name() << "OpenCL Error:" << CLErrorHelper(_e);
     }
 }
 
 
-std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::clInfo::getDeviceInfo(int index, OpenCLMiner* clMiner)
+std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::getDeviceInfo(int index)
 {
     auto failResult = std::make_tuple(false, cl::Device(), 0, 0, "");
     std::vector<cl::Platform> platforms = getPlatforms();
@@ -486,16 +502,15 @@ std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::clInfo::getDevi
     std::string platformName = platforms[platformIdx].getInfo<CL_PLATFORM_NAME>();
     ETHCL_LOG("Platform: " << platformName);
 
-    HwMonitorInfo& hwInfo = clMiner->hwmonInfo();
     int platformId = OPENCL_PLATFORM_UNKNOWN;
     if (platformName == "NVIDIA CUDA") {
         platformId = OPENCL_PLATFORM_NVIDIA;
-        hwInfo.deviceType = HwMonitorInfoType::NVIDIA;
-        hwInfo.indexSource = HwMonitorIndexSource::OPENCL;
+        m_hwmoninfo.deviceType = HwMonitorInfoType::NVIDIA;
+        m_hwmoninfo.indexSource = HwMonitorIndexSource::OPENCL;
     } else if (platformName == "AMD Accelerated Parallel Processing") {
         platformId = OPENCL_PLATFORM_AMD;
-        hwInfo.deviceType = HwMonitorInfoType::AMD;
-        hwInfo.indexSource = HwMonitorIndexSource::OPENCL;
+        m_hwmoninfo.deviceType = HwMonitorInfoType::AMD;
+        m_hwmoninfo.indexSource = HwMonitorIndexSource::OPENCL;
     } else if (platformName == "Clover") {
         platformId = OPENCL_PLATFORM_CLOVER;
     }
@@ -510,7 +525,7 @@ std::tuple<bool, cl::Device, int, int, std::string> OpenCLMiner::clInfo::getDevi
     // use selected device
     int idx = index % devices.size();
     unsigned deviceId = s_devices[idx] > -1 ? s_devices[idx] : index;
-    hwInfo.deviceIndex = deviceId % devices.size();
+    m_hwmoninfo.deviceIndex = deviceId % devices.size();
     cl::Device& device = devices[deviceId % devices.size()];
     std::string device_version = device.getInfo<CL_DEVICE_VERSION>();
     ETHCL_LOG("Device:   " << device.getInfo<CL_DEVICE_NAME>() << " / " << device_version);
@@ -550,11 +565,11 @@ bool OpenCLMiner::init_dag(uint32_t height)
     try {
         uint32_t const epoch = height / nrghash::constants::EPOCH_LENGTH;
         cllog << name() << "Generating DAG for epoch #" << epoch;
-        auto deviceResult = cl->getDeviceInfo(m_index, this);
+        auto deviceResult = getDeviceInfo(m_index);
         // create context
         auto device = std::get<1>(deviceResult);
-        cl->context_  = cl::Context(std::vector<cl::Device>(&device, &device + 1));
-        cl->queue_    = cl::CommandQueue(cl->context_, device);
+        m_context  = cl::Context(std::vector<cl::Device>(&device, &device + 1));
+        m_queue    = cl::CommandQueue(m_context, device);
 
         workgroupSize_        = s_workgroupSize;
         globalWorkSize_       = s_initialGlobalWorkSize;
@@ -596,7 +611,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
 
         // create miner OpenCL program
         cl::Program::Sources sources{{code.data(), code.size()}};
-        cl::Program program(cl->context_, sources);
+        cl::Program program(m_context, sources);
         try {
             program.build({device}, std::get<4>(deviceResult).c_str());
         } catch (cl::Error const&) {
@@ -622,15 +637,15 @@ bool OpenCLMiner::init_dag(uint32_t height)
             return false;
         }
         try {
-            cl->bufferLight_      = cl::Buffer(cl->context_, CL_MEM_READ_ONLY, sizeof(uint32_t) * vData.size());
-            cl->bufferDag_        = cl::Buffer(cl->context_, CL_MEM_READ_ONLY, dagSize);
+            m_light      = cl::Buffer(m_context, CL_MEM_READ_ONLY, sizeof(uint32_t) * vData.size());
+            m_dag        = cl::Buffer(m_context, CL_MEM_READ_ONLY, dagSize);
 
-            cl->kernelSearch_     = cl::Kernel(program, "ethash_search");
-            cl->kernelDag_        = cl::Kernel(program, "ethash_calculate_dag_item");
+            m_searchKernel     = cl::Kernel(program, "ethash_search");
+            m_dagKernel        = cl::Kernel(program, "ethash_calculate_dag_item");
 
             //ETHCL_LOG("Creating light buffer");
 
-            cl->queue_.enqueueWriteBuffer(cl->bufferLight_, CL_TRUE, 0, sizeof(uint32_t) * vData.size(), vData.data());
+            m_queue.enqueueWriteBuffer(m_light, CL_TRUE, 0, sizeof(uint32_t) * vData.size(), vData.data());
         } catch (cl::Error const& err) {
             cwarn << name() << "Creating DAG buffer failed:" << err.what() << err.err();
             return false;
@@ -638,15 +653,15 @@ bool OpenCLMiner::init_dag(uint32_t height)
 
         // create buffer for header
         //ETHCL_LOG("Creating buffer for header.");
-        cl->bufferHeader_ = cl::Buffer(cl->context_, CL_MEM_READ_ONLY, 32);
+        m_header = cl::Buffer(m_context, CL_MEM_READ_ONLY, 32);
 
-        cl->kernelSearch_.setArg(1, cl->bufferHeader_);
-        cl->kernelSearch_.setArg(2, cl->bufferDag_);
-        cl->kernelSearch_.setArg(5, ~0u);  // Pass this to stop the compiler unrolling the loops.
+        m_searchKernel.setArg(1, m_header);
+        m_searchKernel.setArg(2, m_dag);
+        m_searchKernel.setArg(5, ~0u);  // Pass this to stop the compiler unrolling the loops.
 
         // create mining buffers
         //ETHCL_LOG("Creating mining buffer");
-        cl->searchBuffer_ = cl::Buffer(cl->context_, CL_MEM_WRITE_ONLY, (c_maxSearchResults + 1) * sizeof(uint32_t));
+        m_searchBuffer = cl::Buffer(m_context, CL_MEM_WRITE_ONLY, (c_maxSearchResults + 1) * sizeof(uint32_t));
 
         uint32_t const work = (uint32_t)(dagSize / sizeof(nrghash::node));
         uint32_t fullRuns = work / globalWorkSize_;
@@ -655,14 +670,14 @@ bool OpenCLMiner::init_dag(uint32_t height)
             fullRuns++;
         }
 
-        cl->kernelDag_.setArg(1, cl->bufferLight_);
-        cl->kernelDag_.setArg(2, cl->bufferDag_);
-        cl->kernelDag_.setArg(3, ~0u);
+        m_dagKernel.setArg(1, m_light);
+        m_dagKernel.setArg(2, m_dag);
+        m_dagKernel.setArg(3, ~0u);
 
         for (uint32_t i = 0; i < fullRuns; ++i) {
-            cl->kernelDag_.setArg(0, i * globalWorkSize_);
-            cl->queue_.enqueueNDRangeKernel(cl->kernelDag_, cl::NullRange, globalWorkSize_, workgroupSize_);
-            cl->queue_.finish();
+            m_dagKernel.setArg(0, i * globalWorkSize_);
+            m_queue.enqueueNDRangeKernel(m_dagKernel, cl::NullRange, globalWorkSize_, workgroupSize_);
+            m_queue.finish();
         }
 
         cllog << name() << "Generating DAG for epoch #" << epoch << "finished.";

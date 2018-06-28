@@ -102,8 +102,10 @@ ethash_calculate_dag_item(uint32_t start)
 		for (uint32_t w = 0; w < 4; w++) {
 			s[w] = make_uint4(__shfl_sync(0xFFFFFFFF,dag_node.uint4s[w].x, t, 4), __shfl_sync(0xFFFFFFFF,dag_node.uint4s[w].y, t, 4), __shfl_sync(0xFFFFFFFF,dag_node.uint4s[w].z, t, 4), __shfl_sync(0xFFFFFFFF,dag_node.uint4s[w].w, t, 4));
 		}
+		if (shuffle_index < d_dag_size * 2) {
 		dag_nodes[shuffle_index].uint4s[thread_id] = s[thread_id];
 	}
+}
 }
 
 void ethash_generate_dag(

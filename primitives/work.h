@@ -100,6 +100,7 @@ struct Work : public Block
 
 
     //!TODO keep only this part
+    uint64_t       startNonce = 0;
     int            exSizeBits = -1;
     uint32_t       m_secondaryExtraNonce = 0;
     std::string    m_jobName;

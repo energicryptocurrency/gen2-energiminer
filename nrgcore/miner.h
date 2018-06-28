@@ -35,10 +35,9 @@ class Miner : public Worker
 public:
     Miner(const std::string& name, const Plant &plant, unsigned index)
         : Worker(name + std::to_string(index))
+        , m_lastHeight(0)
         , m_index(index)
         , m_plant(plant)
-        , m_nonceStart(0)
-        , m_nonceEnd(0)
         , m_hashCount(0)
     {
     }
@@ -46,7 +45,7 @@ public:
     virtual ~Miner() = default;
 
 public:
-    void setWork(const Work& work, uint64_t nonceStart, uint64_t nonceEnd)
+    void setWork(const Work& work)
     {
         {
             std::lock_guard<std::mutex> lock(x_work);
@@ -54,8 +53,6 @@ public:
             m_work.incrementExtraNonce();
             m_newWorkAssigned = true;
         }
-        m_nonceStart = nonceStart;
-        m_nonceEnd = nonceEnd;
         onSetWork();
     }
 
@@ -77,14 +74,24 @@ public:
         return m_plant.get_nonce_scumbler() + ((uint64_t) m_index << 40);
     }
 
+    void updateWorkTimestamp()
+    {
+        static std::recursive_mutex s_rMutex;
+        std::lock_guard<std::recursive_mutex> lock(s_rMutex);
+        m_work.updateTimestamp();
+    }
+
 	void update_temperature(unsigned temperature);
 	bool is_mining_paused() const;
 
+    void set_mining_paused(MinigPauseReason pause_reason);
+    void clear_mining_paused(MinigPauseReason pause_reason);
+
     //! static interfaces
 public:
-    static bool LoadNrgHashDAG();
+    static bool LoadNrgHashDAG(uint64_t blockHeight = 0);
     static boost::filesystem::path GetDataDir();
-    static void InitDAG(nrghash::progress_callback_type callback);
+    static void InitDAG(uint64_t blockHeight, nrghash::progress_callback_type callback);
     static uint256 GetPOWHash(const BlockHeader& header);
 
     static std::unique_ptr<nrghash::dag_t> const & ActiveDAG(std::unique_ptr<nrghash::dag_t> next_dag  = std::unique_ptr<nrghash::dag_t>());
@@ -110,19 +117,19 @@ protected:
     static unsigned s_dagCreateDevice;
     static uint8_t* s_dagInHostMemory;
     static bool s_exit;
+    static bool s_noeval;
 
-    bool m_newWorkAssigned = false;
+    bool     m_newWorkAssigned = false;
+    bool     m_dagLoaded = false;
+    uint64_t m_lastHeight;
 
     unsigned m_index = 0;
     const Plant &m_plant;
     std::chrono::high_resolution_clock::time_point workSwitchStart_;
 	HwMonitorInfo m_hwmoninfo;
 
-    std::atomic<uint64_t> m_nonceStart;
-    std::atomic<uint64_t> m_nonceEnd;
-
 private:
-    std::atomic<bool> m_wait_for_tstart_temp = { false };
+    MiningPause m_mining_paused;
     std::atomic<uint32_t> m_hashCount;
 	Work m_work;
 	mutable std::mutex x_work;

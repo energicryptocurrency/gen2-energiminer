@@ -14,9 +14,6 @@ using namespace energi;
 CpuMiner::CpuMiner(const Plant &plant, int index)
     :Miner("CPU/", plant, index)
 {
-    // First time init egi hash dag
-    // We got to do for every epoch change below
-    LoadNrgHashDAG();
 }
 
 void CpuMiner::trun()
@@ -34,8 +31,17 @@ void CpuMiner::trun()
             } else {
                 //cnote << "Valid work.";
             }
-            const uint64_t first_nonce = m_nonceStart.load();
-            const uint64_t max_nonce = m_nonceEnd.load();
+
+            if (!m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
+                static std::mutex mtx;
+                std::lock_guard<std::mutex> lock(mtx);
+                LoadNrgHashDAG(work.nHeight);
+                cnote << "End initialising";
+                m_dagLoaded = true;
+            }
+            m_lastHeight = work.nHeight;
+            const uint64_t first_nonce = work.startNonce |
+                         ((uint64_t)m_index << (64 - LOG2_MAX_MINERS - work.exSizeBits));
 
             work.nNonce = first_nonce;
             uint64_t last_nonce = first_nonce;
@@ -45,6 +51,7 @@ void CpuMiner::trun()
                 auto hash = GetPOWHash(work);
                 if (UintToArith256(hash) < work.hashTarget) {
                     addHashCount(work.nNonce + 1 - last_nonce);
+                    Solution sol = Solution(work, work.getSecondaryExtraNonce());
                     cnote << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << work.nNonce;
                     m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
                     break;
@@ -56,7 +63,7 @@ void CpuMiner::trun()
                     addHashCount(work.nNonce - last_nonce);
                     last_nonce = work.nNonce;
                 }
-            } while (!m_newWorkAssigned && (work.nNonce < max_nonce || !this->shouldStop()));
+            } while (!m_newWorkAssigned && !this->shouldStop());
             addHashCount(work.nNonce - last_nonce);
         }
     } catch(WorkException &ex) {

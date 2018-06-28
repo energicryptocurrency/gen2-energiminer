@@ -14,6 +14,7 @@
 #include <cstring>
 #include <iomanip>
 #include <mutex>
+#include <atomic>
 #include <array>
 
 template <class GuardType, class MutexType>
@@ -218,6 +219,41 @@ public:
     }
 private:
     std::string m_reason;
+};
+
+/// Pause mining
+typedef enum
+{
+    MINING_NOT_PAUSED              = 0x00000000,
+    MINING_PAUSED_WAIT_FOR_T_START = 0x00000001,
+    MINING_PAUSED_API              = 0x00000002
+    // MINING_PAUSED_USER             = 0x00000004,
+    // MINING_PAUSED_ERROR            = 0x00000008
+} MinigPauseReason;
+
+struct MiningPause
+{
+    std::atomic<uint64_t> m_mining_paused_flag = {MinigPauseReason::MINING_NOT_PAUSED};
+
+    void set_mining_paused(MinigPauseReason pause_reason)
+    {
+        m_mining_paused_flag.fetch_or(pause_reason, std::memory_order_seq_cst);
+    }
+
+    void clear_mining_paused(MinigPauseReason pause_reason)
+    {
+        m_mining_paused_flag.fetch_and(~pause_reason, std::memory_order_seq_cst);
+    }
+
+    MinigPauseReason get_mining_paused()
+    {
+        return (MinigPauseReason) m_mining_paused_flag.load(std::memory_order_relaxed);
+    }
+
+    bool is_mining_paused() const
+    {
+        return (m_mining_paused_flag.load(std::memory_order_relaxed) != MinigPauseReason::MINING_NOT_PAUSED);
+    }
 };
 
 /// Describes the progress of a mining operation.
