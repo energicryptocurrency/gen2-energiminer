@@ -74,6 +74,13 @@ public:
         return m_plant.get_nonce_scumbler() + ((uint64_t) m_index << 40);
     }
 
+    void updateWorkTimestamp()
+    {
+        static std::recursive_mutex s_rMutex;
+        std::lock_guard<std::recursive_mutex> lock(s_rMutex);
+        m_work.updateWorkTimeistamp()
+    }
+
 	void update_temperature(unsigned temperature);
 	bool is_mining_paused() const;
 
