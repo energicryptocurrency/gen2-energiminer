@@ -3,6 +3,8 @@
 
 #include "GetworkClient.h"
 
+std::mutex GetworkClient::s_mutex;
+
 using namespace energi;
 
 GetworkClient::GetworkClient(unsigned const & farmRecheckPeriod, const std::string& coinbase)
@@ -22,6 +24,7 @@ GetworkClient::~GetworkClient()
 
 void GetworkClient::connect()
 {
+    std::lock_guard<std::mutex> lock(s_mutex);
     std::string uri = "http://" + m_conn->User() + ":" + m_conn->Pass() + "@" + m_conn->Host() + ":" + std::to_string(m_conn->Port());
     if (m_conn->Path().length())
         uri += m_conn->Path();
@@ -39,6 +42,7 @@ void GetworkClient::connect()
 
 void GetworkClient::disconnect()
 {
+    std::lock_guard<std::mutex> lock(s_mutex);
     m_connected.store(false, std::memory_order_relaxed);
 
 	// Since we do not have a real connected state with getwork, we just fake it.
@@ -49,12 +53,14 @@ void GetworkClient::disconnect()
 
 void GetworkClient::submitHashrate(const std::string& rate)
 {
+    std::lock_guard<std::mutex> lock(s_mutex);
 	// Store the rate in temp var. Will be handled in workLoop
 	m_currentHashrateToSubmit = rate;
 }
 
 void GetworkClient::submit()
 {
+    std::lock_guard<std::mutex> lock(s_mutex);
     if (m_connected.load(std::memory_order_relaxed)) {
         try {
             m_prevWork.reset();
@@ -78,6 +84,7 @@ void GetworkClient::submit()
 
 void GetworkClient::submitSolution(const Solution& solution)
 {
+    std::lock_guard<std::mutex> lock(s_mutex);
     m_solutionToSubmit = solution;
 }
 

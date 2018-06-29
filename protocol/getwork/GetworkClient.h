@@ -35,4 +35,5 @@ private:
     std::string m_currentHashrateToSubmit = "";
     JsonrpcGetwork *p_client = nullptr;
     energi::Work m_prevWork;
+    static std::mutex s_mutex;
 };

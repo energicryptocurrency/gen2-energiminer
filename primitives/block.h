@@ -173,7 +173,7 @@ struct Block : public BlockHeader
             ////! masternaode transaction
             bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
             //bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool(); // not used currently
-            if (masternode_payments_started) {
+            if (masternode_payments_started && !gbt["masternode"].empty()) {
                 txoutMasternode = outTransaction(gbt["masternode"]);
                 coinbaseTransaction.vout.push_back(txoutMasternode);
             }
