@@ -397,7 +397,7 @@ void OpenCLMiner::trun()
                 std::this_thread::sleep_for(std::chrono::seconds(3));
                 continue;
             }
-            Work work = this->getWork(); // This work is a copy of last assigned work the worker was provided by plant
+            const Work& work = this->getWork(); // This work is a copy of last assigned work the worker was provided by plant
             if ( !work.isValid() ) {
                 cnote << "No work received. Pause for 1 s.";
                 std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -420,11 +420,11 @@ void OpenCLMiner::trun()
                 }
                 m_lastHeight = work.nHeight;
                 current_work = work;
-                energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
+                energi::CBlockHeaderTruncatedLE truncatedBlockHeader(current_work);
                 nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
                 // Upper 64 bits of the boundary.
-                const uint64_t target = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
+                const uint64_t target = *reinterpret_cast<uint64_t const *>((current_work.hashTarget >> 192).data());
                 assert(target > 0);
 
                 // Update header constant buffer.
@@ -435,9 +435,9 @@ void OpenCLMiner::trun()
                 m_searchKernel.setArg(4, target);
 
                 //startNonce = nonceSegment;
-                if (work.exSizeBits >= 0) {
+                if (current_work.exSizeBits >= 0) {
                      // This can support up to 2^c_log2MaxMiners devices.
-                    startNonce = work.startNonce | ((uint64_t)m_index << (64 - LOG2_MAX_MINERS - work.exSizeBits));
+                    startNonce = current_work.startNonce | ((uint64_t)m_index << (64 - LOG2_MAX_MINERS - current_work.exSizeBits));
                 } else {
                     startNonce = get_start_nonce();
                 }
@@ -463,17 +463,16 @@ void OpenCLMiner::trun()
             // Report results while the kernel is running.
             // It takes some time because proof of work must be re-evaluated on CPU.
             if (nonce != 0) {
-                work.nNonce = nonce;
-                auto const powHash = GetPOWHash(work);
-                if (UintToArith256(powHash) <= work.hashTarget) {
-                    cllog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonce;
-                    Solution solution(work, work.getSecondaryExtraNonce());
+                current_work.nNonce = nonce;
+                auto const powHash = GetPOWHash(current_work);
+                if (UintToArith256(powHash) <= current_work.hashTarget) {
+                    cllog << name() << "Submitting block blockhash: " << current_work.GetHash().ToString() << " height: " << current_work.nHeight << "nonce: " << nonce;
+                    Solution solution(current_work, current_work.getSecondaryExtraNonce());
                     m_plant.submitProof(solution);
                 } else {
-                    cwarn << name() << "CL Miner proposed invalid solution" << work.GetHash().ToString() << "nonce: " << nonce;
+                    cwarn << name() << "CL Miner proposed invalid solution" << current_work.GetHash().ToString() << "nonce: " << nonce;
                 }
             }
-            current_work = work;
             // Increase start nonce for following kernel execution.
             startNonce += globalWorkSize_;
             addHashCount(globalWorkSize_);

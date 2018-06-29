@@ -94,7 +94,7 @@ void CUDAMiner::trun()
                 std::this_thread::sleep_for(std::chrono::seconds(3));
                 continue;
             }
-            Work work = this->getWork();
+            const Work& work = this->getWork();
             if(!work.isValid()) {
                 cnote << "No work. Pause for 3 s.";
                 std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -115,11 +115,11 @@ void CUDAMiner::trun()
                 m_lastHeight = work.nHeight;
                 current = work;
             }
-            energi::CBlockHeaderTruncatedLE truncatedBlockHeader(work);
+            energi::CBlockHeaderTruncatedLE truncatedBlockHeader(current);
             nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
             // Upper 64 bits of the boundary.
-            const uint64_t upper64OfBoundary = *reinterpret_cast<uint64_t const *>((work.hashTarget >> 192).data());
+            const uint64_t upper64OfBoundary = *reinterpret_cast<uint64_t const *>((current.hashTarget >> 192).data());
             assert(upper64OfBoundary > 0);
             uint64_t startN = current.startNonce;
             if (current.exSizeBits >= 0) {
@@ -130,7 +130,7 @@ void CUDAMiner::trun()
                 startN = get_start_nonce();
             }
 
-            search(hash_header.data(), upper64OfBoundary, startN, work);
+            search(hash_header.data(), upper64OfBoundary, startN, current);
         }
         // Reset miner and stop working
         CUDA_SAFE_CALL(cudaDeviceReset());

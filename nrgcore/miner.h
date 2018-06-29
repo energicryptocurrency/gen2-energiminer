@@ -102,7 +102,7 @@ protected:
 	 */
     virtual void onSetWork() {}
 
-    Work getWork() const
+    const Work& getWork() const
     {
         std::lock_guard<std::mutex> lock(x_work);
         return m_work;
