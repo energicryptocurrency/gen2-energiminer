@@ -128,9 +128,10 @@ struct Block : public BlockHeader
 
         std::string coinbase1 = jPrm.get((Json::Value::ArrayIndex)2, "").asString();
         std::string coinbase2 = jPrm.get((Json::Value::ArrayIndex)3, "").asString();
-        std::string hexData = coinbase1 + extraNonce + "00000000" + coinbase2;
+        std::string hexData = coinbase1 + extraNonce +/* + "00000000" +*/ coinbase2;
         CTransaction coinbaseTx;
         DecodeHexTx(coinbaseTx, hexData);
+
         vtx.push_back(coinbaseTx);
         vtx[0].UpdateHash();
     }

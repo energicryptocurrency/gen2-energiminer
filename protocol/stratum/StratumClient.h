@@ -62,6 +62,7 @@ private:
 
     void onSSLShutdownCompleted(const boost::system::error_code& ec);
 
+    std::string m_user;    // Only user part
     std::string m_worker; // eth-proxy only; No ! It's for all !!!
 
     std::atomic<bool> m_disconnecting = { false };
