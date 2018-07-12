@@ -180,11 +180,10 @@ void StratumClient::disconnect_finalize()
             m_securesocket->lowest_layer().close();
         }
         m_securesocket = nullptr;
-        m_socket = nullptr;
     } else {
-        m_socket = nullptr;
         m_nonsecuresocket = nullptr;
     }
+    m_socket = nullptr;
     m_subscribed.store(false, std::memory_order_relaxed);
     m_authorized.store(false, std::memory_order_relaxed);
 
@@ -829,10 +828,13 @@ void StratumClient::processReponse(Json::Value& responseObject)
                     !jPrm.get((Json::Value::ArrayIndex)3, "").asString().empty()) {
                     reset_work_timeout();
 
-                    m_current = energi::Work(jPrm, m_extraNonce, true);
-                    m_current.exSizeBits = m_extraNonceHexSize * 4;
-                    if (m_onWorkReceived) {
-                        m_onWorkReceived(m_current);
+                    auto work = energi::Work(jPrm, m_extraNonce, true);
+                    if (m_current != work) {
+                        m_current = work;
+                        m_current.exSizeBits = m_extraNonceHexSize * 4;
+                        if (m_onWorkReceived) {
+                            m_onWorkReceived(m_current);
+                        }
                     }
                 }
             }
