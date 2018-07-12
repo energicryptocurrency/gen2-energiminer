@@ -50,4 +50,12 @@ void Work::updateTimestamp()
     nTime = std::chrono::seconds(std::time(NULL)).count();
 }
 
+std::string Work::getBlockTransaction() const
+{
+    std::stringstream ss;
+    //! TODO check and provid correct nType and nVersion for this operation
+    vtx[0].Serialize(ss, (1 << 0), 70208);
+    return strToHex(ss.str());
+}
+
 } //! namespace energi

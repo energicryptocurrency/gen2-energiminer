@@ -29,6 +29,7 @@ public:
     {}
 
     std::string getSubmitBlockData() const;
+    std::string getBlockTransaction() const;
 
     inline const std::string& getJobName() const
     {

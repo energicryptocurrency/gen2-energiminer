@@ -71,6 +71,8 @@ struct Work : public Block
         return m_jobName;
     }
 
+    std::string getBlockTransaction() const;
+
     void incrementExtraNonce();
 
     void updateTimestamp();

@@ -956,6 +956,7 @@ void StratumClient::submitSolution(const Solution& solution)
             jReq["params"].append(solution.getTime());
             jReq["params"].append(std::to_string(solution.getNonce()));
             jReq["params"].append(solution.getHashMix().GetHex());
+            jReq["params"].append(solution.getBlockTransaction());
             if (m_worker.length()) {
                 jReq["worker"] = m_worker;
             }
@@ -982,7 +983,6 @@ void StratumClient::submitSolution(const Solution& solution)
     }
     sendSocketData(jReq);
     m_response_pending = true;
-
 }
 
 void StratumClient::recvSocketData()
