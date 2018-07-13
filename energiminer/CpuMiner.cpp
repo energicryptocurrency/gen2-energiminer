@@ -18,6 +18,7 @@ CpuMiner::CpuMiner(const Plant &plant, int index)
 
 void CpuMiner::trun()
 {
+    uint64_t first_nonce = 0;
     try {
         while (true) {
             Work work = this->getWork(); // This work is a copy of last assigned work the worker was provided by plant
@@ -40,8 +41,13 @@ void CpuMiner::trun()
                 m_dagLoaded = true;
             }
             m_lastHeight = work.nHeight;
-            const uint64_t first_nonce = work.startNonce |
+
+            if (work.exSizeBits >=0) {
+                first_nonce = work.startNonce |
                          ((uint64_t)m_index << (64 - LOG2_MAX_MINERS - work.exSizeBits));
+            } else {
+                first_nonce = get_start_nonce();
+            }
 
             work.nNonce = first_nonce;
             uint64_t last_nonce = first_nonce;
@@ -54,6 +60,7 @@ void CpuMiner::trun()
                     Solution sol = Solution(work, work.getSecondaryExtraNonce());
                     cnote << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << work.nNonce;
                     m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
+                    ++work.nNonce;
                     break;
                 } else {
                     ++work.nNonce;
