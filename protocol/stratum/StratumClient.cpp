@@ -575,7 +575,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
                                 // Proceed with next step of autodetection ETHPROXY compatible
                                 m_conn->SetStratumMode(1);
                                 jReq["id"] = unsigned(1);
-                                jReq["method"] = "submit_login"; //!TODO energi submit login 
+                                jReq["method"] = "mining.authorize";
                                 jReq["params"] = Json::Value(Json::arrayValue);
                                 if (m_worker.length())
                                     jReq["worker"] = m_worker;
@@ -599,7 +599,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
                             // Proceed with next step of autodetection ETHPROXY compatible
                             m_conn->SetStratumMode(1);
                             jReq["id"] = unsigned(1);
-                            jReq["method"] = "submit_login"; //!TODO energi submit login 
+                            jReq["method"] = "mining.authorize";
                             jReq["params"] = Json::Value(Json::arrayValue);
                             if (m_worker.length())
                                 jReq["worker"] = m_worker;
@@ -633,7 +633,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
                             return;
                         } else {
                             // ETHPROXY is confirmed
-                            cnote << "Stratum mode detected : ETHPROXY compatible";
+                            cnote << "Stratum mode detected : NRGPROXY compatible";
                             m_conn->SetStratumMode(1, true);
                         }
                         break;
@@ -680,11 +680,14 @@ void StratumClient::processReponse(Json::Value& responseObject)
                     m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
                     return;
                 } else {
-                    cnote << "Logged in to eth-proxy server";
+                    cnote << "Logged in to nrg-proxy server";
                     m_authorized.store(true, std::memory_order_relaxed);
-                    jReq["id"] = unsigned(5);
-                    jReq["method"] = "getblocktemplate";
+                    jReq["id"] = unsigned(3);
+                    jReq["jsonrpc"] = "2.0";
+                    jReq["method"] = "mining.authorize";
                     jReq["params"] = Json::Value(Json::arrayValue);
+                    jReq["params"].append(m_conn->User() + m_conn->Path());
+                    jReq["params"].append(m_conn->Pass());
                 }
                 break;
             case StratumClient::ETHEREUMSTRATUM:
@@ -943,39 +946,16 @@ void StratumClient::submitSolution(const Solution& solution)
     jReq["method"] = "mining.submit";
     jReq["params"] = Json::Value(Json::arrayValue);
 
-    switch (m_conn->StratumMode()) {
-        case StratumClient::STRATUM:
-            jReq["jsonrpc"] = "2.0";
-            jReq["params"].append(m_conn->User());
-            jReq["params"].append(solution.getJobName());
-            jReq["params"].append(solution.getExtraNonce());
-            jReq["params"].append(solution.getTime());
-            jReq["params"].append(std::to_string(solution.getNonce()));
-            jReq["params"].append(solution.getHashMix().GetHex());
-            jReq["params"].append(solution.getBlockTransaction());
-            if (m_worker.length()) {
-                jReq["worker"] = m_worker;
-            }
-            break;
-        case StratumClient::ETHPROXY:
-            jReq["method"] = "submitblock";
-            jReq["params"].append(solution.getJobName());
-            jReq["params"].append(solution.getExtraNonce());
-            jReq["params"].append(solution.getTime());
-            jReq["params"].append(std::to_string(solution.getNonce()));
-            jReq["params"].append(solution.getHashMix().GetHex());
-            if (m_worker.length()) {
-                jReq["worker"] = m_worker;
-            }
-            break;
-        case StratumClient::ETHEREUMSTRATUM:
-            jReq["params"].append(m_conn->User());
-            jReq["params"].append(solution.getJobName());
-            jReq["params"].append(solution.getExtraNonce());
-            jReq["params"].append(solution.getTime());
-            jReq["params"].append(std::to_string(solution.getNonce()));
-            jReq["params"].append(solution.getHashMix().GetHex());
-            break;
+    jReq["jsonrpc"] = "2.0";
+    jReq["params"].append(m_conn->User());
+    jReq["params"].append(solution.getJobName());
+    jReq["params"].append(solution.getExtraNonce());
+    jReq["params"].append(solution.getTime());
+    jReq["params"].append(std::to_string(solution.getNonce()));
+    jReq["params"].append(solution.getHashMix().GetHex());
+    jReq["params"].append(solution.getBlockTransaction());
+    if (m_worker.length()) {
+        jReq["worker"] = m_worker;
     }
     sendSocketData(jReq);
     m_response_pending = true;

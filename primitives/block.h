@@ -134,6 +134,12 @@ struct Block : public BlockHeader
 
         vtx.push_back(coinbaseTx);
         vtx[0].UpdateHash();
+        const auto merkleBranches = jPrm.get((Json::Value::ArrayIndex)4, "");
+        for (const auto branch : merkleBranches) {
+            CTransaction trans;
+            DecodeHexTx(trans, branch["data"].asString());
+            vtx.push_back(trans);
+        }
     }
 
     Block(const Json::Value& gbt,
