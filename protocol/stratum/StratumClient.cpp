@@ -47,7 +47,6 @@ void StratumClient::connect()
     m_connected.store(false, std::memory_order_relaxed);
     m_subscribed.store(false, std::memory_order_relaxed);
     m_authorized.store(false, std::memory_order_relaxed);
-    m_conn->SetStratumMode(999, false);
 
     // Prepare Socket
     if (m_conn->SecLevel() != SecureLevel::NONE) {
@@ -195,14 +194,9 @@ void StratumClient::disconnect_finalize()
     // m_canconnect flag is used to prevent never-ending loop when
     // remote endpoint rejects connections attempts persistently since the first
     if (!m_conn->StratumModeConfirmed() && m_canconnect.load(std::memory_order_relaxed)) {
-        unsigned l = m_conn->StratumMode();
-        if (l > 0) {
-            --l;
-            m_conn->SetStratumMode(l);
-            // Repost a new connection attempt
-            m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::connect, this)));
-            return;
-        }
+        // Repost a new connection attempt
+        m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::connect, this)));
+        return;
     }
     // Trigger handlers
     if (m_onDisconnected) {
@@ -465,12 +459,12 @@ void StratumClient::connect_handler(const boost::system::error_code& ec)
            +        It's been tested that f2pool.com does not respond with json error to wrong
            +        access message (which is needed to autodetect stratum mode).
            +        IT DOES NOT RESPOND AT ALL !!
-           +        Due to this we need to set a timeout (arbitrary set to half second) and
+           +        Due to this we need to set a timeout (arbitrary set to 1 second) and
            +        if no response within that time consider the tentative login failed
            +        and switch to next stratum mode test
            +        */
         m_responsetimer.cancel();
-        m_responsetimer.expires_from_now(boost::posix_time::milliseconds(500));
+        m_responsetimer.expires_from_now(boost::posix_time::milliseconds(1000));
         m_responsetimer.async_wait(m_io_strand.wrap(boost::bind(&StratumClient::response_timeout_handler, this, boost::asio::placeholders::error)));
         sendSocketData(jReq);
     }
@@ -532,7 +526,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
     _isSuccess = responseObject.get("error", Json::Value::null).empty();
     _errReason = (_isSuccess ? "" : processError(responseObject));
     _method = responseObject.get("method", "").asString();
-    _isNotification = (_id == unsigned(0) || _method != "");
+    _isNotification = ( _method != "" || _id == unsigned(0) );
 
     // Notifications of new jobs are like responses to get_work requests
     if (_isNotification && _method == "" && m_conn->StratumMode() == StratumClient::ETHPROXY && responseObject["result"].isArray()) {
@@ -581,7 +575,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
                                 // Proceed with next step of autodetection ETHPROXY compatible
                                 m_conn->SetStratumMode(1);
                                 jReq["id"] = unsigned(1);
-                                jReq["method"] = "submit_login"; //!TODO energi submit login 
+                                jReq["method"] = "mining.authorize";
                                 jReq["params"] = Json::Value(Json::arrayValue);
                                 if (m_worker.length())
                                     jReq["worker"] = m_worker;
@@ -590,7 +584,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
                                     jReq["params"].append(m_email);
                                 // Set a timeout in case pool does not respond
                                 m_responsetimer.cancel();
-                                m_responsetimer.expires_from_now(boost::posix_time::milliseconds(500));
+                                m_responsetimer.expires_from_now(boost::posix_time::milliseconds(1000));
                                 m_responsetimer.async_wait(m_io_strand.wrap(boost::bind(&StratumClient::response_timeout_handler, this, boost::asio::placeholders::error)));
 
                                 sendSocketData(jReq);
@@ -605,7 +599,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
                             // Proceed with next step of autodetection ETHPROXY compatible
                             m_conn->SetStratumMode(1);
                             jReq["id"] = unsigned(1);
-                            jReq["method"] = "submit_login"; //!TODO energi submit login 
+                            jReq["method"] = "mining.authorize";
                             jReq["params"] = Json::Value(Json::arrayValue);
                             if (m_worker.length())
                                 jReq["worker"] = m_worker;
@@ -614,7 +608,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
                                 jReq["params"].append(m_email);
                             // Set a timeout in case pool does not respond
                             m_responsetimer.cancel();
-                            m_responsetimer.expires_from_now(boost::posix_time::milliseconds(500));
+                            m_responsetimer.expires_from_now(boost::posix_time::milliseconds(1000));
                             m_responsetimer.async_wait(m_io_strand.wrap(boost::bind(&StratumClient::response_timeout_handler, this, boost::asio::placeholders::error)));
 
 
@@ -632,14 +626,14 @@ void StratumClient::processReponse(Json::Value& responseObject)
                             jReq["params"] = Json::Value(Json::arrayValue);
                             // Set a timeout in case pool does not respond
                             m_responsetimer.cancel();
-                            m_responsetimer.expires_from_now(boost::posix_time::milliseconds(500));
+                            m_responsetimer.expires_from_now(boost::posix_time::milliseconds(1000));
                             m_responsetimer.async_wait(m_io_strand.wrap(boost::bind(&StratumClient::response_timeout_handler, this, boost::asio::placeholders::error)));
 
                             sendSocketData(jReq);
                             return;
                         } else {
                             // ETHPROXY is confirmed
-                            cnote << "Stratum mode detected : ETHPROXY compatible";
+                            cnote << "Stratum mode detected : NRGPROXY compatible";
                             m_conn->SetStratumMode(1, true);
                         }
                         break;
@@ -686,11 +680,14 @@ void StratumClient::processReponse(Json::Value& responseObject)
                     m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
                     return;
                 } else {
-                    cnote << "Logged in to eth-proxy server";
+                    cnote << "Logged in to nrg-proxy server";
                     m_authorized.store(true, std::memory_order_relaxed);
-                    jReq["id"] = unsigned(5);
-                    jReq["method"] = "getblocktemplate";
+                    jReq["id"] = unsigned(3);
+                    jReq["jsonrpc"] = "2.0";
+                    jReq["method"] = "mining.authorize";
                     jReq["params"] = Json::Value(Json::arrayValue);
+                    jReq["params"].append(m_conn->User() + m_conn->Path());
+                    jReq["params"].append(m_conn->Pass());
                 }
                 break;
             case StratumClient::ETHEREUMSTRATUM:
@@ -895,7 +892,7 @@ void StratumClient::response_timeout_handler(const boost::system::error_code& ec
                 // Waiting for a response to a submission
                 cwarn << "No response received in " << m_responsetimeout << " seconds.";
                 m_endpoints.pop();
-                m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
+                m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
             }
 
             if (m_conn->StratumModeConfirmed() == false && m_conn->IsUnrecoverable() == false) {
@@ -949,39 +946,16 @@ void StratumClient::submitSolution(const Solution& solution)
     jReq["method"] = "mining.submit";
     jReq["params"] = Json::Value(Json::arrayValue);
 
-    switch (m_conn->StratumMode()) {
-        case StratumClient::STRATUM:
-            jReq["jsonrpc"] = "2.0";
-            jReq["params"].append(m_conn->User());
-            jReq["params"].append(solution.getJobName());
-            jReq["params"].append(solution.getExtraNonce());
-            jReq["params"].append(solution.getTime());
-            jReq["params"].append(std::to_string(solution.getNonce()));
-            jReq["params"].append(solution.getHashMix().GetHex());
-            jReq["params"].append(solution.getBlockTransaction());
-            if (m_worker.length()) {
-                jReq["worker"] = m_worker;
-            }
-            break;
-        case StratumClient::ETHPROXY:
-            jReq["method"] = "submitblock";
-            jReq["params"].append(solution.getJobName());
-            jReq["params"].append(solution.getExtraNonce());
-            jReq["params"].append(solution.getTime());
-            jReq["params"].append(std::to_string(solution.getNonce()));
-            jReq["params"].append(solution.getHashMix().GetHex());
-            if (m_worker.length()) {
-                jReq["worker"] = m_worker;
-            }
-            break;
-        case StratumClient::ETHEREUMSTRATUM:
-            jReq["params"].append(m_conn->User());
-            jReq["params"].append(solution.getJobName());
-            jReq["params"].append(solution.getExtraNonce());
-            jReq["params"].append(solution.getTime());
-            jReq["params"].append(std::to_string(solution.getNonce()));
-            jReq["params"].append(solution.getHashMix().GetHex());
-            break;
+    jReq["jsonrpc"] = "2.0";
+    jReq["params"].append(m_conn->User());
+    jReq["params"].append(solution.getJobName());
+    jReq["params"].append(solution.getExtraNonce());
+    jReq["params"].append(solution.getTime());
+    jReq["params"].append(std::to_string(solution.getNonce()));
+    jReq["params"].append(solution.getHashMix().GetHex());
+    jReq["params"].append(solution.getBlockTransaction());
+    if (m_worker.length()) {
+        jReq["worker"] = m_worker;
     }
     sendSocketData(jReq);
     m_response_pending = true;
@@ -1036,7 +1010,7 @@ void StratumClient::onRecvSocketDataCompleted(const boost::system::error_code& e
             } else {
                 cwarn << "Socket read failed:" << ec.message();
             }
-            m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
+            m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
         }
     }
 }
