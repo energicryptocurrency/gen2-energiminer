@@ -194,7 +194,7 @@ void CUDAMiner::listDevices()
             cout << "\tPci: " << setw(4) << setfill('0') << hex << props.pciDomainID << ':' << setw(2)
                 << props.pciBusID << ':' << setw(2) << props.pciDeviceID << '\n';
         }
-    } catch(std::runtime_error const& err) {
+    } catch(const std::runtime_error& err) {
         cwarn << "CUDA error: " << err.what();
         if(s_exit) {
             exit(1);
@@ -410,7 +410,7 @@ cpyDag:
         m_dag = dag;
         m_dag_size = dagNumItems;
         return true;
-    } catch (runtime_error const&) {
+    } catch (const runtime_error&) {
         if(s_exit) {
             exit(1);
         }
