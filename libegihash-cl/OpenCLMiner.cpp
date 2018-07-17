@@ -293,6 +293,16 @@ unsigned OpenCLMiner::getNumDevices()
     return devices.size();
 }
 
+void OpenCLMiner::setNumInstances(unsigned _instances)
+{
+    try {
+        s_numInstances = std::min<unsigned>(_instances, getNumDevices());
+    } catch (const cl::Error& err) {
+        cwarn << "OpenCL Error:" << CLErrorHelper(err);
+        std::exit(0);
+    }
+}
+
 void OpenCLMiner::listDevices()
 {
     std::string outString ="\nListing OpenCL devices.\nFORMAT: [platformID] [deviceID] deviceName\n";

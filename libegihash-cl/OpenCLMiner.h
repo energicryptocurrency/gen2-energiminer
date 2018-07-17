@@ -75,10 +75,7 @@ namespace energi
                              bool noeval,
                              bool exit);
 
-    static void setNumInstances(unsigned _instances)
-    {
-      s_numInstances = std::min<unsigned>(_instances, getNumDevices());
-    }
+    static void setNumInstances(unsigned _instances);
 
     static void setThreadsPerHash(unsigned _threadsPerHash)
     {

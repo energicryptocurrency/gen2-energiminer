@@ -150,14 +150,19 @@ void CUDAMiner::onSetWork()
 
 void CUDAMiner::setNumInstances(unsigned _instances)
 {
+    try {
         s_numInstances = std::min<unsigned>(_instances, getNumDevices());
+    } catch (const std::exception& ex) {
+        cerr << ex.what();
+        std::exit(0);
+    }
 }
 
 void CUDAMiner::setDevices(const std::vector<unsigned>& _devices, unsigned _selectedDeviceCount)
 {
-        for (unsigned i = 0; i < _selectedDeviceCount; ++i) {
-            s_devices[i] = _devices[i];
-        }
+    for (unsigned i = 0; i < _selectedDeviceCount; ++i) {
+        s_devices[i] = _devices[i];
+    }
 }
 
 unsigned CUDAMiner::getNumDevices()
@@ -217,20 +222,25 @@ bool CUDAMiner::configureGPU(
     s_dagCreateDevice = _dagCreateDevice;
     s_exit  = _exit;
 
-    if (!cuda_configureGPU(
-        getNumDevices(),
-        s_devices,
-        ((_blockSize + 7) / 8) * 8,
-        _gridSize,
-        _numStreams,
-        _scheduleFlag,
-        _noeval)
-        )
-    {
-        cout << "No CUDA device with sufficient memory was found. Can't CUDA mine. Remove the -U argument" << endl;
-        return false;
+    try {
+        if (!cuda_configureGPU(
+                    getNumDevices(),
+                    s_devices,
+                    ((_blockSize + 7) / 8) * 8,
+                    _gridSize,
+                    _numStreams,
+                    _scheduleFlag,
+                    _noeval)
+           )
+        {
+            cout << "No CUDA device with sufficient memory was found. Can't CUDA mine. Remove the -U argument" << endl;
+            return false;
+        }
+        return true;
+    } catch (const std::exception& ex) {
+        std::cerr << ex.what();
+        std::exit(0);
     }
-    return true;
 }
 
 void CUDAMiner::setParallelHash(unsigned _parallelHash)
