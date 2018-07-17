@@ -87,6 +87,7 @@ bool CUDAMiner::init_dag(uint32_t height)
 
 void CUDAMiner::trun()
 {
+    setThreadName("CUDA");
     Work current;
     try {
         while(!shouldStop()) {

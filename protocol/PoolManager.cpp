@@ -42,6 +42,7 @@ PoolManager::PoolManager(boost::asio::io_service& io_service,
 	});
 	p_client->onDisconnected([&]()
 	{
+        setThreadName("main");
 		cnote << "Disconnected from " + m_connections[m_activeConnectionIdx].Host() << p_client->ActiveEndPoint();
         // Do not stop mining here
         // Workloop will determine if we're trying a fast reconnect to same pool
@@ -86,6 +87,7 @@ PoolManager::PoolManager(boost::asio::io_service& io_service,
     return false;
 	});
 	m_farm.onMinerRestart([&]() {
+        setThreadName("main");
 		cnote << "Restart miners...";
 		if (m_farm.isMining()) {
 			cnote << "Shutting down miners...";
@@ -115,6 +117,7 @@ void PoolManager::stop()
 
 void PoolManager::trun()
 {
+    setThreadName("main");
     while (m_running.load(std::memory_order_relaxed)) {
         // Take action only if not pending state (connecting/disconnecting)
         // Otherwise do nothing and wait until connection state is NOT pending

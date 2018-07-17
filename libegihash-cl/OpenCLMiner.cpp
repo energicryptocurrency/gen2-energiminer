@@ -394,6 +394,7 @@ bool OpenCLMiner::configureGPU(
 
 void OpenCLMiner::trun()
 {
+    setThreadName("OpenCL");
     // Memory for zero-ing buffers. Cannot be static because crashes on macOS.
     uint32_t const c_zero = 0;
     uint64_t startNonce = 0;
