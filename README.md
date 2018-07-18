@@ -181,3 +181,6 @@ This can be done with one of the 2 ways:
     ```
 
     You have to upgrade your Nvidia drivers. On Linux, install `nvidia-396` package or newer.
+
+[AppVeyor]: https://img.shields.io/appveyor/ci/levon/energiminer.svg
+[Releases]: https://github.com/levongh/energiminer/releases
