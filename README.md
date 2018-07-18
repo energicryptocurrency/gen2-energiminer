@@ -16,12 +16,23 @@ Universal CPU/GPU Miner for egihash
 
 - [Usage](#usage)
 - [Build](#build)
+  - [Continuous Integration and development builds](#continuous-integration-and-development-builds)
   - [Building from source](#building-from-source)
   - [CMake configuration options](#cmake-configuration-options)
 - [F.A.Q.](#faq)
 
 
 ## Usage
+
+### Continuous Integration and development builds
+
+| CI            | OS            | Status  | Development builds |
+| ------------- | ------------- | -----   | -----------------  |
+| [AppVeyor]    | Windows       | [![AppVeyor](https://img.shields.io/appveyor/ci/levon/energiminer.svg)][AppVeyor] | ✓ Build artifacts available for all PRs and branches |
+
+The AppVeyor system automatically builds a Windows .exe for every commit. The latest version is always available [on the landing page](https://ci.appveyor.com/project/levon/energiminer) or you can [browse the history](https://ci.appveyor.com/project/levon/energiminer/history) to access previous builds.
+
+To download the .exe on a build under `JOB NAME` select `Configuration: Release`, choose `ARTIFACTS` then download the zip file.
 
 The **energiminer** is a command line program. This means you launch it either
 from a Windows command prompt or Linux console, or create shortcuts to
