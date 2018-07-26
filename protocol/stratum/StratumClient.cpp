@@ -206,6 +206,7 @@ void StratumClient::disconnect_finalize()
 
 void StratumClient::resolve_handler(const boost::system::error_code& ec, tcp::resolver::iterator i)
 {
+    setThreadName("stratum");
     if (!ec) {
         // Start Connection Process and set timeout timer
         while (i != tcp::resolver::iterator()) {
@@ -246,6 +247,7 @@ void StratumClient::start_connect()
              m_conn->SetStratumMode(999, false);
         }
 
+        setThreadName("stratum");
         cnote << ("Trying " + toString(m_endpoint) + " ...");
         m_conntimer.expires_from_now(boost::posix_time::seconds(m_responsetimeout));
         m_conntimer.async_wait(m_io_strand.wrap(boost::bind(&StratumClient::check_connect_timeout, this, boost::asio::placeholders::error)));
@@ -258,6 +260,7 @@ void StratumClient::start_connect()
                     m_io_strand.wrap(boost::bind(&StratumClient::connect_handler, this, _1)));
         }
     } else {
+        setThreadName("stratum");
         m_connecting.store(false, std::memory_order_relaxed);
         cwarn << "No more Ip addresses to try for host: " << m_conn->Host();
         // Trigger handlers
@@ -299,6 +302,7 @@ void StratumClient::check_connect_timeout(const boost::system::error_code& ec)
 
 void StratumClient::connect_handler(const boost::system::error_code& ec)
 {
+    setThreadName("stratum");
     // Timeout has run before
     if (!m_socket->is_open()) {
         cwarn << ("Error  " + toString(m_endpoint) + " [Timeout]");
@@ -513,6 +517,8 @@ void StratumClient::processExtranonce(std::string& enonce)
 
 void StratumClient::processReponse(Json::Value& responseObject)
 {
+    setThreadName("stratum");
+
     bool _isNotification = false;		// Wether or not this message is a reply to previous request or is a broadcast notification
     bool _isSuccess = false;			// Wether or not this is a succesful or failed response (implies _isNotification = false)
     std::string _errReason = "";				// Content of the error reason
@@ -877,6 +883,7 @@ void StratumClient::work_timeout_handler(const boost::system::error_code& ec)
 {
     if (!ec) {
         if (isConnected()) {
+            setThreadName("stratum");
             cwarn << "No new work received in " << m_worktimeout << " seconds.";
             m_endpoints.pop();
             m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
@@ -889,6 +896,7 @@ void StratumClient::response_timeout_handler(const boost::system::error_code& ec
     if (!ec) {
         if (isConnected()) {
             if (m_response_pending) {
+                setThreadName("stratum");
                 // Waiting for a response to a submission
                 cwarn << "No response received in " << m_responsetimeout << " seconds.";
                 m_endpoints.pop();
@@ -978,6 +986,7 @@ void StratumClient::onRecvSocketDataCompleted(const boost::system::error_code& e
     // the implementation of the loop this event may trigger
     // late after clean disconnection. Check status of connection
     // before triggering all stack of calls
+    setThreadName("stratum");
     if (!ec && bytes_transferred > 0) {
         // Extract received message
         std::istream is(&m_recvBuffer);
@@ -1039,6 +1048,7 @@ void StratumClient::onSendSocketDataCompleted(const boost::system::error_code& e
             m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
         }
         if (isConnected()) {
+            setThreadName("stratum");
             cwarn << "Socket write failed: " + ec.message();
             m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
         }

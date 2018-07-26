@@ -167,9 +167,9 @@ void MinePlant::submitProof(const Solution& solution) const
 
 void MinePlant::collectHashRate()
 {
-    auto now = std::chrono::steady_clock::now();
-
     std::lock_guard<std::mutex> lock(x_minerWork);
+
+    auto now = std::chrono::steady_clock::now();
 
     WorkingProgress p;
     p.ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_lastStart).count();
@@ -177,8 +177,7 @@ void MinePlant::collectHashRate()
 
     //Collect
     for (auto const& miner : m_miners) {
-        auto minerHashCount = miner->hashCount();
-        miner->resetHashCount();
+        auto minerHashCount = miner->RetrieveAndClearHashCount();
         p.hashes += minerHashCount;
         p.minersHashes.insert(std::make_pair<std::string, uint64_t>(miner->name(), uint64_t(minerHashCount)));
     }

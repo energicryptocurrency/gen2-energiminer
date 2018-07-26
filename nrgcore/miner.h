@@ -56,16 +56,15 @@ public:
         onSetWork();
     }
 
-    uint32_t hashCount() const
+    uint64_t RetrieveAndClearHashCount()
     {
-        return m_hashCount.load(std::memory_order_relaxed);
-    }
-    void resetHashCount()
-    {
-        m_hashCount.store(0, std::memory_order_relaxed);
+        auto expected = m_hashCount.load(std::memory_order_relaxed);
+        while (!m_hashCount.compare_exchange_weak(expected, 0, std::memory_order_relaxed));
+        return expected;
     }
 
-	unsigned Index() { return m_index; };
+    unsigned Index() { return m_index; };
+
 	HwMonitorInfo& hwmonInfo() { return m_hwmoninfo; }
 
     uint64_t get_start_nonce() const
