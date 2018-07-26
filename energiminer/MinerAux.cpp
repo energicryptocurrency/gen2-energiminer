@@ -230,15 +230,11 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         << "    for getwork use one of the following schemes:" << endl
         << "      " << URI::KnownSchemes(ProtocolFamily::GETWORK) << endl
         << "    for stratum use one of the following schemes: "<< endl
-        << "      " << URI::KnownSchemes(ProtocolFamily::STRATUM) << endl;
-       // << "    Stratum variants:" << endl
-       // << "      stratum:  official stratum spec: ethpool, ethermine, coinotron, mph, nanopool (default)" << endl
-       // << "      stratum1: nrg-proxy compatible: dwarfpool, f2pool, nanopool (required for hashrate reporting to work with nanopool)" << endl
-       // << "      stratum2: EthereumStratum/1.0.0: nicehash" << endl
-       // << "    Example 1: stratum+ssl://0x012345678901234567890234567890123.<minername>@<host>:<port>" << endl
-       // << "    Example 2: stratum1+tcp://0x012345678901234567890234567890123.<miner name>@<host>:<port/email" << endl
-       // << "    Example 3: stratum1+tcp://0x012345678901234567890234567890123@<host>:<port>/<miner name>/email"
-       // << endl << endl
+        << "      " << URI::KnownSchemes(ProtocolFamily::STRATUM) << endl
+        << "    Stratum variants:" << endl
+        << "    Example 1: stratum1+tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port/email" << endl
+        << "    Example 2: stratum1+tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>/<miner name>/email"
+        << endl << endl;
     app.set_footer(ssHelp.str());
 
     try {
