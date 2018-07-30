@@ -390,12 +390,18 @@ void MinerCLI::execute()
     if (m_minerExecutionMode == MinerExecutionMode::kCUDA ||
             m_minerExecutionMode == MinerExecutionMode::kMixed) {
 #if ETH_ETHASHCUDA
-        if (m_cudaDeviceCount > 0) {
-            CUDAMiner::setDevices(m_cudaDevices, m_cudaDeviceCount);
-            m_miningThreads = m_cudaDeviceCount;
-        }
+        try {
+            if (m_cudaDeviceCount > 0) {
+                CUDAMiner::setDevices(m_cudaDevices, m_cudaDeviceCount);
+                m_miningThreads = m_cudaDeviceCount;
+            }
 
-        CUDAMiner::setNumInstances(m_miningThreads);
+            CUDAMiner::setNumInstances(m_miningThreads);
+        } catch (const std::runtime_error& err) {
+            cwarn << "CUDA error: " << err.what();
+            stop_io_service();
+            exit(1);
+        }
         if (!CUDAMiner::configureGPU(
                     m_cudaBlockSize,
                     m_cudaGridSize,
