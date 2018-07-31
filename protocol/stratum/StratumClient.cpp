@@ -551,7 +551,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
         cwarn << "Pool sent an invalid jsonrpc message ...";
         cwarn << "Do not blame ethminer for this. Ask pool devs to honor http://www.jsonrpc.org/ specifications ";
         cwarn << "Disconnecting ...";
-        m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
+        m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
         return;
     }
 
@@ -648,7 +648,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
                             // In case of failure we can't manage this connection
                             cwarn << "Unable to find suitable Stratum Mode";
                             m_conn->MarkUnrecoverable();
-                            m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
+                            m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
                             return;
                         } else {
                             // STRATUM is confirmed
@@ -666,7 +666,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
                 if (!m_subscribed) {
                     cnote << "Could not subscribe to stratum server";
                     m_conn->MarkUnrecoverable();
-                    m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
+                    m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
                     return;
                 } else {
                     cnote << "Subscribed to stratum server";
@@ -683,7 +683,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
                 if (!m_subscribed) {
                     cnote << "Could not login to ethproxy server:" << _errReason;
                     m_conn->MarkUnrecoverable();
-                    m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
+                    m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
                     return;
                 } else {
                     cnote << "Logged in to nrg-proxy server";
@@ -701,7 +701,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
                 if (!m_subscribed) {
                     cnote << "Could not subscribe to stratum server:" << _errReason;
                     m_conn->MarkUnrecoverable();
-                    m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
+                    m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
                     return;
                 } else {
                     cnote << "Subscribed to stratum server";
@@ -745,7 +745,7 @@ void StratumClient::processReponse(Json::Value& responseObject)
             m_authorized.store(_isSuccess, std::memory_order_relaxed);
             if (!m_authorized) {
                 cnote << "Worker not authorized" << m_conn->User() << _errReason;
-                m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
+                m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
                 return;
             } else {
                 cnote << "Authorized worker " + m_conn->User();
@@ -803,12 +803,12 @@ void StratumClient::processReponse(Json::Value& responseObject)
                 if (!m_subscribed) {
                     // Subscription pending
                     cnote << "Subscription failed:" << _errReason;
-                    m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
+                    m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
                     return;
                 } else if (m_subscribed && !m_authorized) {
                     // Authorization pending
                     cnote << "Worker not authorized:" << _errReason;
-                    m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
+                    m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
                     return;
                 }
             };
