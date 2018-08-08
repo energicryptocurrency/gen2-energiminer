@@ -1,6 +1,7 @@
 #include <memory>
 
 #include "MinerAux.h"
+#include <energiminer/buildinfo.h>
 #include <protocol/PoolManager.h>
 #include <protocol/stratum/StratumClient.h>
 #include <protocol/getwork/GetworkClient.h>
@@ -243,7 +244,9 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
             std::cerr << endl << app.help() << endl;
             exit(0);
         } else if (vers) {
-            version();
+            auto* bi = energiminer_get_buildinfo();
+            cerr << "\nenergiminer " << bi->project_version << "\nBuild: " << bi->system_name << "/"
+                << bi->build_type << "/" << bi->compiler_id << "\n\n";
             exit(0);
         }
     } catch(const CLI::ParseError &e) {
