@@ -769,14 +769,14 @@ void StratumClient::processResponse(Json::Value& responseObject)
                 m_response_pending = false;
                 if (_isSuccess) {
                     if (m_onSolutionAccepted) {
-                        m_onSolutionAccepted(true);
+                        m_onSolutionAccepted(false);
                     }
                 } else {
                     if (!_errReason.empty()) {
                         cwarn << "Reject reason :" << (_errReason.empty() ? "Unspecified" : _errReason);
                     }
                     if (m_onSolutionRejected) {
-                        m_onSolutionRejected(false);
+                        m_onSolutionRejected(true);
                     }
                 }
             }
