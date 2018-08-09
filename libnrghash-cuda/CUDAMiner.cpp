@@ -124,9 +124,7 @@ void CUDAMiner::trun()
             assert(upper64OfBoundary > 0);
             uint64_t startN = current.startNonce;
             if (current.exSizeBits >= 0) {
-                // this can support up to 2^c_log2Max_miners devices
-                startN = current.startNonce |
-                         ((uint64_t)m_index << (64 - LOG2_MAX_MINERS - current.exSizeBits));
+                startN = m_plant.get_start_nonce(current, m_index);
             } else {
                 startN = get_start_nonce();
             }

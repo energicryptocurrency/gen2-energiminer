@@ -312,6 +312,12 @@ bool MinePlant::isMining() const
     return m_isMining;
 }
 
+uint64_t MinePlant::get_start_nonce(const Work& work, unsigned idx) const
+{
+    static uint64_t range = std::numeric_limits<uint64_t>::max() / m_miners.size();
+    return work.startNonce + range * idx;
+}
+
 uint64_t MinePlant::get_nonce_scumbler() const
 {
     return m_nonceScumbler;

@@ -79,6 +79,7 @@ public:
     bool start(const std::vector<EnumMinerEngine> &vMinerEngine);
     void stop();
 
+    uint64_t get_start_nonce(const Work& work, unsigned idx) const override;
     uint64_t get_nonce_scumbler() const override;
     //! Temperature
     void setTStartTStop(unsigned tstart, unsigned tstop);

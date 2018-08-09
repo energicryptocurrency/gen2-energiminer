@@ -116,8 +116,6 @@ public:
 	void execute();
 
 private:
-    void doSimulation(int difficulty = 20);
-
     /*
        doMiner function starts Plant and in farm it starts miners intended to mine e.g. CPUMiner And/or Gpuminer
        doMiner runs a loop where,
