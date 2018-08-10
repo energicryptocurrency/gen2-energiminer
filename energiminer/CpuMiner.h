@@ -17,11 +17,10 @@ namespace energi
   public:
     CpuMiner(const Plant &plant, int index);
 
-    virtual ~CpuMiner()
-    {}
+    virtual ~CpuMiner() {stopWorking();}
 
   protected:
-    void trun();
+    void trun() override;
   };
 
 } /* namespace energi */

@@ -16,7 +16,7 @@
 #include "dagger_shuffled.cuh"
 
 template <uint32_t _PARALLEL_HASH>
-__global__ void 
+__global__ void
 ethash_search(
 	volatile search_results* g_output,
 	uint64_t start_nonce
@@ -41,8 +41,8 @@ ethash_search(
 }
 
 void run_ethash_search(
-	uint32_t blocks,
-	uint32_t threads,
+	uint32_t gridSize,
+	uint32_t blockSize,
 	cudaStream_t stream,
 	volatile search_results* g_output,
 	uint64_t start_nonce,
@@ -51,11 +51,11 @@ void run_ethash_search(
 {
 	switch (parallelHash)
 	{
-		case 1: ethash_search <1> <<<blocks, threads, 0, stream >>>(g_output, start_nonce); break;
-		case 2: ethash_search <2> <<<blocks, threads, 0, stream >>>(g_output, start_nonce); break;
-		case 4: ethash_search <4> <<<blocks, threads, 0, stream >>>(g_output, start_nonce); break;
-		case 8: ethash_search <8> <<<blocks, threads, 0, stream >>>(g_output, start_nonce); break;
-		default: ethash_search <4> <<<blocks, threads, 0, stream >>>(g_output, start_nonce); break;
+		case 1: ethash_search <1> <<<gridSize, blockSize, 0, stream >>>(g_output, start_nonce); break;
+		case 2: ethash_search <2> <<<gridSize, blockSize, 0, stream >>>(g_output, start_nonce); break;
+		case 4: ethash_search <4> <<<gridSize, blockSize, 0, stream >>>(g_output, start_nonce); break;
+		case 8: ethash_search <8> <<<gridSize, blockSize, 0, stream >>>(g_output, start_nonce); break;
+		default: ethash_search <4> <<<gridSize, blockSize, 0, stream >>>(g_output, start_nonce); break;
 	}
 	CUDA_SAFE_CALL(cudaGetLastError());
 }
@@ -68,7 +68,7 @@ __global__ void
 ethash_calculate_dag_item(uint32_t start)
 {
 	uint32_t const node_index = start + blockIdx.x * blockDim.x + threadIdx.x;
-	if (node_index > d_dag_size * 2) return;
+	if (((node_index/4)*4) >= d_dag_size * 2) return;
 
 	hash200_t dag_node;
 	copy(dag_node.uint4s, d_light[node_index % d_light_size].uint4s, 4);
@@ -102,26 +102,33 @@ ethash_calculate_dag_item(uint32_t start)
 		for (uint32_t w = 0; w < 4; w++) {
 			s[w] = make_uint4(__shfl_sync(0xFFFFFFFF,dag_node.uint4s[w].x, t, 4), __shfl_sync(0xFFFFFFFF,dag_node.uint4s[w].y, t, 4), __shfl_sync(0xFFFFFFFF,dag_node.uint4s[w].z, t, 4), __shfl_sync(0xFFFFFFFF,dag_node.uint4s[w].w, t, 4));
 		}
+		if (shuffle_index < d_dag_size * 2) {
 		dag_nodes[shuffle_index].uint4s[thread_id] = s[thread_id];
 	}
+}
 }
 
 void ethash_generate_dag(
 	uint64_t dag_size,
-	uint32_t blocks,
-	uint32_t threads,
-	cudaStream_t stream,
-	int device
+	uint32_t gridSize,
+	uint32_t blockSize,
+	cudaStream_t stream
 	)
 {
-	uint32_t const work = (uint32_t)(dag_size / sizeof(hash64_t));
+	const uint32_t work = (uint32_t)(dag_size / sizeof(hash64_t));
+	const uint32_t run = gridSize * blockSize;
 
-	uint32_t fullRuns = work / (blocks * threads);
-	uint32_t const restWork = work % (blocks * threads);
-	if (restWork > 0) fullRuns++;
-	for (uint32_t i = 0; i < fullRuns; i++)
+	uint32_t base;
+	for (base = 0; base <= work - run; base += run)
 	{
-		ethash_calculate_dag_item <<<blocks, threads, 0, stream >>>(i * blocks * threads);
+		ethash_calculate_dag_item <<<gridSize, blockSize, 0, stream>>>(base);
+		CUDA_SAFE_CALL(cudaDeviceSynchronize());
+	}
+	if (base < work)
+	{
+		uint32_t lastGrid = work - base;
+		lastGrid = (lastGrid + blockSize - 1) / blockSize;
+		ethash_calculate_dag_item <<<lastGrid, blockSize, 0, stream>>>(base);
 		CUDA_SAFE_CALL(cudaDeviceSynchronize());
 	}
 	CUDA_SAFE_CALL(cudaGetLastError());

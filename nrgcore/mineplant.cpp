@@ -23,10 +23,12 @@
 #include "common/common.h"
 #include "common/Log.h"
 
+#include <boost/bind.hpp>
 #include <iostream>
 #include <limits>
 
-namespace energi {
+using namespace energi;
+
 
 MinerPtr createMiner(EnumMinerEngine minerEngine, int index, const MinePlant &plant)
 {
@@ -49,12 +51,45 @@ MinerPtr createMiner(EnumMinerEngine minerEngine, int index, const MinePlant &pl
     return nullptr;
 }
 
+MinePlant::MinePlant(boost::asio::io_service & io_service)
+    : m_io_strand(io_service)
+    , m_hashrateTimer(io_service)
+{
+    std::random_device engine;
+    m_nonceScumbler = std::uniform_int_distribution<uint64_t>()(engine);
+
+    // Init HWMON
+    adlh = wrap_adl_create();
+#if defined(__linux)
+    sysfsh = wrap_amdsysfs_create();
+#endif
+    nvmlh = wrap_nvml_create();
+}
+
+MinePlant::~MinePlant()
+{
+    // Deinit HWMON
+    if (adlh) {
+        wrap_adl_destroy(adlh);
+    }
+#if defined(__linux)
+    if (sysfsh) {
+        wrap_amdsysfs_destroy(sysfsh);
+    }
+#endif
+    if (nvmlh) {
+        wrap_nvml_destroy(nvmlh);
+    }
+    stop();
+}
+
 bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
 {
-    if (isStarted()) {
+    std::lock_guard<std::mutex> lock(x_minerWork);
+    if (isMining()) {
         return true;
     }
-    m_started = true;
+    //m_started = true;
     for ( auto &minerEngine : vMinerEngine) {
         unsigned count = 0;
 #if ETH_ETHASHCL
@@ -74,55 +109,45 @@ bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
             count = std::thread::hardware_concurrency() - 1;
         }
         for ( unsigned i = 0; i < count; ++i ) {
-            auto miner = createMiner(minerEngine, i, *this);
-            m_started &= miner->start();
-            if ( m_started ) {
-                m_miners.push_back(miner);
-            }
+            m_miners.push_back(createMiner(minerEngine, i, *this));
+            m_miners.back()->startWorking();
         }
     }
+    m_isMining.store(true, std::memory_order_relaxed);
 
-    if (m_tHashrateTimer) {
-        std::cerr << "Hash Rate Thread active !, weird" << std::endl;
-        return false;
-    } else {
-        m_tHashrateTimer.reset(new std::thread([&]() {
-            while(m_continueHashTimer) {
-                collectHashRate();
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-            }
-        }));
-    }
+    // Start hashrate collector
+    m_hashrateTimer.cancel();
+    m_hashrateTimer.expires_from_now(boost::posix_time::milliseconds(1000));
+    m_hashrateTimer.async_wait(m_io_strand.wrap(boost::bind(&MinePlant::processHashRate, this, boost::asio::placeholders::error)));
 
-    // Failure ? return right away
-    return m_started;
+    return true;
 }
 
 void MinePlant::stop()
 {
-    for (auto &miner : m_miners) {
-        miner->stop();
-    }
+    if (isMining()) {
+        {
+            std::lock_guard<std::mutex> lock(x_minerWork);
+            m_miners.clear();
+            m_isMining = false;
+        }
 
-    if(m_tHashrateTimer) {
-        m_continueHashTimer = false;
-        m_tHashrateTimer->join();
-        m_tHashrateTimer.reset();
+        m_hashrateTimer.cancel();
+
+        m_lastProgresses.clear();
     }
-    m_started = false;
 }
 
-bool MinePlant::setWork(const Work& work)
+void MinePlant::setWork(const Work& work)
 {
     //Collect hashrate before miner reset their work
     collectHashRate();
+    std::lock_guard<std::mutex> lock(x_minerWork);
     // if new work hasnt changed, then ignore
-    std::lock_guard<std::mutex> lock(m_mutexWork);
     if (work == m_work) {
         for (auto& miner : m_miners) {
-            reinterpret_cast<Worker*>(miner.get())->setWork(m_work);
+            miner->startWorking();
         }
-        return false;
     }
     cnote << "New Work assigned: Height: "
           << work.nHeight
@@ -131,61 +156,41 @@ bool MinePlant::setWork(const Work& work)
     m_work = work;
 
     // Propagate to all miners
-    uint64_t extraNonce = m_work.getExtraNonce();
-    const auto minersCount = m_miners.size();
-    const auto kLimitPerThread = std::numeric_limits<uint64_t>::max() - extraNonce / minersCount;
-    uint32_t index = 0;
-    m_solutionFound = false;
     for (auto &miner: m_miners) {
-        auto first  = index * kLimitPerThread + extraNonce;
-        auto end    = first + kLimitPerThread;
-        //cdebug << "first:" << first << "end: " << end;
-        miner->setWork(work, first, end);
-        ++index;
-    }
-    return true;
-}
-
-void MinePlant::stopAllWork()
-{
-    std::lock_guard<std::mutex> lock(m_mutexWork);
-    for (auto &miner: m_miners) {
-        miner->stopMining();
+        miner->setWork(work);
     }
 }
 
-void MinePlant::submit(const Solution &solution) const
+void MinePlant::submitProof(const Solution& solution) const
 {
-    solution_found_cb_(solution);
+    assert(m_onSolutionFound);
+    m_onSolutionFound(solution);
 }
 
 void MinePlant::collectHashRate()
 {
+    std::lock_guard<std::mutex> lock(x_minerWork);
+
+    auto now = std::chrono::steady_clock::now();
+
     WorkingProgress p;
-    std::lock_guard<std::mutex> lock(m_mutexWork);
-    p.ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - m_lastStart).count();
+    p.ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_lastStart).count();
+    m_lastStart = now;
 
     //Collect
     for (auto const& miner : m_miners) {
-        auto minerHashCount = miner->hashCount();
+        auto minerHashCount = miner->RetrieveAndClearHashCount();
         p.hashes += minerHashCount;
-        p.minersHashes.insert(std::make_pair<std::string, uint64_t>(miner->name(), uint64_t(minerHashCount)));
+        p.minersHashes.insert(std::make_pair<std::string, uint64_t>(miner->name(), std::move(minerHashCount)));
     }
-
-    //Reset miner hashes
-    for (auto const& miner : m_miners) {
-        miner->resetHashCount();
-    }
-    m_lastStart = std::chrono::steady_clock::now();
     if (p.hashes > 0) {
         m_lastProgresses.push_back(p);
     }
     // We smooth the hashrate over the last x seconds
-    int allMs = 0;
-    for (auto const& cp : m_lastProgresses) {
+    uint64_t allMs = 0;
+    for (auto const& cp : m_lastProgresses){
         allMs += cp.ms;
     }
-
     if (allMs > m_hashrateSmoothInterval) {
         m_lastProgresses.erase(m_lastProgresses.begin());
     }
@@ -195,28 +200,188 @@ void MinePlant::collectHashRate()
  * @brief Get information on the progress of mining this work.
  * @return The progress with mining so far.
  */
-WorkingProgress const& MinePlant::miningProgress() const
+const WorkingProgress& MinePlant::miningProgress(bool hwmon, bool power) const
 {
+    std::lock_guard<std::mutex> lock(x_minerWork);
     WorkingProgress p;
     p.ms = 0;
     p.hashes = 0;
-    {
-        std::lock_guard<std::mutex> lock(m_mutexWork);
-        for (auto const& miner : m_miners) {
-            p.minersHashes.insert(std::make_pair<std::string, uint64_t>(miner->name(), 0));
-        }
-        for (auto const& cp : m_lastProgresses) {
-            p.ms += cp.ms;
-            p.hashes += cp.hashes;
-            for (auto const & i : cp.minersHashes) {
-                p.minersHashes.at(i.first) += i.second;
+    for (auto const& i : m_miners) {
+        p.miningIsPaused.insert(std::make_pair<std::string, bool>(i->name(), i->is_mining_paused()));
+        p.minersHashes.insert(std::make_pair<std::string, uint64_t>(i->name(), 0));
+        if (hwmon) {
+            HwMonitorInfo hwInfo = i->hwmonInfo();
+            HwMonitor hw;
+            unsigned int tempC = 0, fanpcnt = 0, powerW = 0;
+            if (hwInfo.deviceIndex >= 0) {
+                if (hwInfo.deviceType == HwMonitorInfoType::NVIDIA && nvmlh) {
+                    int typeidx = 0;
+                    if (hwInfo.indexSource == HwMonitorIndexSource::CUDA){
+                        typeidx = nvmlh->cuda_nvml_device_id[hwInfo.deviceIndex];
+                    } else if (hwInfo.indexSource == HwMonitorIndexSource::OPENCL){
+                        typeidx = nvmlh->opencl_nvml_device_id[hwInfo.deviceIndex];
+                    } else {
+                        //Unknown, don't map
+                        typeidx = hwInfo.deviceIndex;
+                    }
+                    wrap_nvml_get_tempC(nvmlh, typeidx, &tempC);
+                    wrap_nvml_get_fanpcnt(nvmlh, typeidx, &fanpcnt);
+                    if (power) {
+                        wrap_nvml_get_power_usage(nvmlh, typeidx, &powerW);
+                    }
+                } else if (hwInfo.deviceType == HwMonitorInfoType::AMD && adlh) {
+                    int typeidx = 0;
+                    if (hwInfo.indexSource == HwMonitorIndexSource::OPENCL) {
+                        typeidx = adlh->opencl_adl_device_id[hwInfo.deviceIndex];
+                    } else {
+                        //Unknown, don't map
+                        typeidx = hwInfo.deviceIndex;
+                    }
+                    wrap_adl_get_tempC(adlh, typeidx, &tempC);
+                    wrap_adl_get_fanpcnt(adlh, typeidx, &fanpcnt);
+                    if (power) {
+                        wrap_adl_get_power_usage(adlh, typeidx, &powerW);
+                    }
+                }
+#if defined(__linux)
+                // Overwrite with sysfs data if present
+                if (hwInfo.deviceType == HwMonitorInfoType::AMD && sysfsh) {
+                    int typeidx = 0;
+                    if (hwInfo.indexSource == HwMonitorIndexSource::OPENCL){
+                        typeidx = sysfsh->opencl_sysfs_device_id[hwInfo.deviceIndex];
+                    } else {
+                        //Unknown, don't map
+                        typeidx = hwInfo.deviceIndex;
+                    }
+                    wrap_amdsysfs_get_tempC(sysfsh, typeidx, &tempC);
+                    wrap_amdsysfs_get_fanpcnt(sysfsh, typeidx, &fanpcnt);
+                    if (power) {
+                        wrap_amdsysfs_get_power_usage(sysfsh, typeidx, &powerW);
+                    }
+                }
+#endif
             }
+            i->update_temperature(tempC);
+
+            hw.tempC = tempC;
+            hw.fanP = fanpcnt;
+            hw.powerW = powerW/((double)1000.0);
+            p.minerMonitors[i->name()] = hw;
         }
     }
 
-    std::lock_guard<std::mutex> lock(m_mutexProgress);
+    for (auto const& cp : m_lastProgresses) {
+        p.ms += cp.ms;
+        p.hashes += cp.hashes;
+        for (auto const & i : cp.minersHashes) {
+            p.minersHashes.at(i.first) += i.second;
+        }
+    }
     m_progress = p;
     return m_progress;
 }
 
-} //! namespace energi
+void MinePlant::setTStartTStop(unsigned tstart, unsigned tstop)
+{
+    m_tstart = tstart;
+    m_tstop = tstop;
+}
+
+void MinePlant::processHashRate(const boost::system::error_code& ec)
+{
+    if (!ec) {
+        if (!isMining()) {
+            return;
+        }
+        collectHashRate();
+        // Restart timer
+        m_hashrateTimer.expires_from_now(boost::posix_time::milliseconds(1000));
+        m_hashrateTimer.async_wait(m_io_strand.wrap(boost::bind(&MinePlant::processHashRate, this, boost::asio::placeholders::error)));
+    }
+}
+
+void MinePlant::restart()
+{
+    if (m_onMinerRestart) {
+        m_onMinerRestart();
+    }
+}
+
+bool MinePlant::isMining() const
+{
+    return m_isMining;
+}
+
+uint64_t MinePlant::get_start_nonce(const Work& work, unsigned idx) const
+{
+    static uint64_t range = std::numeric_limits<uint64_t>::max() / m_miners.size();
+    return work.startNonce + range * idx;
+}
+
+uint64_t MinePlant::get_nonce_scumbler() const
+{
+    return m_nonceScumbler;
+}
+
+SolutionStats MinePlant::getSolutionStats()
+{
+    return m_solutionStats;
+}
+
+void MinePlant::failedSolution()
+{
+    m_solutionStats.failed();
+}
+
+void MinePlant::acceptedSolution(bool _stale)
+{
+    if (!_stale) {
+        m_solutionStats.accepted();
+    } else {
+        m_solutionStats.acceptedStale();
+    }
+}
+
+void MinePlant::rejectedSolution()
+{
+    m_solutionStats.rejected();
+}
+
+const Work& MinePlant::getWork() const
+{
+    std::lock_guard<std::mutex> lock(x_minerWork);
+    return m_work;
+}
+
+std::chrono::steady_clock::time_point MinePlant::farmLaunched()
+{
+    return m_farm_launched;
+}
+
+std::string MinePlant::farmLaunchedFormatted() const
+{
+    auto d = std::chrono::steady_clock::now() - m_farm_launched;
+    int hsize = 3;
+    auto hhh = std::chrono::duration_cast<std::chrono::hours>(d);
+    if (hhh.count() < 100) {
+        hsize = 2;
+    }
+    d -= hhh;
+    auto mm = std::chrono::duration_cast<std::chrono::minutes>(d);
+    std::ostringstream stream;
+    stream << "Time: " << std::setfill('0') << std::setw(hsize) << hhh.count() << ':' << std::setfill('0') << std::setw(2) << mm.count();
+    return stream.str();
+	}
+
+void MinePlant::set_pool_addresses(const std::string& host, unsigned port)
+{
+    std::stringstream ssPoolAddresses;
+    ssPoolAddresses << host << ':' << port;
+    m_pool_addresses = ssPoolAddresses.str();
+}
+
+const std::string& MinePlant::get_pool_addresses() const
+{
+    return m_pool_addresses;
+}
+

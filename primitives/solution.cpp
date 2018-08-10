@@ -13,6 +13,14 @@
 
 using namespace energi;
 
+std::string Solution::getBlockTransaction() const
+{
+    if (!m_work.isValid()) {
+        throw WorkException("Invalid work, solution must be wrong!");
+    }
+    return m_work.getBlockTransaction();
+}
+
 std::string Solution::getSubmitBlockData() const
 {
     if (!m_work.isValid()) {

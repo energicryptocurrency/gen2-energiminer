@@ -10,12 +10,22 @@
 
 #include "Log.h"
 #include "portable_endian.h"
-
 #include <cstdint>
 #include <cstring>
 #include <iomanip>
 #include <mutex>
+#include <atomic>
 #include <array>
+
+template <class GuardType, class MutexType>
+struct GenericGuardBool: GuardType
+{
+	GenericGuardBool(MutexType& _m): GuardType(_m) {}
+	bool b = true;
+};
+
+#define DEV_GUARDED(MUTEX) \
+	for (GenericGuardBool<std::lock_guard<std::mutex>, std::mutex> __eth_l(MUTEX); __eth_l.b; __eth_l.b = false)
 
 enum class MinerExecutionMode : unsigned
 {
@@ -32,6 +42,45 @@ enum class EnumMinerEngine : unsigned
     kCUDA   = 0x2,
     kTest   = 0x4
 };
+
+enum class HwMonitorInfoType
+{
+    UNKNOWN,
+    NVIDIA,
+    AMD
+};
+
+enum class HwMonitorIndexSource
+{
+    UNKNOWN,
+    OPENCL,
+    CUDA
+};
+
+struct HwMonitorInfo
+{
+    HwMonitorInfoType deviceType = HwMonitorInfoType::UNKNOWN;
+    HwMonitorIndexSource indexSource = HwMonitorIndexSource::UNKNOWN;
+    int deviceIndex = -1;
+
+};
+
+struct HwMonitor
+{
+    int tempC = 0;
+    int fanP = 0;
+    double powerW = 0;
+};
+
+inline std::ostream& operator<<(std::ostream& os, HwMonitor _hw)
+{
+    os << _hw.tempC << "C " << _hw.fanP << "%";
+    if(_hw.powerW) {
+        os << ' ' << std::fixed << std::setprecision(0) << _hw.powerW << "W";
+    }
+    return os;
+}
+
 
 uint16_t inline ReadLE16(const unsigned char* ptr)
 {
@@ -81,6 +130,15 @@ void inline WriteBE32(unsigned char* ptr, uint32_t x)
 void inline WriteBE64(unsigned char* ptr, uint64_t x)
 {
     *((uint64_t*)ptr) = htobe64(x);
+}
+
+/// Converts arbitrary value to string representation using std::stringstream.
+template <class _T>
+std::string toString(_T const& _t)
+{
+    std::ostringstream o;
+    o << _t;
+    return o.str();
 }
 
 inline std::vector<EnumMinerEngine> getEngineModes(MinerExecutionMode minerExecutionMode)
@@ -163,6 +221,41 @@ private:
     std::string m_reason;
 };
 
+/// Pause mining
+typedef enum
+{
+    MINING_NOT_PAUSED              = 0x00000000,
+    MINING_PAUSED_WAIT_FOR_T_START = 0x00000001,
+    MINING_PAUSED_API              = 0x00000002
+    // MINING_PAUSED_USER             = 0x00000004,
+    // MINING_PAUSED_ERROR            = 0x00000008
+} MinigPauseReason;
+
+struct MiningPause
+{
+    std::atomic<uint64_t> m_mining_paused_flag = {MinigPauseReason::MINING_NOT_PAUSED};
+
+    void set_mining_paused(MinigPauseReason pause_reason)
+    {
+        m_mining_paused_flag.fetch_or(pause_reason, std::memory_order_seq_cst);
+    }
+
+    void clear_mining_paused(MinigPauseReason pause_reason)
+    {
+        m_mining_paused_flag.fetch_and(~pause_reason, std::memory_order_seq_cst);
+    }
+
+    MinigPauseReason get_mining_paused()
+    {
+        return (MinigPauseReason) m_mining_paused_flag.load(std::memory_order_relaxed);
+    }
+
+    bool is_mining_paused() const
+    {
+        return (m_mining_paused_flag.load(std::memory_order_relaxed) != MinigPauseReason::MINING_NOT_PAUSED);
+    }
+};
+
 /// Describes the progress of a mining operation.
 struct WorkingProgress
 {
@@ -171,6 +264,8 @@ struct WorkingProgress
     uint64_t rate() const { return ms == 0 ? 0 : hashes * 1000 / ms; }
 
     std::map<std::string, uint64_t> minersHashes; // maps a miner's device name to it's hash count
+    std::map<std::string, bool> miningIsPaused;
+    std::map<std::string, HwMonitor> minerMonitors;
 
     uint64_t minerRate(const uint64_t hashCount) const
     {
@@ -180,17 +275,24 @@ struct WorkingProgress
 
 inline std::ostream& operator<<(std::ostream& _out, WorkingProgress _p)
 {
-    float mh = _p.rate() / 1000.0f;
+    float mh = _p.rate() / 1000000.0f;
     _out << "Speed "
-        << EthTealBold << std::fixed << std::setw(6) << std::setprecision(2) << mh << EthReset
-        << " Kh/s    ";
-
-    for (auto const & i : _p.minersHashes)
-    {
-        mh = _p.minerRate(i.second) / 1000.0f;
-        _out << i.first << " " << EthTeal << std::fixed << std::setw(5) << std::setprecision(2) << mh << EthReset << "  ";
+         << EthTealBold << std::fixed << std::setprecision(2) << mh << EthReset
+        << " Mh/s    ";
+    for (auto const & i : _p.minersHashes) {
+        auto pauseIter = _p.miningIsPaused.find(i.first);
+        if (pauseIter != _p.miningIsPaused.end()) {
+            if (pauseIter->second) {
+                _out << EthRed;
+            }
+        }
+        mh = _p.minerRate(i.second) / 1000000.0f;
+        _out << i.first << " " << EthTeal << std::fixed << std::setprecision(2) << mh << EthReset << "  ";
+        auto iter = _p.minerMonitors.find(i.first);
+        if (iter != _p.minerMonitors.end()) {
+            _out << " " << EthTeal << _p.minerMonitors[i.first] << EthReset << "  ";
+        }
     }
-
     return _out;
 }
 

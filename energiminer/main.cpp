@@ -21,7 +21,6 @@
  */
 
 #include "MinerAux.h"
-#include "BuildInfo.h"
 
 #include <thread>
 #include <fstream>
@@ -34,68 +33,29 @@ namespace energi
   extern int g_logVerbosity;
 }
 
-void help()
-{
-	cout << "energiminer v" << ENERGI_PROJECT_VERSION << endl << endl
-		<< "Usage: energiminer [OPTIONS]" << endl
-		<< "Options:" << endl << endl;
-	MinerCLI::streamHelp(cout);
-	cout
-		<< "General Options:" << endl
-		<< "    -v,--verbosity <0 - 9>  Set the log verbosity from 0 to 9 (default: 8)." << endl
-		<< "    -V,--version  Show the version and exit." << endl
-		<< "    -h,--help  Show this help message and exit." << endl
-		;
-	exit(0);
-}
-
-void version()
-{
-	cout << "v" << ENERGI_PROJECT_VERSION << endl;
-	//cout << "Build: " << ENERGI_BUILD_PLATFORM << "/" << ENERGI_BUILD_TYPE << endl;
-	exit(0);
-}
-
 // Currently tested for little endian systems
 int is_little_endian() { return 0x1 == *reinterpret_cast<const uint16_t*>("\1\0"); }
 
 int main(int argc, char** argv)
 {
-	if ( !is_little_endian() )
-	{
-		cerr << "Big endian not tested" << endl;
-		exit(-1);
-	}
+    if ( !is_little_endian() ) {
+        cerr << "Big endian not tested" << endl;
+        exit(-1);
+    }
 
-	// Set env vars controlling GPU driver behavior.
-	energi::setenv("GPU_MAX_HEAP_SIZE", "100");
-	energi::setenv("GPU_MAX_ALLOC_PERCENT", "100");
-	energi::setenv("GPU_SINGLE_ALLOC_PERCENT", "100");
+    try {
+        // Set env vars controlling GPU driver behavior.
+        energi::setenv("GPU_MAX_HEAP_SIZE", "100");
+        energi::setenv("GPU_MAX_ALLOC_PERCENT", "100");
+        energi::setenv("GPU_SINGLE_ALLOC_PERCENT", "100");
 
-	MinerCLI m(MinerCLI::OperationMode::GBT);
+        MinerCLI m;
+        m.ParseCommandLine(argc, argv);
 
-	for (int i = 1; i < argc; ++i)
-	{
-		// Mining options:
-		if (m.interpretOption(i, argc, argv))
-			continue;
-
-		// Standard options:
-		string arg = argv[i];
-		if ((arg == "-v" || arg == "--verbosity") && i + 1 < argc)
-			energi::g_logVerbosity = atoi(argv[++i]);
-		else if (arg == "-h" || arg == "--help")
-			help();
-		else if (arg == "-V" || arg == "--version")
-			version();
-		else
-		{
-			cerr << "Invalid argument: " << arg << endl;
-			exit(-1);
-		}
-	}
-
-	m.execute();
-
-	return 0;
+        m.execute();
+    } catch (const std::exception& ex) {
+        std::cerr << "Error: " << ex.what() << std::endl;
+        return -1;
+    }
+    return 0;
 }

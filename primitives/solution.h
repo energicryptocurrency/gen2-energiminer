@@ -23,14 +23,13 @@ public:
     Solution()
     {}
 
-    Solution(Work work, uint64_t nonce, unsigned extraNonce, const uint256& mixhash)
-        : m_nonce(nonce)
-        , m_extraNonce(extraNonce)
-        , m_mixhash(mixhash)
+    Solution(Work work, unsigned extraNonce)
+        : m_extraNonce(extraNonce)
         , m_work(work)
     {}
 
     std::string getSubmitBlockData() const;
+    std::string getBlockTransaction() const;
 
     inline const std::string& getJobName() const
     {
@@ -53,10 +52,34 @@ public:
         return stream.str();
     }
 
+    const Work& getWork() const
+    {
+        return m_work;
+    }
+
+    uint64_t getNonce() const
+    {
+        return m_work.getNonce();
+    }
+
+    const uint256& getHashMix() const
+    {
+        return m_work.getHashMix();
+    }
+
+    const uint256& getMerkleRoot() const
+    {
+        return m_work.getMerkleRoot();
+    }
+
+    void reset()
+    {
+        m_extraNonce = 0;
+        m_work.reset();
+    }
+
 public:
-    uint64_t m_nonce;
     unsigned m_extraNonce;
-    uint256 m_mixhash;
 
 private:
     Work m_work;
