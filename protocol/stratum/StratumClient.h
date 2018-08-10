@@ -51,7 +51,7 @@ private:
     void response_timeout_handler(const boost::system::error_code& ec);
 
     void reset_work_timeout();
-    void processReponse(Json::Value& responseObject);
+    void processResponse(Json::Value& responseObject);
     std::string processError(Json::Value& erroresponseObject);
     void processExtranonce(std::string& enonce);
 
@@ -99,9 +99,8 @@ private:
 
     std::string m_email;
 
-    double m_nextWorkDifficulty;
+    arith_uint256 m_nextWorkTarget = arith_uint256("0xffff000000000000000000000000000000000000000000000000000000000000");
 
-    //h64 m_extraNonce;
     std::string m_extraNonce;
     int m_extraNonceHexSize = 0;
 

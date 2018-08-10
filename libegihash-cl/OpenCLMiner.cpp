@@ -447,8 +447,7 @@ void OpenCLMiner::trun()
 
                 //startNonce = nonceSegment;
                 if (current_work.exSizeBits >= 0) {
-                     // This can support up to 2^c_log2MaxMiners devices.
-                    startNonce = current_work.startNonce | ((uint64_t)m_index << (64 - LOG2_MAX_MINERS - current_work.exSizeBits));
+                     startNonce = m_plant.get_start_nonce(current_work, m_index);
                 } else {
                     startNonce = get_start_nonce();
                 }

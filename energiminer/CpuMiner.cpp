@@ -43,8 +43,7 @@ void CpuMiner::trun()
             m_lastHeight = work.nHeight;
 
             if (work.exSizeBits >=0) {
-                first_nonce = work.startNonce |
-                         ((uint64_t)m_index << (64 - LOG2_MAX_MINERS - work.exSizeBits));
+                first_nonce = m_plant.get_start_nonce(work, m_index);
             } else {
                 first_nonce = get_start_nonce();
             }

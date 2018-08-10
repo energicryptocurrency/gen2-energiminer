@@ -21,7 +21,6 @@
  */
 
 #include "MinerAux.h"
-#include "BuildInfo.h"
 
 #include <thread>
 #include <fstream>

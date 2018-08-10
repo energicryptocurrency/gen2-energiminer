@@ -124,9 +124,7 @@ void CUDAMiner::trun()
             assert(upper64OfBoundary > 0);
             uint64_t startN = current.startNonce;
             if (current.exSizeBits >= 0) {
-                // this can support up to 2^c_log2Max_miners devices
-                startN = current.startNonce |
-                         ((uint64_t)m_index << (64 - LOG2_MAX_MINERS - current.exSizeBits));
+                startN = m_plant.get_start_nonce(current, m_index);
             } else {
                 startN = get_start_nonce();
             }
@@ -151,12 +149,7 @@ void CUDAMiner::onSetWork()
 
 void CUDAMiner::setNumInstances(unsigned _instances)
 {
-    try {
-        s_numInstances = std::min<unsigned>(_instances, getNumDevices());
-    } catch (const std::exception& ex) {
-        cerr << ex.what();
-        std::exit(0);
-    }
+    s_numInstances = std::min<unsigned>(_instances, getNumDevices());
 }
 
 void CUDAMiner::setDevices(const std::vector<unsigned>& _devices, unsigned _selectedDeviceCount)
@@ -175,7 +168,7 @@ unsigned CUDAMiner::getNumDevices()
     }
 
     if (err == cudaErrorInsufficientDriver) {
-        int driverVersion;
+        int driverVersion = 0;
         cudaDriverGetVersion(&driverVersion);
         if (driverVersion == 0) {
             throw std::runtime_error{"No CUDA driver found"};

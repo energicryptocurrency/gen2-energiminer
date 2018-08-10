@@ -29,6 +29,7 @@ public:
     virtual void submitProof(const Solution &m) const = 0;
 	virtual void failedSolution() = 0;
     virtual uint64_t get_nonce_scumbler() const = 0;
+    virtual uint64_t get_start_nonce(const Work& work, unsigned idx) const = 0;
 };
 
 } //namespace energi

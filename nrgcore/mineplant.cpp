@@ -27,7 +27,8 @@
 #include <iostream>
 #include <limits>
 
-namespace energi {
+using namespace energi;
+
 
 MinerPtr createMiner(EnumMinerEngine minerEngine, int index, const MinePlant &plant)
 {
@@ -84,6 +85,7 @@ MinePlant::~MinePlant()
 
 bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
 {
+    std::lock_guard<std::mutex> lock(x_minerWork);
     if (isMining()) {
         return true;
     }
@@ -111,7 +113,7 @@ bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
             m_miners.back()->startWorking();
         }
     }
-    m_isMining = true;
+    m_isMining.store(true, std::memory_order_relaxed);
 
     // Start hashrate collector
     m_hashrateTimer.cancel();
@@ -123,15 +125,17 @@ bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
 
 void MinePlant::stop()
 {
-    {
-        std::lock_guard<std::mutex> lock(x_minerWork);
-        m_miners.clear();
-        m_isMining = false;
+    if (isMining()) {
+        {
+            std::lock_guard<std::mutex> lock(x_minerWork);
+            m_miners.clear();
+            m_isMining = false;
+        }
+
+        m_hashrateTimer.cancel();
+
+        m_lastProgresses.clear();
     }
-
-    m_hashrateTimer.cancel();
-
-    m_lastProgresses.clear();
 }
 
 void MinePlant::setWork(const Work& work)
@@ -152,10 +156,8 @@ void MinePlant::setWork(const Work& work)
     m_work = work;
 
     // Propagate to all miners
-    uint32_t index = 0;
     for (auto &miner: m_miners) {
         miner->setWork(work);
-        ++index;
     }
 }
 
@@ -179,7 +181,7 @@ void MinePlant::collectHashRate()
     for (auto const& miner : m_miners) {
         auto minerHashCount = miner->RetrieveAndClearHashCount();
         p.hashes += minerHashCount;
-        p.minersHashes.insert(std::make_pair<std::string, uint64_t>(miner->name(), uint64_t(minerHashCount)));
+        p.minersHashes.insert(std::make_pair<std::string, uint64_t>(miner->name(), std::move(minerHashCount)));
     }
     if (p.hashes > 0) {
         m_lastProgresses.push_back(p);
@@ -288,6 +290,9 @@ void MinePlant::setTStartTStop(unsigned tstart, unsigned tstop)
 void MinePlant::processHashRate(const boost::system::error_code& ec)
 {
     if (!ec) {
+        if (!isMining()) {
+            return;
+        }
         collectHashRate();
         // Restart timer
         m_hashrateTimer.expires_from_now(boost::posix_time::milliseconds(1000));
@@ -305,6 +310,12 @@ void MinePlant::restart()
 bool MinePlant::isMining() const
 {
     return m_isMining;
+}
+
+uint64_t MinePlant::get_start_nonce(const Work& work, unsigned idx) const
+{
+    static uint64_t range = std::numeric_limits<uint64_t>::max() / m_miners.size();
+    return work.startNonce + range * idx;
 }
 
 uint64_t MinePlant::get_nonce_scumbler() const
@@ -374,4 +385,3 @@ const std::string& MinePlant::get_pool_addresses() const
     return m_pool_addresses;
 }
 
-} //! namespace energi
