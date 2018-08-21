@@ -124,7 +124,7 @@ protected:
 
     unsigned m_index = 0;
     const Plant &m_plant;
-    std::chrono::high_resolution_clock::time_point workSwitchStart_;
+    std::chrono::steady_clock::time_point workSwitchStart;
 	HwMonitorInfo m_hwmoninfo;
 
 private:

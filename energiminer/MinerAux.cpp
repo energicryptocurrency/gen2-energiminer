@@ -56,10 +56,6 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         ->group(CommonGroup)
         ->check(CLI::Range(1, 99999));
 
-    app.add_option("--stratum-email", m_email,
-            "Set email address for eth-proxy")
-        ->group(CommonGroup);
-
     app.add_option("--work-timeout", m_worktimeout,
             "Set disconnect timeout in seconds of working on the same job", true)
         ->group(CommonGroup)
@@ -68,7 +64,7 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
     app.add_option("--response-timeout", m_responsetimeout,
             "Set disconnect timeout in seconds for pool responses", true)
         ->group(CommonGroup)
-        ->check(CLI::Range(2, 999));
+        ->check(CLI::Range(3, 999));
 
     app.add_flag("-R,--report-hashrate", m_report_stratum_hashrate,
             "Report current hashrate to pool")
@@ -227,14 +223,14 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
     std::stringstream ssHelp;
     ssHelp
         << "Pool URL Specification:" << endl
-        << "    URL takes the form: scheme://user[:password]@hostname:port[/emailaddress]." << endl
+        << "    URL takes the form: scheme://user[:password]@hostname:port" << endl
         << "    for getwork use one of the following schemes:" << endl
         << "      " << URI::KnownSchemes(ProtocolFamily::GETWORK) << endl
         << "    for stratum use one of the following schemes: "<< endl
         << "      " << URI::KnownSchemes(ProtocolFamily::STRATUM) << endl
         << "    Stratum variants:" << endl
-        << "    Example 1: stratum1+tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port/email" << endl
-        << "    Example 2: stratum1+tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>/<miner name>/email"
+        << "    Example 1: stratum1+tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>" << endl
+        << "    Example 2: stratum1+tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>/<miner name>"
         << endl << endl;
     app.set_footer(ssHelp.str());
 
@@ -449,7 +445,7 @@ void MinerCLI::doMiner()
     if (m_mode == OperationMode::GBT) {
 			client = new GetworkClient(m_farmRecheckPeriod, m_coinbase_addr);
     } else if (m_mode == OperationMode::Stratum) {
-        client = new StratumClient(m_io_service, m_worktimeout, m_responsetimeout, m_email, m_report_stratum_hashrate);
+        client = new StratumClient(m_io_service, m_worktimeout, m_responsetimeout, m_report_stratum_hashrate);
     } else if (m_mode == OperationMode::Simulation) {
         //client = new SimulationClient(20, m_benchmarkBlock);
         std::cout << "Selected simulation mode" << std::endl;

@@ -36,7 +36,6 @@ using boost::asio::ip::tcp;
 StratumClient::StratumClient(boost::asio::io_service & io_service,
                              int worktimeout,
                              int responsetimeout,
-                             const std::string& email,
                              bool submitHashrate)
     : PoolClient()
     , m_worktimeout(worktimeout)
@@ -49,7 +48,6 @@ StratumClient::StratumClient(boost::asio::io_service & io_service,
     , m_responsetimer(io_service)
     , m_resolver(io_service)
     , m_endpoints()
-    , m_email(email)
     , m_submit_hashrate(submitHashrate)
 {
 }
@@ -60,28 +58,20 @@ StratumClient::~StratumClient()
     // It's global
 }
 
-void StratumClient::connect()
+void StratumClient::init_socket()
 {
-    // Prevent unnecessary and potentially dangerous recursion
-    if (m_connecting.load(std::memory_order::memory_order_relaxed)) {
-        return;
-    } else {
-        m_connecting.store(true, std::memory_order::memory_order_relaxed);
-    }
-
-    m_connected.store(false, std::memory_order_relaxed);
-    m_subscribed.store(false, std::memory_order_relaxed);
-    m_authorized.store(false, std::memory_order_relaxed);
-
     // Prepare Socket
     if (m_conn->SecLevel() != SecureLevel::NONE) {
         boost::asio::ssl::context::method method = boost::asio::ssl::context::tls_client;
         if (m_conn->SecLevel() == SecureLevel::TLS12) {
             method = boost::asio::ssl::context::tlsv12;
         }
+
         boost::asio::ssl::context ctx(method);
-        m_securesocket = std::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >(m_io_service, ctx);
+        m_securesocket = std::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>(
+            m_io_service, ctx);
         m_socket = &m_securesocket->next_layer();
+
 
         m_securesocket->set_verify_mode(boost::asio::ssl::verify_peer);
 
@@ -91,12 +81,11 @@ void StratumClient::connect()
             return;
         }
 
-        X509_STORE *store = X509_STORE_new();
+        X509_STORE* store = X509_STORE_new();
         PCCERT_CONTEXT pContext = nullptr;
         while ((pContext = CertEnumCertificatesInStore(hStore, pContext)) != nullptr) {
-            X509 *x509 = d2i_X509(nullptr,
-                    (const unsigned char **)&pContext->pbCertEncoded,
-                    pContext->cbCertEncoded);
+            X509* x509 = d2i_X509(
+                nullptr, (const unsigned char**)&pContext->pbCertEncoded, pContext->cbCertEncoded);
             if (x509 != nullptr) {
                 X509_STORE_add_cert(store, x509);
                 X509_free(x509);
@@ -108,12 +97,14 @@ void StratumClient::connect()
 
         SSL_CTX_set_cert_store(ctx.native_handle(), store);
 #else
-        char *certPath = getenv("SSL_CERT_FILE");
+        char* certPath = getenv("SSL_CERT_FILE");
         try {
             ctx.load_verify_file(certPath ? certPath : "/etc/ssl/certs/ca-certificates.crt");
         } catch (...) {
-            cwarn << "Failed to load ca certificates. Either the file '/etc/ssl/certs/ca-certificates.crt' does not exist";
-            cwarn << "or the environment variable SSL_CERT_FILE is set to an invalid or inaccessible file.";
+            cwarn << "Failed to load ca certificates. Either the file "
+                     "'/etc/ssl/certs/ca-certificates.crt' does not exist";
+            cwarn << "or the environment variable SSL_CERT_FILE is set to an invalid or "
+                     "inaccessible file.";
             cwarn << "It is possible that certificate verification can fail.";
         }
 #endif
@@ -125,10 +116,12 @@ void StratumClient::connect()
     // Activate keep alive to detect disconnects
     unsigned int keepAlive = 10000;
 
-#if defined _WIN32
+#if defined(_WIN32)
     int32_t timeout = keepAlive;
-    setsockopt(m_socket->native_handle(), SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
-    setsockopt(m_socket->native_handle(), SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(timeout));
+    setsockopt(
+        m_socket->native_handle(), SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+    setsockopt(
+        m_socket->native_handle(), SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(timeout));
 #else
     struct timeval tv;
     tv.tv_sec = keepAlive / 1000;
@@ -136,15 +129,43 @@ void StratumClient::connect()
     setsockopt(m_socket->native_handle(), SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     setsockopt(m_socket->native_handle(), SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 #endif
+}
+
+void StratumClient::connect()
+{
+    // Prevent unnecessary and potentially dangerous recursion
+    if (m_connecting.load(std::memory_order::memory_order_relaxed))
+        return;
+
+    m_canconnect.store(false, std::memory_order_relaxed);
+    m_connected.store(false, std::memory_order_relaxed);
+    m_subscribed.store(false, std::memory_order_relaxed);
+    m_authorized.store(false, std::memory_order_relaxed);
+    m_authpending.store(false, std::memory_order_relaxed);
+
+    /**
+     * "Before first job (work) is provided, pool MUST set difficulty by sending mining.set_difficulty
+     * If pool does not set difficulty before first job, then miner can assume difficulty 1 was being set."
+     * Those above statement imply we MAY NOT receive difficulty thus at each new connection restart from 1
+     */
+    m_nextWorkTarget = arith_uint256("0xffff000000000000000000000000000000000000000000000000000000000000");
+    m_extraNonce = "";
+    m_extraNonceHexSize = 0;
+
+    // Initializes socket and eventually secure stream
+    if (!m_socket)
+        init_socket();
 
     // Begin resolve all ips associated to hostname
     // empty queue from any previous listed ip
     // calling the resolver each time is useful as most
     // load balancer will give Ips in different order
     m_endpoints = std::queue<boost::asio::ip::basic_endpoint<boost::asio::ip::tcp>>();
+    m_endpoint = boost::asio::ip::basic_endpoint<boost::asio::ip::tcp>();
     m_resolver = tcp::resolver(m_io_service);
-
     tcp::resolver::query q(m_conn->Host(), toString(m_conn->Port()));
+
+    //! start resolving async
     m_resolver.async_resolve(q,
             m_io_strand.wrap(boost::bind(&StratumClient::resolve_handler, this, boost::asio::placeholders::error, boost::asio::placeholders::iterator)));
 }
@@ -154,15 +175,14 @@ void StratumClient::connect()
 void StratumClient::disconnect()
 {
     // Prevent unnecessary recursion
-    if (m_disconnecting.load(std::memory_order::memory_order_relaxed)) {
+    if (!m_connected.load(std::memory_order_relaxed) ||
+        m_disconnecting.load(std::memory_order_relaxed))
         return;
-    } else {
-        m_disconnecting.store(true, std::memory_order::memory_order_relaxed);
-    }
+    m_disconnecting.store(true, std::memory_order_relaxed);
+
     // Cancel any outstanding async operation
-    if (m_socket) {
+    if (m_socket)
         m_socket->cancel();
-    }
 
     m_io_service.post([&] {
         m_conntimer.cancel();
@@ -171,6 +191,7 @@ void StratumClient::disconnect()
     });
 
     m_response_pending = false;
+
 
     if (m_socket && m_socket->is_open()) {
         try {
@@ -200,36 +221,47 @@ void StratumClient::disconnect_finalize()
 {
     if (m_conn->SecLevel() != SecureLevel::NONE) {
         if (m_securesocket->lowest_layer().is_open()) {
-            m_securesocket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+            // Manage error code if layer is already shut down
+            boost::system::error_code ec;
+            m_securesocket->lowest_layer().shutdown(
+                boost::asio::ip::tcp::socket::shutdown_both, ec);
             m_securesocket->lowest_layer().close();
         }
         m_securesocket = nullptr;
+        m_socket = nullptr;
     } else {
+        m_socket = nullptr;
         m_nonsecuresocket = nullptr;
     }
-    m_socket = nullptr;
-    m_subscribed.store(false, std::memory_order_relaxed);
-    m_authorized.store(false, std::memory_order_relaxed);
 
     // Release locking flag and set connection status
+    cnote << "Socket disconnected from " << ActiveEndPoint();
     m_connected.store(false, std::memory_order_relaxed);
-    m_disconnecting.store(false, std::memory_order::memory_order_relaxed);
-    // If we got disconnected during autodetection phase
-    // reissue a connect lowering stratum mode checks
-    // m_canconnect flag is used to prevent never-ending loop when
-    // remote endpoint rejects connections attempts persistently since the first
-    if (!m_conn->StratumModeConfirmed() && m_canconnect.load(std::memory_order_relaxed)) {
-        // Repost a new connection attempt and advance to next stratum test
-        if (m_conn->StratumMode() > 0) {
-            m_conn->SetStratumMode(m_conn->StratumMode() - 1);
-            m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::connect, this)));
-            return;
-        } else {
-            // There are no more stratum modes to test
-            // Mark connection as uncoverable ant trash it
-            m_conn->MarkUnrecoverable();
+    m_subscribed.store(false, std::memory_order_relaxed);
+    m_authorized.store(false, std::memory_order_relaxed);
+    m_authpending.store(false, std::memory_order_relaxed);
+    m_disconnecting.store(false, std::memory_order_relaxed);
+
+    if (!m_conn->IsUnrecoverable()) {
+        // If we got disconnected during autodetection phase
+        // reissue a connect lowering stratum mode checks
+        // m_canconnect flag is used to prevent never-ending loop when
+        // remote endpoint rejects connections attempts persistently since the first
+        if (!m_conn->StratumModeConfirmed() && m_canconnect.load(std::memory_order_relaxed)) {
+            // Repost a new connection attempt and advance to next stratum test
+            if (m_conn->StratumMode() > 0) {
+                m_conn->SetStratumMode(m_conn->StratumMode() - 1);
+                m_io_service.post(
+                    m_io_strand.wrap(boost::bind(&StratumClient::start_connect, this)));
+                return;
+            } else {
+                // There are no more stratum modes to test
+                // Mark connection as unrecoverable and trash it
+                m_conn->MarkUnrecoverable();
+            }
         }
     }
+
     // Trigger handlers
     if (m_onDisconnected) {
         m_onDisconnected();
@@ -262,31 +294,37 @@ void StratumClient::resolve_handler(const boost::system::error_code& ec, tcp::re
 
 void StratumClient::reset_work_timeout()
 {
-    m_worktimer.cancel();
     m_worktimer.expires_from_now(boost::posix_time::seconds(m_worktimeout));
-    m_worktimer.async_wait(m_io_strand.wrap(boost::bind(&StratumClient::work_timeout_handler, this, boost::asio::placeholders::error)));
+    m_worktimer.async_wait(
+            m_io_strand.wrap(boost::bind(&StratumClient::work_timeout_handler, this, boost::asio::placeholders::error)));
 }
 
 void StratumClient::start_connect()
 {
+    if (m_connecting.load(std::memory_order_relaxed))
+        return;
+    m_connecting.store(true, std::memory_order::memory_order_relaxed);
+
     if (!m_endpoints.empty()) {
         // Pick the first endpoint in list.
         // Eventually endpoints get discarded on connection errors
         m_endpoint = m_endpoints.front();
 
         // Reset status stratum mode autodetection if canconnect is set to false
-        if (!m_canconnect.load(std::memory_order_relaxed)) {
-             m_conn->SetStratumMode(999, false);
-        }
+        //if (!m_canconnect.load(std::memory_order_relaxed)) {
+        //     m_conn->SetStratumMode(999, false);
+        //}
 
         setThreadName("stratum");
         cnote << ("Trying " + toString(m_endpoint) + " ...");
         m_conntimer.expires_from_now(boost::posix_time::seconds(m_responsetimeout));
-        m_conntimer.async_wait(m_io_strand.wrap(boost::bind(&StratumClient::check_connect_timeout, this, boost::asio::placeholders::error)));
+        m_conntimer.async_wait(m_io_strand.wrap(boost::bind(
+                        &StratumClient::check_connect_timeout, this, boost::asio::placeholders::error)));
 
         // Start connecting async
         if (m_conn->SecLevel() != SecureLevel::NONE) {
-            m_securesocket->lowest_layer().async_connect(m_endpoint, m_io_strand.wrap(boost::bind(&StratumClient::connect_handler, this, _1)));
+            m_securesocket->lowest_layer().async_connect(m_endpoint,
+                    m_io_strand.wrap(boost::bind(&StratumClient::connect_handler, this, _1)));
         } else {
             m_socket->async_connect(m_endpoint,
                     m_io_strand.wrap(boost::bind(&StratumClient::connect_handler, this, _1)));
@@ -304,14 +342,16 @@ void StratumClient::start_connect()
 
 void StratumClient::check_connect_timeout(const boost::system::error_code& ec)
 {
-    (void)ec;
+    // Timer cancelled
+    if (ec == boost::asio::error::operation_aborted)
+        return;
     // Check whether the deadline has passed. We compare the deadline against
     // the current time since a new asynchronous operation may have moved the
     // deadline before this actor had a chance to run.
     if (isPendingState()) {
         if (m_conntimer.expires_at() <= boost::asio::deadline_timer::traits_type::now()) {
-   			// The deadline has passed.
 
+            // The deadline has passed.
 			if (m_connecting.load(std::memory_order_relaxed)) {
 				// The socket is closed so that any outstanding
 				// asynchronous connection operations are cancelled.
@@ -328,187 +368,170 @@ void StratumClient::check_connect_timeout(const boost::system::error_code& ec)
 			m_conntimer.expires_at(boost::posix_time::pos_infin);
 		}
 		// Put the actor back to sleep.
-		m_conntimer.async_wait(m_io_strand.wrap(boost::bind(&StratumClient::check_connect_timeout, this, boost::asio::placeholders::error)));
+		m_conntimer.async_wait(m_io_strand.wrap(boost::bind(
+                        &StratumClient::check_connect_timeout, this, boost::asio::placeholders::error)));
 	}
 }
 
 void StratumClient::connect_handler(const boost::system::error_code& ec)
 {
     setThreadName("stratum");
-    // Timeout has run before
-    if (!m_socket->is_open()) {
-        cwarn << ("Error  " + toString(m_endpoint) + " [Timeout]");
-        m_canconnect.store(false, std::memory_order_relaxed);
-        m_endpoints.pop();
-        // Try the next available endpoint.
-        m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::start_connect, this)));
-    } else if (ec) {
-        cwarn << ("Error  " + toString(m_endpoint) + " [" + ec.message() + "]");
+    // Set status completion
+    m_conntimer.cancel();
+    m_connecting.store(false, std::memory_order_relaxed);
+
+    // Timeout has run before or we got error
+    if (ec || !m_socket->is_open()) {
+        cwarn << ("Error  " + toString(m_endpoint) + " [ " + (ec ? ec.message() : "Timeout") +
+                  " ]");
+
         // We need to close the socket used in the previous connection attempt
         // before starting a new one.
         // In case of error, in fact, boost does not close the socket
-        m_socket->close();
-        // Try the next available endpoint.
-        m_canconnect.store(false, std::memory_order_relaxed);
+        // If socket is not opened it means we got timed out
+        if (m_socket->is_open()) {
+            m_socket->close();
+        }
+
+        // Discard this endpoint and try the next available.
+        // Eventually is start_connect which will check for an
+        // empty list.
         m_endpoints.pop();
+        m_canconnect.store(false, std::memory_order_relaxed);
         m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::start_connect, this)));
-    } else {
-        // Immediately set connecting flag to prevent
-        // occurrence of subsequents timeouts (if any)
-        m_canconnect.store(true, std::memory_order_relaxed);
-        m_connecting.store(false, std::memory_order_relaxed);
-        m_conntimer.cancel();
 
-        if (m_conn->SecLevel() != SecureLevel::NONE) {
-            boost::system::error_code hec;
-            m_securesocket->lowest_layer().set_option(boost::asio::socket_base::keep_alive(true));
-            m_securesocket->lowest_layer().set_option(tcp::no_delay(true));
-
-            m_securesocket->handshake(boost::asio::ssl::stream_base::client, hec);
-            if (hec) {
-                cwarn << "SSL/TLS Handshake failed: " << hec.message();
-                if (hec.value() == 337047686) { // certificate verification failed
-                    cwarn << "This can have multiple reasons:";
-                    cwarn << "* Root certs are either not installed or not found";
-                    cwarn << "* Pool uses a self-signed certificate";
-                    cwarn << "Possible fixes:";
-                    cwarn << "* Make sure the file '/etc/ssl/certs/ca-certificates.crt' exists and is accessible";
-                    cwarn << "* Export the correct path via 'export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt' to the correct file";
-                    cwarn << "  On most systems you can install the 'ca-certificates' package";
-                    cwarn << "  You can also get the latest file here: https://curl.haxx.se/docs/caextract.html";
-                    cwarn << "* Disable certificate verification all-together via command-line option.";
-                }
-
-                // Do not trigger a full disconnection but, instead, let the loop
-                // continue with another IP (if any).
-                // Disconnection is triggered on no more IP available
-                m_connected.store(false, std::memory_order_relaxed);
-                m_socket->close();
-                m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::start_connect, this)));
-                return;
-            }
-        } else {
-            m_nonsecuresocket->set_option(boost::asio::socket_base::keep_alive(true));
-            m_nonsecuresocket->set_option(tcp::no_delay(true));
-        }
-
-		// Here is where we're properly connected
-		m_connected.store(true, std::memory_order_relaxed);
-
-		// Clean buffer from any previous stale data
-		m_sendBuffer.consume(4096);
-
-        // Trigger event handlers and begin counting for the next job
-        if (m_onConnected) {
-            m_onConnected();
-        }
-        reset_work_timeout();
-
-        std::string user;
-        size_t p;
-        m_worker.clear();
-        p = m_conn->User().find_first_of(".");
-        if (p != std::string::npos) {
-            user = m_conn->User().substr(0, p);
-            // There should be at least one char after dot
-            // returned p is zero based
-            if (p < (m_conn->User().length() -1))
-                m_worker = m_conn->User().substr(++p);
-        } else {
-            user = m_conn->User();
-        }
-
-        Json::Value jReq;
-        jReq["id"] = unsigned(1);
-        jReq["method"] = "mining.subscribe";
-        jReq["params"] = Json::Value(Json::arrayValue);
-
-
-        if (!m_conn->StratumModeConfirmed()) {
-            switch (m_conn->StratumMode()) {
-            case 0:
-				m_conn->SetStratumMode(0, false);
-				jReq["id"] = unsigned(1);
-				jReq["jsonrpc"] = "2.0";
-				jReq["method"] = "mining.subscribe";
-				jReq["params"] = Json::Value(Json::arrayValue);
-				break;
-
-			case 1:
-
-				m_conn->SetStratumMode(1, false);
-				jReq["id"] = unsigned(1);
-				jReq["method"] = "eth_submitLogin";
-				jReq["params"] = Json::Value(Json::arrayValue);
-				if (m_worker.length())
-					jReq["worker"] = m_worker;
-				jReq["params"].append(m_user + m_conn->Path());
-				if (!m_email.empty())
-					jReq["params"].append(m_email);
-
-				break;
-
-			case 999:
-			case 2:
-				m_conn->SetStratumMode(2, false);
-                jReq["params"].append(energiminer_get_buildinfo()->project_name_with_version);
-				jReq["params"].append("EnergiminerStratum/1.0.0");
-				break;
-
-			default:
-				break;
-			}
-        } else {
-            switch (m_conn->StratumMode()) {
-                case StratumClient::STRATUM:
-
-                    jReq["jsonrpc"] = "2.0";
-
-                    break;
-
-                case StratumClient::ETHPROXY:
-
-                    jReq["method"] = "eth_submitLogin";
-                    if (m_worker.length())
-                        jReq["worker"] = m_worker;
-                    jReq["params"].append(m_user + m_conn->Path());
-                    if (!m_email.empty())
-                        jReq["params"].append(m_email);
-
-                    break;
-
-                case StratumClient::ETHEREUMSTRATUM:
-                    jReq["params"].append(energiminer_get_buildinfo()->project_name_with_version);
-                    jReq["params"].append("EnergiminerStratum/1.0.0");
-
-                    break;
-            }
-        }
-        // Begin receive data
-        recvSocketData();
-        /*
-           +        Send first message
-           +        NOTE !!
-           +        It's been tested that f2pool.com does not respond with json error to wrong
-           +        access message (which is needed to autodetect stratum mode).
-           +        IT DOES NOT RESPOND AT ALL !!
-           +        Due to this we need to set a timeout (arbitrary set to 1 second) and
-           +        if no response within that time consider the tentative login failed
-           +        and switch to next stratum mode test
-           +        */
-        m_responsetimer.cancel();
-        m_responsetimer.expires_from_now(boost::posix_time::milliseconds(1000));
-        m_responsetimer.async_wait(m_io_strand.wrap(boost::bind(&StratumClient::response_timeout_handler, this, boost::asio::placeholders::error)));
-        sendSocketData(jReq);
+        return;
     }
+    cnote << "Socket connected to " << ActiveEndPoint();
+    if (m_conn->SecLevel() != SecureLevel::NONE) {
+        boost::system::error_code hec;
+        m_securesocket->lowest_layer().set_option(boost::asio::socket_base::keep_alive(true));
+        m_securesocket->lowest_layer().set_option(tcp::no_delay(true));
+
+        m_securesocket->handshake(boost::asio::ssl::stream_base::client, hec);
+
+        if (hec) {
+            cwarn << "SSL/TLS Handshake failed: " << hec.message();
+            if (hec.value() == 337047686) {  // certificate verification failed
+                cwarn << "This can have multiple reasons:";
+                cwarn << "* Root certs are either not installed or not found";
+                cwarn << "* Pool uses a self-signed certificate";
+                cwarn << "Possible fixes:";
+                cwarn << "* Make sure the file '/etc/ssl/certs/ca-certificates.crt' exists and "
+                         "is accessible";
+                cwarn << "* Export the correct path via 'export "
+                         "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt' to the correct "
+                         "file";
+                cwarn << "  On most systems you can install the 'ca-certificates' package";
+                cwarn << "  You can also get the latest file here: "
+                         "https://curl.haxx.se/docs/caextract.html";
+                cwarn << "* Disable certificate verification all-together via command-line "
+                         "option.";
+            }
+
+            // This is a fatal error
+            // No need to try other IPs as the certificate is based on host-name
+            // not ip address. Trying other IPs would end up with the very same error.
+            m_canconnect.store(false, std::memory_order_relaxed);
+            m_conn->MarkUnrecoverable();
+            m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
+            return;
+        }
+    } else {
+        m_nonsecuresocket->set_option(boost::asio::socket_base::keep_alive(true));
+        m_nonsecuresocket->set_option(tcp::no_delay(true));
+    }
+
+    // Here is where we're properly connected
+    m_connected.store(true, std::memory_order_relaxed);
+
+    // Clean buffer from any previous stale data
+    m_sendBuffer.consume(4096);
+
+    //TODO
+    //    // Trigger event handlers and begin counting for the next job
+    if (m_onConnected) {
+        m_onConnected();
+    }
+    reset_work_timeout();
+
+    size_t p;
+    m_worker.clear();
+    p = m_conn->User().find_first_of(".");
+    if (p != std::string::npos) {
+        m_user = m_conn->User().substr(0, p);
+        // There should be at least one char after dot
+        // returned p is zero based
+        if (p < (m_conn->User().length() -1))
+            m_worker = m_conn->User().substr(++p);
+    } else {
+        m_user = m_conn->User();
+    }
+
+    /*
+    If this connection has not gone through an autodetection of stratum mode
+    begin it now.
+    Autodetection process passes all known stratum modes.
+    - 1st pass EthStratumClient::ETHEREUMSTRATUM  (2)
+    - 2nd pass EthStratumClient::ETHPROXY         (1)
+    - 3rd pass EthStratumClient::STRATUM          (0)
+    */
+
+    Json::Value jReq;
+    jReq["id"] = unsigned(1);
+    jReq["method"] = "mining.subscribe";
+    jReq["params"] = Json::Value(Json::arrayValue);
+
+    if (!m_conn->StratumModeConfirmed() && m_conn->StratumMode() == 999)
+        m_conn->SetStratumMode(2, false);
+
+
+    switch (m_conn->StratumMode()) {
+        case 0:
+            m_conn->SetStratumMode(0, false);
+            jReq["id"] = unsigned(1);
+            jReq["jsonrpc"] = "2.0";
+            break;
+        case 1:
+            m_conn->SetStratumMode(1, false);
+            jReq["id"] = unsigned(1);
+            jReq["params"] = Json::Value(Json::arrayValue);
+            if (m_worker.length())
+                jReq["worker"] = m_worker;
+            jReq["params"].append(m_user + m_conn->Path());
+            break;
+        case 2:
+            m_conn->SetStratumMode(2, false);
+            jReq["params"].append(energiminer_get_buildinfo()->project_name_with_version);
+            jReq["params"].append("EnergiminerStratum/1.0.0");
+            break;
+        default:
+            break;
+    }
+    // Begin receive data
+    recvSocketData();
+    /*
+       +        Send first message
+       +        NOTE !!
+       +        It's been tested that f2pool.com does not respond with json error to wrong
+       +        access message (which is needed to autodetect stratum mode).
+       +        IT DOES NOT RESPOND AT ALL !!
+       +        Due to this we need to set a timeout (arbitrary set to 1 second) and
+       +        if no response within that time consider the tentative login failed
+       +        and switch to next stratum mode test
+       +        */
+    m_responsetimer.cancel();
+    m_responsetimer.expires_from_now(boost::posix_time::milliseconds(1000));
+    m_responsetimer.async_wait(m_io_strand.wrap(boost::bind(&StratumClient::response_timeout_handler, this, boost::asio::placeholders::error)));
+    sendSocketData(jReq);
 }
 
 std::string StratumClient::processError(Json::Value& responseObject)
 {
     std::string retVar;
 
-    if (responseObject.isMember("error") && !responseObject.get("error", Json::Value::null).isNull()) {
-
+    if (responseObject.isMember("error") &&
+            !responseObject.get("error", Json::Value::null).isNull()) {
         if (responseObject["error"].isConvertibleTo(Json::ValueType::stringValue)) {
             retVar = responseObject.get("error", "Unknown error").asString();
         } else if (responseObject["error"].isConvertibleTo(Json::ValueType::arrayValue)) {
@@ -516,8 +539,7 @@ std::string StratumClient::processError(Json::Value& responseObject)
                 retVar += i.asString() + " ";
             }
         } else if (responseObject["error"].isConvertibleTo(Json::ValueType::objectValue)) {
-            for (Json::Value::iterator i = responseObject["error"].begin(); i != responseObject["error"].end(); ++i)
-            {
+            for (Json::Value::iterator i = responseObject["error"].begin(); i != responseObject["error"].end(); ++i) {
                 Json::Value k = i.key();
                 Json::Value v = (*i);
                 retVar += (std::string)i.name() + ":" + v.asString() + " ";
@@ -616,8 +638,6 @@ void StratumClient::processResponse(Json::Value& responseObject)
                                 if (m_worker.length())
                                     jReq["worker"] = m_worker;
                                 jReq["params"].append(m_user + m_conn->Path());
-                                if (!m_email.empty())
-                                    jReq["params"].append(m_email);
                                 // Set a timeout in case pool does not respond
                                 m_responsetimer.cancel();
                                 m_responsetimer.expires_from_now(boost::posix_time::milliseconds(1000));
@@ -710,7 +730,6 @@ void StratumClient::processResponse(Json::Value& responseObject)
                     return;
                 } else {
                     cnote << "Subscribed to stratum server";
-                    m_nextWorkTarget = arith_uint256("0xffff000000000000000000000000000000000000000000000000000000000000");
                     if (!jResult.empty() && jResult.isArray()) {
                         std::string enonce = jResult.get((Json::Value::ArrayIndex)1, "").asString();
                         processExtranonce(enonce);
@@ -908,7 +927,8 @@ void StratumClient::response_timeout_handler(const boost::system::error_code& ec
                 // Waiting for a response to a submission
                 cwarn << "No response received in " << m_responsetimeout << " seconds.";
                 m_endpoints.pop();
-                m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
+                m_io_service.post(
+                        m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
             }
 
             if (m_conn->StratumModeConfirmed() == false && m_conn->IsUnrecoverable() == false) {
@@ -1006,8 +1026,12 @@ void StratumClient::onRecvSocketDataCompleted(const boost::system::error_code& e
         }
     } else {
         if (isConnected()) {
-            if (
-                    (ec.category() == boost::asio::error::get_ssl_category()) &&
+            if (m_authpending.load(std::memory_order_relaxed)) {
+                cwarn << "Error while waiting for authorization from pool";
+                cwarn << "Double check your pool credentials.";
+                m_conn->MarkUnrecoverable();
+            }
+            if ((ec.category() == boost::asio::error::get_ssl_category()) &&
                     (ERR_GET_REASON(ec.value()) == SSL_RECEIVED_SHUTDOWN)
                )
             {

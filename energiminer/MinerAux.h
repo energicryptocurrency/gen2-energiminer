@@ -197,7 +197,7 @@ private:
 	/// Farm params
 	int m_worktimeout = 180;
 	// Number of seconds to wait before triggering a response timeout from pool
-	int m_responsetimeout = 2;
+	int m_responsetimeout = 3;
     // Number of minutes to wait on a failover pool before trying to go back to primary. In minutes !!
     unsigned m_failovertimeout = 0;
 
@@ -214,6 +214,5 @@ private:
 
 	std::string m_coinbase_addr;
 
-    std::string m_email;
 	bool m_report_stratum_hashrate = false;
 };
