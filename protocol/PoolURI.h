@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include <network/uri.hpp>
 
 // A simple URI parser specifically for mining pool endpoints
 enum class SecureLevel {NONE = 0, TLS12, TLS};
@@ -10,21 +9,22 @@ enum class ProtocolFamily {GETWORK = 0, STRATUM};
 class URI
 {
 public:
-    URI() {};
+    //URI() delete;
     URI(const std::string uri);
 
-    std::string	Scheme() const;
-    std::string	Host() const;
-    std::string	Path() const;
-    unsigned short	Port() const;
-    std::string	User() const;
-    std::string	Pass() const;
-    SecureLevel	SecLevel() const;
-    ProtocolFamily	Family() const;
-    unsigned	Version() const;
-    std::string string() { return m_uri.string(); }
+    std::string Scheme() const { return m_scheme; }
+    std::string Host() const { return m_host; }
+    std::string Path() const { return m_path; }
+    unsigned short Port() const { return m_port; }
+    std::string User() const { return m_username; }
+    std::string Pass() const { return m_password; }
+    SecureLevel SecLevel() const;
+    ProtocolFamily Family() const;
+    unsigned Version() const;
+    std::string String() const { return m_uri; }
+    bool Valid() const { return m_valid; }
 
-    bool		KnownScheme();
+    bool KnownScheme();
 
     static std::string KnownSchemes(ProtocolFamily family);
 
@@ -40,8 +40,17 @@ public:
     void MarkUnrecoverable() { m_unrecoverable = true; }
 
 private:
-    network::uri m_uri;
+    std::string m_scheme;
+    std::string m_host;
+    std::string m_path;
+    std::string m_query;
+    std::string m_fragment;
+    std::string m_username;
+    std::string m_password;
+    std::string m_uri;
+    unsigned short m_stratumMode = 999;  // Initial value 999 means not tested yet
+    unsigned short m_port = 0;
+    bool m_valid = false;
     bool m_stratumModeConfirmed = false;
-    unsigned m_stratumMode = 999;  // Initial value 999 means not tested yet
     bool m_unrecoverable = false;
 };
