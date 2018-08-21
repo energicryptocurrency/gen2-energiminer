@@ -482,18 +482,24 @@ void MinerCLI::doMiner()
     //start PoolManager
     mgr.start();
 
+    unsigned interval = m_displayInterval;
     // Run CLI in loop
     while (g_running && mgr.isRunning()) {
         // Wait at the beginning of the loop to give some time
         // services to start properly. Otherwise we get a "not-connected"
         // message immediately
-        std::this_thread::sleep_for(std::chrono::seconds(m_displayInterval));
+        this_thread::sleep_for(chrono::seconds(2));
+        if (interval > 2) {
+            interval -= 2;
+            continue;
+        }
         if (mgr.isConnected()) {
             auto mp = plant.miningProgress(m_show_hwmonitors, m_show_power);
             minelog << mp << ' ' << plant.getSolutionStats() << ' ' << plant.farmLaunchedFormatted();
         } else {
             minelog << "not-connected";
         }
+        interval = m_displayInterval;
     }
     mgr.stop();
     stop_io_service();
