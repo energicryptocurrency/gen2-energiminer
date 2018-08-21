@@ -192,7 +192,6 @@ void StratumClient::disconnect()
 
     m_response_pending = false;
 
-
     if (m_socket && m_socket->is_open()) {
         try {
             boost::system::error_code sec;
@@ -472,9 +471,9 @@ void StratumClient::connect_handler(const boost::system::error_code& ec)
     If this connection has not gone through an autodetection of stratum mode
     begin it now.
     Autodetection process passes all known stratum modes.
-    - 1st pass EthStratumClient::ETHEREUMSTRATUM  (2)
-    - 2nd pass EthStratumClient::ETHPROXY         (1)
-    - 3rd pass EthStratumClient::STRATUM          (0)
+    - 1st pass StratumClient::ETHEREUMSTRATUM  (2)
+    - 2nd pass StratumClient::ETHPROXY         (1)
+    - 3rd pass StratumClient::STRATUM          (0)
     */
 
     Json::Value jReq;
@@ -584,7 +583,8 @@ void StratumClient::processResponse(Json::Value& responseObject)
     _isNotification = ( _method != "" || _id == unsigned(0) );
 
     // Notifications of new jobs are like responses to get_work requests
-    if (_isNotification && _method == "" && m_conn->StratumMode() == StratumClient::ETHPROXY && responseObject["result"].isArray()) {
+    if (_isNotification && _method == "" && m_conn->StratumMode() == StratumClient::ETHPROXY &&
+            responseObject["result"].isArray()) {
         _method = "mining.notify";
     }
 
@@ -592,8 +592,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
     // - For rpc2 member "jsonrpc" MUST be valued to "2.0"
     // - For responses ... well ... whatever
     // - For notifications I must receive "method" member and a not empty "params" or "result" member
-    if (
-            (_rpcVer == 2 && (!responseObject["jsonrpc"].isString() || responseObject.get("jsonrpc", "") != "2.0")) ||
+    if ((_rpcVer == 2 && (!responseObject["jsonrpc"].isString() || responseObject.get("jsonrpc", "") != "2.0")) ||
             (_isNotification && (responseObject["params"].empty() && responseObject["result"].empty()))
        )
     {
@@ -695,6 +694,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
                     return;
                 } else {
                     cnote << "Subscribed to stratum server";
+                    m_authpending.store(true, std::memory_order_relaxed);
                     jReq["id"] = unsigned(3);
                     jReq["jsonrpc"] = "2.0";
                     jReq["method"] = "mining.authorize";
@@ -706,7 +706,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
             case StratumClient::ETHPROXY:
                 m_subscribed.store(_isSuccess, std::memory_order_relaxed);
                 if (!m_subscribed) {
-                    cnote << "Could not login to ethproxy server:" << _errReason;
+                    cnote << "Could not login to nrg-proxy server:" << _errReason;
                     m_conn->MarkUnrecoverable();
                     m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
                     return;
@@ -766,6 +766,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
             if (_isSuccess && jResult.isBool()) {
                 _isSuccess = jResult.asBool();
             }
+            m_authpending.store(false, std::memory_order_relaxed);
             m_authorized.store(_isSuccess, std::memory_order_relaxed);
             if (!m_authorized) {
                 cnote << "Worker not authorized" << m_conn->User() << _errReason;
@@ -774,6 +775,13 @@ void StratumClient::processResponse(Json::Value& responseObject)
                 return;
             } else {
                 cnote << "Authorized worker " + m_conn->User();
+                // If we get here we have a valid application connection
+                // not only a socket connection
+                if (m_onConnected && m_conn->StratumModeConfirmed()) {
+                    m_onConnected();
+                    reset_work_timeout();
+                }
+
             }
             break;
         case 4:
@@ -791,10 +799,10 @@ void StratumClient::processResponse(Json::Value& responseObject)
                         m_onSolutionAccepted(false);
                     }
                 } else {
-                    if (!_errReason.empty()) {
-                        cwarn << "Reject reason :" << (_errReason.empty() ? "Unspecified" : _errReason);
-                    }
                     if (m_onSolutionRejected) {
+                        if (!_errReason.empty()) {
+                            cwarn << "Reject reason :" << (_errReason.empty() ? "Unspecified" : _errReason);
+                        }
                         m_onSolutionRejected(true);
                     }
                 }
@@ -870,10 +878,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
         } else if (_method == "mining.set_difficulty") {
             jPrm = responseObject.get("params", Json::Value::null);
             if (jPrm.isArray()) {
-                double nextWorkDifficulty = jPrm.get((Json::Value::ArrayIndex)0, 1).asDouble();
-                if (nextWorkDifficulty <= 0.0001) {
-                    nextWorkDifficulty = 0.0001;
-                }
+                double nextWorkDifficulty = std::max(jPrm.get((Json::Value::ArrayIndex)0, 1).asDouble(), 0.0001);
                 cnote << "Difficulty set to"  << nextWorkDifficulty;
                 diffToTarget((uint32_t*)m_nextWorkTarget.data(), nextWorkDifficulty);
             }

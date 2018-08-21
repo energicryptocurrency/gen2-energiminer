@@ -96,16 +96,12 @@ URI::URI(const std::string uri)
     // Check if the user (and password) are specified.
     bool userpass_flag = false;
     tmpstr = curstr;
-    while ('\0' != *tmpstr)
-    {
-        if ('@' == *tmpstr)
-        {
+    while ('\0' != *tmpstr) {
+        if ('@' == *tmpstr) {
             // Username and password are specified
             userpass_flag = true;
             break;
-        }
-        else if ('/' == *tmpstr)
-        {
+        } else if ('/' == *tmpstr) {
             // End of <host>:<port> specification
             break;
         }
@@ -114,8 +110,7 @@ URI::URI(const std::string uri)
 
     // User and password specification
     tmpstr = curstr;
-    if (userpass_flag)
-    {
+    if (userpass_flag) {
         // Read username
         while (('\0' != *tmpstr) && (':' != *tmpstr) && ('@' != *tmpstr))
             tmpstr++;
@@ -124,8 +119,7 @@ URI::URI(const std::string uri)
         m_username = urlDecode(m_username);
         // Look for password
         curstr = tmpstr;
-        if (':' == *curstr)
-        {
+        if (':' == *curstr) {
             // Skip ':'
             curstr++;
             // Read password
@@ -138,8 +132,7 @@ URI::URI(const std::string uri)
             curstr = tmpstr;
         }
         // Skip '@'
-        if ('@' != *curstr)
-        {
+        if ('@' != *curstr) {
             return;
         }
         curstr++;
@@ -148,15 +141,12 @@ URI::URI(const std::string uri)
     bool ipv6_flag = '[' == *curstr;
     // Proceed on by delimiters with reading host
     tmpstr = curstr;
-    while ('\0' != *tmpstr)
-    {
-        if (ipv6_flag && ']' == *tmpstr)
-        {
+    while ('\0' != *tmpstr) {
+        if (ipv6_flag && ']' == *tmpstr) {
             // End of IPv6 address.
             tmpstr++;
             break;
-        }
-        else if (!ipv6_flag && ((':' == *tmpstr) || ('/' == *tmpstr)))
+        } else if (!ipv6_flag && ((':' == *tmpstr) || ('/' == *tmpstr)))
             // Port number is specified.
             break;
         tmpstr++;
@@ -167,8 +157,7 @@ URI::URI(const std::string uri)
     curstr = tmpstr;
 
     // Is port number specified?
-    if (':' == *curstr)
-    {
+    if (':' == *curstr) {
         curstr++;
         // Read port number
         tmpstr = curstr;
@@ -179,23 +168,20 @@ URI::URI(const std::string uri)
         tempstr.append(curstr, len);
         std::stringstream ss(tempstr);
         ss >> m_port;
-        if (ss.fail())
-        {
+        if (ss.fail()) {
             return;
         }
         curstr = tmpstr;
     }
 
     // End of the string
-    if ('\0' == *curstr)
-    {
+    if ('\0' == *curstr) {
         m_valid = true;
         return;
     }
 
     // Skip '/'
-    if ('/' != *curstr)
-    {
+    if ('/' != *curstr) {
         return;
     }
     curstr++;
@@ -205,8 +191,7 @@ URI::URI(const std::string uri)
     while (('\0' != *tmpstr) && ('#' != *tmpstr) && ('?' != *tmpstr))
         tmpstr++;
     len = tmpstr - curstr;
-    if (len)
-    {
+    if (len) {
         m_path = '/';
         m_path.append(curstr, len);
         m_path = urlDecode(m_path);
@@ -214,8 +199,7 @@ URI::URI(const std::string uri)
     curstr = tmpstr;
 
     // Is query specified?
-    if ('?' == *curstr)
-    {
+    if ('?' == *curstr) {
         // Skip '?'
         curstr++;
         // Read query
@@ -229,8 +213,7 @@ URI::URI(const std::string uri)
     }
 
     // Is fragment specified?
-    if ('#' == *curstr)
-    {
+    if ('#' == *curstr) {
         // Skip '#'
         curstr++;
         // Read fragment
