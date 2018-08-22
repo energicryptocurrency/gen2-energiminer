@@ -128,7 +128,6 @@ namespace energi
     static unsigned         s_initialGlobalWorkSize;
     static bool s_adjustWorkSize;
 
-    std::chrono::high_resolution_clock::time_point workSwitchStart;
   };
 
 } /* namespace energi */

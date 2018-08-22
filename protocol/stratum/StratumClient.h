@@ -17,11 +17,12 @@ class StratumClient : public PoolClient
 {
 public:
 
-	typedef enum { STRATUM = 0, ETHPROXY, ETHEREUMSTRATUM } StratumProtocol;
+	typedef enum { STRATUM = 0, NRGPROXY, ENERGISTRATUM } StratumProtocol;
 
-	StratumClient(boost::asio::io_service& io_service, int worktimeout, int responsetimeout, const std::string& email, bool submitHashrate);
+	StratumClient(boost::asio::io_service& io_service, int worktimeout, int responsetimeout, bool submitHashrate);
 	~StratumClient();
 
+    void init_socket();
 	void connect() override;
 	void disconnect() override;
 
@@ -67,6 +68,7 @@ private:
 
     std::atomic<bool> m_disconnecting = { false };
     std::atomic<bool> m_connecting = { false };
+    std::atomic<bool> m_authpending = {false};
 
     // seconds to trigger a work_timeout (overwritten in constructor)
     int m_worktimeout;
@@ -75,6 +77,8 @@ private:
     int m_responsetimeout;
 
     energi::Work m_current;
+
+    bool m_stale = false;
 
     boost::asio::io_service& m_io_service;  // The IO service reference passed in the constructor
     boost::asio::io_service::strand m_io_strand;
@@ -96,8 +100,6 @@ private:
 
     boost::asio::ip::tcp::resolver m_resolver;
     std::queue<boost::asio::ip::basic_endpoint<boost::asio::ip::tcp>> m_endpoints;
-
-    std::string m_email;
 
     arith_uint256 m_nextWorkTarget = arith_uint256("0xffff000000000000000000000000000000000000000000000000000000000000");
 

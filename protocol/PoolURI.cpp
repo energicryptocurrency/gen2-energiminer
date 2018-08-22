@@ -1,161 +1,258 @@
-#include <map>
-#include <boost/optional/optional_io.hpp>
-#include <boost/algorithm/string.hpp>
-#include <network/uri/detail/decode.hpp>
+#include <algorithm>
 #include <iostream>
+#include <map>
+#include <sstream>
 
+#include <string.h>
 #include "PoolURI.h"
 
 
 
-typedef struct {
-	ProtocolFamily family;
-	SecureLevel secure;
-	unsigned version;
+typedef struct
+{
+    ProtocolFamily family;
+    SecureLevel secure;
+    unsigned version;
 } SchemeAttributes;
 
 static std::map<std::string, SchemeAttributes> s_schemes = {
-	{"stratum+tcp",	  {ProtocolFamily::STRATUM, SecureLevel::NONE,  0}},
-	{"stratum1+tcp",  {ProtocolFamily::STRATUM, SecureLevel::NONE,  1}},
-	{"stratum2+tcp",  {ProtocolFamily::STRATUM, SecureLevel::NONE,  2}},
-	{"stratum+tls",	  {ProtocolFamily::STRATUM, SecureLevel::TLS,   0}},
-	{"stratum1+tls",  {ProtocolFamily::STRATUM, SecureLevel::TLS,   1}},
-	{"stratum2+tls",  {ProtocolFamily::STRATUM, SecureLevel::TLS,   2}},
-	{"stratum+tls12", {ProtocolFamily::STRATUM, SecureLevel::TLS12, 0}},
-	{"stratum1+tls12",{ProtocolFamily::STRATUM, SecureLevel::TLS12, 1}},
-	{"stratum2+tls12",{ProtocolFamily::STRATUM, SecureLevel::TLS12, 2}},
-	{"stratum+ssl",	  {ProtocolFamily::STRATUM, SecureLevel::TLS12, 0}},
-	{"stratum1+ssl",  {ProtocolFamily::STRATUM, SecureLevel::TLS12, 1}},
-	{"stratum2+ssl",  {ProtocolFamily::STRATUM, SecureLevel::TLS12, 2}},
-	{"http",		  {ProtocolFamily::GETWORK, SecureLevel::NONE,  0}}
-};
+    {"stratum+tcp", {ProtocolFamily::STRATUM, SecureLevel::NONE, 0}},
+    {"stratum1+tcp", {ProtocolFamily::STRATUM, SecureLevel::NONE, 1}},
+    {"stratum2+tcp", {ProtocolFamily::STRATUM, SecureLevel::NONE, 2}},
+    {"stratum+tls", {ProtocolFamily::STRATUM, SecureLevel::TLS, 0}},
+    {"stratum1+tls", {ProtocolFamily::STRATUM, SecureLevel::TLS, 1}},
+    {"stratum2+tls", {ProtocolFamily::STRATUM, SecureLevel::TLS, 2}},
+    {"stratum+tls12", {ProtocolFamily::STRATUM, SecureLevel::TLS12, 0}},
+    {"stratum1+tls12", {ProtocolFamily::STRATUM, SecureLevel::TLS12, 1}},
+    {"stratum2+tls12", {ProtocolFamily::STRATUM, SecureLevel::TLS12, 2}},
+    {"stratum+ssl", {ProtocolFamily::STRATUM, SecureLevel::TLS12, 0}},
+    {"stratum1+ssl", {ProtocolFamily::STRATUM, SecureLevel::TLS12, 1}},
+    {"stratum2+ssl", {ProtocolFamily::STRATUM, SecureLevel::TLS12, 2}},
+    {"http", {ProtocolFamily::GETWORK, SecureLevel::NONE, 0}}};
+
+static std::string urlDecode(std::string s)
+{
+    std::string ret;
+    unsigned i, ii;
+    for (i = 0; i < s.length(); i++)
+    {
+        if (int(s[i]) == '%')
+        {
+            sscanf(s.substr(i + 1, 2).c_str(), "%x", &ii);
+            ret += char(ii);
+            i = i + 2;
+        }
+        else if (s[i] == '+')
+        {
+            ret += ' ';
+        }
+        else
+        {
+            ret += s[i];
+        }
+    }
+    return ret;
+}
 
 URI::URI(const std::string uri)
 {
-	std::string u = uri;
-	if (u.find("://") == std::string::npos)
-		u = std::string("unspecified://") + u;
-	m_uri = network::uri(u);
+    m_uri = uri;
+
+    const char* curstr = m_uri.c_str();
+
+    // <scheme> := [a-z\0-9\+\-\.]+,  convert to lower case
+    // Read scheme (mandatory)
+    const char* tmpstr = strchr(curstr, ':');
+    if (nullptr == tmpstr)
+    {
+        // Not found
+        return;
+    }
+    // Get the scheme length
+    size_t len = tmpstr - curstr;
+    // Copy the scheme to the string, all lowecase, can't be url encoded
+    m_scheme.append(curstr, len);
+    std::transform(m_scheme.begin(), m_scheme.end(), m_scheme.begin(), ::tolower);
+    if (0 != std::count_if(m_scheme.begin(), m_scheme.end(), [](char c) {
+            return !(isalpha(c) || isdigit(c) || ('+' == c) || ('-' == c) || ('.' == c));
+        }))
+    {
+        return;
+    }
+
+    // Skip ':'
+    tmpstr++;
+    curstr = tmpstr;
+
+    // //<user>:<password>@<host>:<port>/<url-path>
+    // Any ":", "@" and "/" must be encoded.
+    // Eat "//"
+    if (('/' != *curstr) || ('/' != *(curstr + 1)))
+    {
+            return;
+    }
+    curstr += 2;
+
+    // Check if the user (and password) are specified.
+    bool userpass_flag = false;
+    tmpstr = curstr;
+    while ('\0' != *tmpstr) {
+        if ('@' == *tmpstr) {
+            // Username and password are specified
+            userpass_flag = true;
+            break;
+        } else if ('/' == *tmpstr) {
+            // End of <host>:<port> specification
+            break;
+        }
+        tmpstr++;
+    }
+
+    // User and password specification
+    tmpstr = curstr;
+    if (userpass_flag) {
+        // Read username
+        while (('\0' != *tmpstr) && (':' != *tmpstr) && ('@' != *tmpstr))
+            tmpstr++;
+        len = tmpstr - curstr;
+        m_username.append(curstr, len);
+        m_username = urlDecode(m_username);
+        // Look for password
+        curstr = tmpstr;
+        if (':' == *curstr) {
+            // Skip ':'
+            curstr++;
+            // Read password
+            tmpstr = curstr;
+            while (('\0' != *tmpstr) && ('@' != *tmpstr))
+                tmpstr++;
+            len = tmpstr - curstr;
+            m_password.append(curstr, len);
+            m_password = urlDecode(m_password);
+            curstr = tmpstr;
+        }
+        // Skip '@'
+        if ('@' != *curstr) {
+            return;
+        }
+        curstr++;
+    }
+
+    bool ipv6_flag = '[' == *curstr;
+    // Proceed on by delimiters with reading host
+    tmpstr = curstr;
+    while ('\0' != *tmpstr) {
+        if (ipv6_flag && ']' == *tmpstr) {
+            // End of IPv6 address.
+            tmpstr++;
+            break;
+        } else if (!ipv6_flag && ((':' == *tmpstr) || ('/' == *tmpstr)))
+            // Port number is specified.
+            break;
+        tmpstr++;
+    }
+    len = tmpstr - curstr;
+    m_host.append(curstr, len);
+    m_host = urlDecode(m_host);
+    curstr = tmpstr;
+
+    // Is port number specified?
+    if (':' == *curstr) {
+        curstr++;
+        // Read port number
+        tmpstr = curstr;
+        while (('\0' != *tmpstr) && ('/' != *tmpstr))
+            tmpstr++;
+        len = tmpstr - curstr;
+        std::string tempstr;
+        tempstr.append(curstr, len);
+        std::stringstream ss(tempstr);
+        ss >> m_port;
+        if (ss.fail()) {
+            return;
+        }
+        curstr = tmpstr;
+    }
+
+    // End of the string
+    if ('\0' == *curstr) {
+        m_valid = true;
+        return;
+    }
+
+    // Skip '/'
+    if ('/' != *curstr) {
+        return;
+    }
+    curstr++;
+
+    // Parse path
+    tmpstr = curstr;
+    while (('\0' != *tmpstr) && ('#' != *tmpstr) && ('?' != *tmpstr))
+        tmpstr++;
+    len = tmpstr - curstr;
+    if (len) {
+        m_path = '/';
+        m_path.append(curstr, len);
+        m_path = urlDecode(m_path);
+    }
+    curstr = tmpstr;
+
+    // Is query specified?
+    if ('?' == *curstr) {
+        // Skip '?'
+        curstr++;
+        // Read query
+        tmpstr = curstr;
+        while (('\0' != *tmpstr) && ('#' != *tmpstr))
+            tmpstr++;
+        len = tmpstr - curstr;
+        m_query.append(curstr, len);
+        m_query = urlDecode(m_query);
+        curstr = tmpstr;
+    }
+
+    // Is fragment specified?
+    if ('#' == *curstr) {
+        // Skip '#'
+        curstr++;
+        // Read fragment
+        tmpstr = curstr;
+        while ('\0' != *tmpstr)
+            tmpstr++;
+        len = tmpstr - curstr;
+        m_fragment.append(curstr, len);
+        m_fragment = urlDecode(m_fragment);
+    }
+    m_valid = true;
 }
 
 bool URI::KnownScheme()
 {
-	if (!m_uri.scheme())
-		return false;
-	std::string s(*m_uri.scheme());
-	boost::trim(s);
-	return s_schemes.find(s) != s_schemes.end();
+    return s_schemes.find(m_scheme) != s_schemes.end();
 }
 
 ProtocolFamily URI::Family() const
 {
-	if (!m_uri.scheme())
-		return ProtocolFamily::STRATUM;
-	std::string s(*m_uri.scheme());
-	s = network::detail::decode(s);
-	boost::trim(s);
-	return s_schemes[s].family;
+    return s_schemes[m_scheme].family;
 }
 
 unsigned URI::Version() const
 {
-	if (!m_uri.scheme())
-		return 0;
-	std::string s(*m_uri.scheme());
-	s = network::detail::decode(s);
-	boost::trim(s);
-	return s_schemes[s].version;
+    return s_schemes[m_scheme].version;
 }
 
 SecureLevel URI::SecLevel() const
 {
-	if (!m_uri.scheme())
-		return SecureLevel::NONE;
-	std::string s(*m_uri.scheme());
-	s = network::detail::decode(s);
-	boost::trim(s);
-	return s_schemes[s].secure;
+    return s_schemes[m_scheme].secure;
 }
 
 std::string URI::KnownSchemes(ProtocolFamily family)
 {
-	std::string schemes;
-	for(const auto&s : s_schemes)
-		if (s.second.family == family)
-			schemes += s.first + " ";
-	boost::trim(schemes);
-	return schemes;
-}
-
-std::string URI::Scheme() const
-{
-	if (!m_uri.scheme())
-		return "";
-	std::string s(*m_uri.scheme());
-	s = network::detail::decode(s);
-	boost::trim(s);
-	return s;
-}
-
-std::string URI::Host() const
-{
-	if (!m_uri.host())
-		return "";
-	std::string s(*m_uri.host());
-	s = network::detail::decode(s);
-	boost::trim(s);
-	return s;
-}
-
-std::string URI::Path() const
-{
-	if (!m_uri.path())
-		return "";
-	std::string s(*m_uri.path());
-	s = network::detail::decode(s);
-	boost::trim(s);
-	return s;
-}
-
-unsigned short URI::Port() const
-{
-	if (!m_uri.port())
-		return 0;
-	std::string s(*m_uri.port());
-	s = network::detail::decode(s);
-	boost::trim(s);
-	try {
-		return (unsigned short)std::stoul(s.c_str());
-	}
-	catch (...)
-	{
-		return 0;
-	}
-}
-
-std::string URI::User() const
-{
-	if (!m_uri.user_info())
-		return "";
-	std::string s(*m_uri.user_info());
-	s = network::detail::decode(s);
-	boost::trim(s);
-	size_t f = s.find(":");
-	if (f == std::string::npos)
-		return s;
-	return s.substr(0, f);
-}
-
-std::string URI::Pass() const
-{
-	if (!m_uri.user_info())
-		return "";
-	std::string s(*m_uri.user_info());
-	s = network::detail::decode(s);
-	boost::trim(s);
-	size_t f = s.find(":");
-	if (f == std::string::npos)
-		return "";
-	return s.substr(f + 1);
+    std::string schemes;
+    for (const auto& s : s_schemes)
+        if (s.second.family == family)
+            schemes += s.first + " ";
+    return schemes;
 }
 

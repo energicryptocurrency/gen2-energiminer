@@ -56,10 +56,6 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         ->group(CommonGroup)
         ->check(CLI::Range(1, 99999));
 
-    app.add_option("--stratum-email", m_email,
-            "Set email address for eth-proxy")
-        ->group(CommonGroup);
-
     app.add_option("--work-timeout", m_worktimeout,
             "Set disconnect timeout in seconds of working on the same job", true)
         ->group(CommonGroup)
@@ -68,7 +64,7 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
     app.add_option("--response-timeout", m_responsetimeout,
             "Set disconnect timeout in seconds for pool responses", true)
         ->group(CommonGroup)
-        ->check(CLI::Range(2, 999));
+        ->check(CLI::Range(3, 999));
 
     app.add_flag("-R,--report-hashrate", m_report_stratum_hashrate,
             "Report current hashrate to pool")
@@ -227,14 +223,14 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
     std::stringstream ssHelp;
     ssHelp
         << "Pool URL Specification:" << endl
-        << "    URL takes the form: scheme://user[:password]@hostname:port[/emailaddress]." << endl
+        << "    URL takes the form: scheme://user[:password]@hostname:port" << endl
         << "    for getwork use one of the following schemes:" << endl
         << "      " << URI::KnownSchemes(ProtocolFamily::GETWORK) << endl
         << "    for stratum use one of the following schemes: "<< endl
         << "      " << URI::KnownSchemes(ProtocolFamily::STRATUM) << endl
         << "    Stratum variants:" << endl
-        << "    Example 1: stratum1+tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port/email" << endl
-        << "    Example 2: stratum1+tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>/<miner name>/email"
+        << "    Example 1: stratum1+tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>" << endl
+        << "    Example 2: stratum1+tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>/<miner name>"
         << endl << endl;
     app.set_footer(ssHelp.str());
 
@@ -282,10 +278,8 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
     for (auto url : pools) {
         if (url == "exit") // add fake scheme and port to 'exit' url
             url = "stratum+tcp://-:x@exit:0";
-        URI uri;
-        try {
-            uri = url;
-        } catch (...) {
+        URI uri(url);
+        if (!uri.Valid()) {
             cerr << endl << "Bad endpoint address: " << url << "\n\n";
             exit(-1);
         }
@@ -451,7 +445,7 @@ void MinerCLI::doMiner()
     if (m_mode == OperationMode::GBT) {
 			client = new GetworkClient(m_farmRecheckPeriod, m_coinbase_addr);
     } else if (m_mode == OperationMode::Stratum) {
-        client = new StratumClient(m_io_service, m_worktimeout, m_responsetimeout, m_email, m_report_stratum_hashrate);
+        client = new StratumClient(m_io_service, m_worktimeout, m_responsetimeout, m_report_stratum_hashrate);
     } else if (m_mode == OperationMode::Simulation) {
         //client = new SimulationClient(20, m_benchmarkBlock);
         std::cout << "Selected simulation mode" << std::endl;
@@ -484,18 +478,24 @@ void MinerCLI::doMiner()
     //start PoolManager
     mgr.start();
 
+    unsigned interval = m_displayInterval;
     // Run CLI in loop
     while (g_running && mgr.isRunning()) {
         // Wait at the beginning of the loop to give some time
         // services to start properly. Otherwise we get a "not-connected"
         // message immediately
-        std::this_thread::sleep_for(std::chrono::seconds(m_displayInterval));
+        this_thread::sleep_for(chrono::seconds(2));
+        if (interval > 2) {
+            interval -= 2;
+            continue;
+        }
         if (mgr.isConnected()) {
             auto mp = plant.miningProgress(m_show_hwmonitors, m_show_power);
             minelog << mp << ' ' << plant.getSolutionStats() << ' ' << plant.farmLaunchedFormatted();
         } else {
             minelog << "not-connected";
         }
+        interval = m_displayInterval;
     }
     mgr.stop();
     stop_io_service();
