@@ -7,8 +7,9 @@
  * but not liability.
  */
 #include "keccak-tiny.h"
-
-#define USE_SECURE_MEMZERO
+#ifndef USE_SECURE_MEMZERO
+    #define USE_SECURE_MEMZERO
+#endif
 #include "secure_memzero.h"
 
 #include <stdint.h>

@@ -24,7 +24,7 @@ namespace energi
 
     void setWork(const Work& work)
     {
-      Worker::setWork(work);
+        Miner::setWork(work);
     }
 
 
