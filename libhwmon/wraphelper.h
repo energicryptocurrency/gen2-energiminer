@@ -4,7 +4,7 @@
 
 #pragma once
 
-#if ETH_ETHASHCL
+#if NRGHASHCL
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wignored-attributes"
 #pragma GCC diagnostic ignored "-Wmissing-braces"

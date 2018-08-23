@@ -147,7 +147,7 @@ return NULL;
 
 
 	adlh->adl_opencl_device_id = (int*) calloc(adlh->adl_gpucount, sizeof(int));
-#if ETH_ETHASHCL
+#if NRGHASHCL
 	if(adlh->adl_gpucount > 0){
 		//Get and count OpenCL devices.
 		adlh->opencl_gpucount = 0;

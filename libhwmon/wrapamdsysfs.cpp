@@ -148,7 +148,7 @@ wrap_amdsysfs_handle * wrap_amdsysfs_create()
 
 	sysfsh->opencl_gpucount = 0;
 	sysfsh->sysfs_opencl_device_id = (int*)calloc(sysfsh->sysfs_gpucount, sizeof(int));
-#if ETH_ETHASHCL
+#if NRGHASHCL
 	if (sysfsh->sysfs_gpucount > 0) {
 		//Get and count OpenCL devices.
 		std::vector<cl::Platform> platforms;

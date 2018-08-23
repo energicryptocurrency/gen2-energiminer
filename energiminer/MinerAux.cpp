@@ -23,10 +23,10 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
 {
 
     const char* CommonGroup = "Common Options";
-#if ETH_ETHASHCL
+#if NRGHASHCL
     const char* OpenCLGroup = "OpenCL Options";
 #endif
-#if ETH_ETHASHCUDA
+#if NRGHASHCUDA
     const char* CUDAGroup =   "CUDA Options";
 #endif
     CLI::App app("Ethminer - GPU Ethereum miner");
@@ -93,12 +93,12 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
             "Set the amount of time in minutes to stay on a failover pool before trying to reconnect to primary. If = 0 then no switch back.", true)
         ->group(CommonGroup)
         ->check(CLI::Range(0, 999));
-#if ETH_ETHASHCL || ETH_ETHASHCUDA
+#if NRGHASHCL || NRGHASHCUDA
     app.add_flag("--list-devices", m_shouldListDevices,
             "List the detected OpenCL/CUDA devices and exit. Should be combined with -G, -U, or -X flag")
         ->group(CommonGroup);
 #endif
-#if ETH_ETHASHCL
+#if NRGHASHCL
     app.add_option("--opencl-platform", m_openclPlatform,
             "Use OpenCL platform n", true)
         ->group(OpenCLGroup);
@@ -121,7 +121,7 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         ->group(OpenCLGroup)
         ->check(CLI::Range(32, 99999));
 #endif
-#if ETH_ETHASHCUDA
+#if NRGHASHCUDA
     app.add_option("--cuda-grid-size", m_cudaGridSize,
             "Set the grid size", true)
         ->group(CUDAGroup)
@@ -310,11 +310,11 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         exit(-1);
     }
 
-#if ETH_ETHASHCL
+#if NRGHASHCL
     m_openclDeviceCount = m_openclDevices.size();
 #endif
 
-#if ETH_ETHASHCUDA
+#if NRGHASHCUDA
     m_cudaDeviceCount = m_cudaDevices.size();
     if (sched == "auto") {
         m_cudaSchedule = 0;
@@ -341,12 +341,12 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
 void MinerCLI::execute()
 {
     if (m_shouldListDevices) {
-#if ETH_ETHASHCL
+#if NRGHASHCL
         if (m_minerExecutionMode == MinerExecutionMode::kCL ||
                 m_minerExecutionMode == MinerExecutionMode::kMixed)
             OpenCLMiner::listDevices();
 #endif
-#if ETH_ETHASHCUDA
+#if NRGHASHCUDA
         if (m_minerExecutionMode == MinerExecutionMode::kCUDA ||
                 m_minerExecutionMode == MinerExecutionMode::kMixed)
             CUDAMiner::listDevices();
@@ -357,7 +357,7 @@ void MinerCLI::execute()
 
     if (m_minerExecutionMode == MinerExecutionMode::kCL ||
             m_minerExecutionMode == MinerExecutionMode::kMixed) {
-# if ETH_ETHASHCL
+# if NRGHASHCL
         if (m_openclDeviceCount > 0) {
             OpenCLMiner::setDevices(m_openclDevices, m_openclDeviceCount);
             m_miningThreads = m_openclDeviceCount;
@@ -379,14 +379,14 @@ void MinerCLI::execute()
 
         OpenCLMiner::setNumInstances(m_miningThreads);
 #else
-        cerr << "Selected GPU mining without having compiled with -DETHASHCL=1" << endl;
+        cerr << "Selected GPU mining without having compiled with -DHASHCL=1" << endl;
         exit(1);
 #endif
     }
 
     if (m_minerExecutionMode == MinerExecutionMode::kCUDA ||
             m_minerExecutionMode == MinerExecutionMode::kMixed) {
-#if ETH_ETHASHCUDA
+#if NRGHASHCUDA
         try {
             if (m_cudaDeviceCount > 0) {
                 CUDAMiner::setDevices(m_cudaDevices, m_cudaDeviceCount);
@@ -414,7 +414,7 @@ void MinerCLI::execute()
         }
         CUDAMiner::setParallelHash(m_cudaParallelHash);
 #else
-        cerr << "CUDA support disabled. Configure project build with -DETHASHCUDA=ON" << endl;
+        cerr << "CUDA support disabled. Configure project build with -DHASHCUDA=ON" << endl;
         stop_io_service();
         exit(1);
 #endif

@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include "wraphelper.h"
 #include "wrapnvml.h"
-#if ETH_ETHASHCUDA
+#if NRGHASHCUDA
 #include "cuda_runtime.h"
 #endif
 
@@ -108,7 +108,7 @@ return NULL;
   nvmlh->nvmlInit();
   nvmlh->nvmlDeviceGetCount(&nvmlh->nvml_gpucount);
 
-#if ETH_ETHASHCUDA
+#if NRGHASHCUDA
   /* Query CUDA device count, in case it doesn't agree with NVML, since  */
   /* CUDA will only report GPUs with compute capability greater than 1.0 */
   if (cudaGetDeviceCount(&nvmlh->cuda_gpucount) != cudaSuccess) {
@@ -147,7 +147,7 @@ return NULL;
   for (int i=0; i<nvmlh->nvml_gpucount; i++) {
     nvmlh->nvml_cuda_device_id[i] = -1;
   }
-#if ETH_ETHASHCUDA
+#if NRGHASHCUDA
   for (int i=0; i<nvmlh->cuda_gpucount; i++) {
     cudaDeviceProp props;
     nvmlh->cuda_nvml_device_id[i] = -1;
@@ -172,7 +172,7 @@ return NULL;
 
 	nvmlh->opencl_gpucount = 0;
 	nvmlh->nvml_opencl_device_id = (int*)calloc(nvmlh->nvml_gpucount, sizeof(int));
-#if ETH_ETHASHCL
+#if NRGHASHCL
 	//Get and count OpenCL devices.
 	std::vector<cl::Platform> platforms;
 	cl::Platform::get(&platforms);

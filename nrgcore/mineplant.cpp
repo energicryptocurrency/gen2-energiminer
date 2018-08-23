@@ -7,11 +7,11 @@
 
 #include "mineplant.h"
 
-#ifdef ETH_ETHASHCL
+#ifdef NRGHASHCL
 #include "libegihash-cl/OpenCLMiner.h"
 #endif
 
-#ifdef ETH_ETHASHCUDA
+#ifdef NRGHASHCUDA
 #include "libnrghash-cuda/CUDAMiner.h"
 #endif
 
@@ -32,12 +32,12 @@ using namespace energi;
 
 MinerPtr createMiner(EnumMinerEngine minerEngine, int index, const MinePlant &plant)
 {
-#if ETH_ETHASHCL
+#if NRGHASHCL
     if (minerEngine == EnumMinerEngine::kCL) {
         return MinerPtr(new OpenCLMiner(plant, index));
     }
 #endif
-#if ETH_ETHASHCUDA
+#if NRGHASHCUDA
     if (minerEngine == EnumMinerEngine::kCUDA) {
         return MinerPtr(new CUDAMiner(plant, index));
     }
@@ -92,12 +92,12 @@ bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
     //m_started = true;
     for ( auto &minerEngine : vMinerEngine) {
         unsigned count = 0;
-#if ETH_ETHASHCL
+#if NRGHASHCL
         if (minerEngine == EnumMinerEngine::kCL) {
             count = OpenCLMiner::instances();
         }
 #endif
-#if ETH_ETHASHCUDA
+#if NRGHASHCUDA
         if (minerEngine == EnumMinerEngine::kCUDA) {
             count = CUDAMiner::instances();
         }

@@ -55,11 +55,11 @@
 #include <boost/optional.hpp>
 #include <boost/bind.hpp>
 
-#ifdef ETH_ETHASHCL
+#ifdef NRGHASHCL
 #include "libegihash-cl/OpenCLMiner.h"
 #endif
 
-#ifdef ETH_ETHASHCUDA
+#ifdef NRGHASHCUDA
 #include "libnrghash-cuda/CUDAMiner.h"
 #endif
 
@@ -163,7 +163,7 @@ private:
 	unsigned m_miningThreads = 1;
 	bool m_shouldListDevices = false;
 
-#if ETH_ETHASHCL
+#if NRGHASHCL
 	unsigned m_openclDeviceCount = 0;
     std::vector<unsigned> m_openclDevices = std::vector<unsigned>(MAX_MINERS, -1);
 	unsigned m_openclThreadsPerHash = 8;
@@ -171,7 +171,7 @@ private:
     int m_globalWorkSizeMultiplier = energi::OpenCLMiner::c_defaultGlobalWorkSizeMultiplier;
 	unsigned m_localWorkSize = energi::OpenCLMiner::c_defaultLocalWorkSize;
 #endif
-#if ETH_ETHASHCUDA
+#if NRGHASHCUDA
 	unsigned m_cudaDeviceCount = 0;
 	vector<unsigned> m_cudaDevices = vector<unsigned>(MAX_MINERS, -1);
 	unsigned m_numStreams = CUDAMiner::c_defaultNumStreams;

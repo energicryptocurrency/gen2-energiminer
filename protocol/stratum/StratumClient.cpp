@@ -794,7 +794,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
         case 5:
 
             // This is the response we get on first get_work request issued
-            // in mode StratumClient::ETHPROXY
+            // in mode StratumClient::NRGPROXY
             // thus we change it to a mining.notify notification
             if (m_conn->StratumMode() == StratumClient::NRGPROXY && responseObject["result"].isArray()) {
                 _method = "mining.notify";

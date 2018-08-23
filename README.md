@@ -98,11 +98,11 @@ to configuration options.
 Pass these options to CMake configuration command, e.g.
 
 ```sh
-cmake .. -DETHASHCUDA=ON -DETHASHCL=OFF
+cmake .. -DHASHCUDA=ON -DHASHCL=OFF
 ```
 
-- `-DETHASHCL=ON` - enable OpenCL mining, `ON` by default,
-- `-DETHASHCUDA=ON` - enable CUDA mining, `OFF` by default.
+- `-DHASHCL=ON` - enable OpenCL mining, `ON` by default,
+- `-DHASHCUDA=ON` - enable CUDA mining, `OFF` by default.
 
 ## License
 
@@ -113,24 +113,20 @@ Licensed under the [GNU General Public License, Version 3](LICENSE).
 
 ### Why is my hashrate with Nvidia cards on Windows 10 so low?
 
-The new WDDM 2.x driver on Windows 10 uses a different way of addressing the GPU. This is good for a lot of things, but not for ETH mining.
+The new WDDM 2.x driver on Windows 10 uses a different way of addressing the GPU. This is good for a lot of things, but not for NRG mining.
 
 * For Kepler GPUs: I actually don't know. Please let me know what works best for good old Kepler.
-* For Maxwell 1 GPUs: Unfortunately the issue is a bit more serious on the GTX750Ti, already causing suboptimal performance on Win7 and Linux. Apparently about 4MH/s can still be reached on Linux, which, depending on ETH price, could still be profitable, considering the relatively low power draw.
-* For Maxwell 2 GPUs: There is a way of mining ETH at Win7/8/Linux speeds on Win10, by downgrading the GPU driver to a Win7 one (350.12 recommended) and using a build that was created using CUDA 6.5.
+* For Maxwell 1 GPUs: Unfortunately the issue is a bit more serious on the GTX750Ti, already causing suboptimal performance on Win7 and Linux. Apparently about 4MH/s can still be reached on Linux, which, depending on NRG price, could still be profitable, considering the relatively low power draw.
+* For Maxwell 2 GPUs: There is a way of mining NRG at Win7/8/Linux speeds on Win10, by downgrading the GPU driver to a Win7 one (350.12 recommended) and using a build that was created using CUDA 6.5.
 * For Pascal GPUs: You have to use the latest WDDM 2.1 compatible drivers in combination with Windows 10 Anniversary edition in order to get the full potential of your Pascal GPU.
 
 ### Why is a GTX 1080 slower than a GTX 1070?
 
-Because of the GDDR5X memory, which can't be fully utilized for ETH mining (yet).
+Because of the GDDR5X memory, which can't be fully utilized for NRG mining (yet).
 
 ### Are AMD cards also affected by slowdowns with increasing DAG size?
 
 Only GCN 1.0 GPUs (78x0, 79x0, 270, 280), but in a different way. You'll see that on each new epoch (30K blocks), the hashrate will go down a little bit.
-
-### Can I still mine ETH with my 2GB GPU?
-
-Not really, your VRAM must be above the DAG size (Currently about 2.15 GB.) to get best performance. Without it severe hash loss will occur.
 
 ### What are the optimal launch parameters?
 
