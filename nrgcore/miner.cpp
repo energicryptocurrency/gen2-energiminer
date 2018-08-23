@@ -140,16 +140,16 @@ void Miner::InitDAG(uint64_t blockHeight, nrghash::progress_callback_type callba
         ss << std::hex << std::setw(4) << std::setfill('0') << epoch << "-" << seedhash.substr(0, 12) << ".dag";
         auto const epoch_file = GetDataDir() / "dag" / ss.str();
 
-        printf("\nDAG file for epoch %lu is \"%s\"", epoch, epoch_file.string().c_str());
+        std::cout << "\nDAG file for epoch " << epoch << " is " << epoch_file.string() << std::endl;
         // try to load the DAG from disk
         try {
             std::unique_ptr<dag_t> new_dag(new dag_t(epoch_file.string(), callback));
             ActiveDAG(move(new_dag));
-            printf("\nDAG file \"%s\" loaded successfully. \n\n\n", epoch_file.string().c_str());
+            std::cout << "\nDAG file " << epoch_file.string() << " loaded successfully. \n\n\n";
 
             return;
         } catch (hash_exception const & e) {
-            printf("\nDAG file \"%s\" not loaded, will be generated instead. Message: %s\n", epoch_file.string().c_str(), e.what());
+            std::cout << "\nDAG file " << epoch_file.string() << " not loaded, will be generated instead. Message: \n" << e.what() << std::endl;
         }
         // try to generate the DAG
         try {
@@ -157,12 +157,12 @@ void Miner::InitDAG(uint64_t blockHeight, nrghash::progress_callback_type callba
             boost::filesystem::create_directories(epoch_file.parent_path());
             new_dag->save(epoch_file.string());
             ActiveDAG(move(new_dag));
-            printf("\nDAG generated successfully. Saved to \"%s\".\n", epoch_file.string().c_str());
+            std::cout << "\nDAG generated successfully. Saved to " << epoch_file.string() << std::endl;
         } catch (hash_exception const & e) {
-            printf("\nDAG for epoch %lu could not be generated: %s", epoch, e.what());
+            std::cout << "\nDAG for epoch " << epoch << " could not be generated: " << e.what() << std::endl;
         }
     }
-    printf("\nDAG has been initialized already. Use ActiveDAG() to swap.\n");
+    std::cout << "\nDAG has been initialized already. Use ActiveDAG() to swap.\n" << std::endl;
 }
 
 void Miner::update_temperature(unsigned temperature)

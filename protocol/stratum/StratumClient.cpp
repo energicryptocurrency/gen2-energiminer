@@ -6,6 +6,8 @@
 #include <wincrypt.h>
 #endif
 
+#define BOOST_ASIO_ENABLE_CANCELIO
+
 namespace {
 
 void diffToTarget(uint32_t *target, double diff)
@@ -169,8 +171,6 @@ void StratumClient::connect()
     m_resolver.async_resolve(q,
             m_io_strand.wrap(boost::bind(&StratumClient::resolve_handler, this, boost::asio::placeholders::error, boost::asio::placeholders::iterator)));
 }
-
-#define BOOST_ASIO_ENABLE_CANCELIO
 
 void StratumClient::disconnect()
 {
