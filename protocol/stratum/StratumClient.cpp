@@ -864,6 +864,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
                 double nextWorkDifficulty = std::max(jPrm.get((Json::Value::ArrayIndex)0, 1).asDouble(), 0.0001);
                 cnote << "Difficulty set to"  << nextWorkDifficulty;
                 diffToTarget((uint32_t*)m_nextWorkTarget.data(), nextWorkDifficulty);
+                m_current.reset();
             }
         } else if (_method == "mining.set_extranonce") {
             jPrm = responseObject.get("params", Json::Value::null);
