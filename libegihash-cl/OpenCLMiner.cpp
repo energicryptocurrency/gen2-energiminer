@@ -245,7 +245,7 @@ struct CLChannel: public LogChannel
 {
     static const char* name()
     {
-        return EthOrange " cl";
+        return EthOrange "cl";
     }
 
     static const int verbosity = 2;
@@ -476,11 +476,11 @@ void OpenCLMiner::trun()
                 current_work.nNonce = nonce;
                 auto const powHash = GetPOWHash(current_work);
                 if (UintToArith256(powHash) <= current_work.hashTarget) {
-                    cllog << name() << "Submitting block blockhash: " << current_work.GetHash().ToString() << " height: " << current_work.nHeight << "nonce: " << nonce;
+                    cllog << name() << " Submitting block blockhash: " << current_work.GetHash().ToString() << " height: " << current_work.nHeight << " nonce: " << nonce;
                     Solution solution(current_work, current_work.getSecondaryExtraNonce());
                     m_plant.submitProof(solution);
                 } else {
-                    cwarn << name() << "CL Miner proposed invalid solution" << current_work.GetHash().ToString() << "nonce: " << nonce;
+                    cwarn << name() << " CL Miner proposed invalid solution: " << current_work.GetHash().ToString() << " nonce: " << nonce;
                 }
             }
             // Increase start nonce for following kernel execution.
@@ -493,7 +493,7 @@ void OpenCLMiner::trun()
         }
         m_queue.finish();
     } catch (cl::Error const& _e) {
-        cwarn << name() << "OpenCL Error:" << CLErrorHelper(_e);
+        cwarn << name() << " OpenCL Error: " << CLErrorHelper(_e);
     }
 }
 
@@ -573,7 +573,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
     // get all platforms
     try {
         uint32_t const epoch = height / nrghash::constants::EPOCH_LENGTH;
-        cllog << name() << "Generating DAG for epoch #" << epoch;
+        cllog << name() << " Generating DAG for epoch #" << epoch;
         auto deviceResult = getDeviceInfo(m_index);
         // create context
         auto device = std::get<1>(deviceResult);
@@ -596,7 +596,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
                 if (globalWorkSize_ % workgroupSize_ != 0)
                     globalWorkSize_ = ((globalWorkSize_ / workgroupSize_) + 1) * workgroupSize_;
                 cnote << "Adjusting CL work multiplier for " << computeUnits << " CUs."
-                    << "Adjusted work multiplier: " << globalWorkSize_ / workgroupSize_;
+                    << " Adjusted work multiplier: " << globalWorkSize_ / workgroupSize_;
             }
         }
         nrghash::cache_t  cache = nrghash::cache_t(height);
@@ -624,7 +624,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
         try {
             program.build({device}, std::get<4>(deviceResult).c_str());
         } catch (cl::Error const&) {
-            cwarn << name() << "Build info:" << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
+            cwarn << name() << " Build info: " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
             cwarn << name() << " Failed" ;
             return false;
         }
@@ -640,8 +640,8 @@ bool OpenCLMiner::init_dag(uint32_t height)
         cl_ulong result = 0;
         device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &result);
         if (result < dagSize) {
-            cllog << name() << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>()
-                << " has insufficient GPU memory." << result
+            cllog << name() << " OpenCL device " << device.getInfo<CL_DEVICE_NAME>()
+                << " has insufficient GPU memory. " << result
                 << " bytes of memory found < " << dagSize << " bytes of memory required";
             return false;
         }
@@ -656,7 +656,7 @@ bool OpenCLMiner::init_dag(uint32_t height)
 
             m_queue.enqueueWriteBuffer(m_light, CL_TRUE, 0, sizeof(uint32_t) * vData.size(), vData.data());
         } catch (cl::Error const& err) {
-            cwarn << name() << "Creating DAG buffer failed:" << err.what() << err.err();
+            cwarn << name() << "Creating DAG buffer failed: " << err.what() << err.err();
             return false;
         }
 
@@ -689,10 +689,10 @@ bool OpenCLMiner::init_dag(uint32_t height)
             m_queue.finish();
         }
 
-        cllog << name() << "Generating DAG for epoch #" << epoch << "finished.";
+        cllog << name() << " Generating DAG for epoch #" << epoch << " finished.";
 
     } catch (cl::Error const& err) {
-        cwarn << name() << err.what() << "(" << err.err() << ")";
+        cwarn << name() << err.what() << " (" << err.err() << ")";
         return false;
     }
     return true;

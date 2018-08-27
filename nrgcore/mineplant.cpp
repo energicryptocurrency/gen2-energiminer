@@ -149,9 +149,9 @@ void MinePlant::setWork(const Work& work)
             miner->startWorking();
         }
     }
-    cnote << "New Work assigned: Height: "
+    cnote << "New Work assigned Height: "
           << work.nHeight
-          << "PrevHash:"
+          << " PrevHash: "
           << work.hashPrevBlock.ToString();
     m_work = work;
 

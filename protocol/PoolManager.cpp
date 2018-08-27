@@ -59,7 +59,7 @@ PoolManager::PoolManager(boost::asio::io_service& io_service,
 		auto ms = duration_cast<milliseconds>(steady_clock::now() - m_submit_time);
 		std::stringstream ss;
 		ss << std::setw(4) << std::setfill(' ') << ms.count();
-		ss << "ms." << "   " << m_connections[m_activeConnectionIdx].Host() + p_client->ActiveEndPoint();
+		ss << " ms." << "   " << m_connections[m_activeConnectionIdx].Host() + p_client->ActiveEndPoint();
 		cnote << EthLime "**Accepted" EthReset << (stale ? "(stale)" : "") << ss.str();
 		m_farm.acceptedSolution(stale);
 	});
@@ -69,7 +69,7 @@ PoolManager::PoolManager(boost::asio::io_service& io_service,
 		auto ms = duration_cast<milliseconds>(steady_clock::now() - m_submit_time);
 		std::stringstream ss;
 		ss << std::setw(4) << std::setfill(' ') << ms.count();
-		ss << "ms." << "   " << m_connections[m_activeConnectionIdx].Host() + p_client->ActiveEndPoint();
+		ss << " ms." << "   " << m_connections[m_activeConnectionIdx].Host() + p_client->ActiveEndPoint();
 		cwarn << EthRed "**Rejected" EthReset << (stale ? "(stale)" : "") << ss.str();
 		m_farm.rejectedSolution();
 	});

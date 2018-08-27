@@ -210,7 +210,7 @@ void StratumClient::disconnect()
                 m_socket->close();
             }
         } catch (const std::exception& ex) {
-            cwarn << "Error while disconnecting:" << ex.what();
+            cwarn << "Error while disconnecting: " << ex.what();
         }
         disconnect_finalize();
     }
@@ -234,7 +234,7 @@ void StratumClient::disconnect_finalize()
     }
 
     // Release locking flag and set connection status
-    cnote << "Socket disconnected from " << ActiveEndPoint();
+    cnote << "Socket disconnected from: " << ActiveEndPoint();
     m_connected.store(false, std::memory_order_relaxed);
     m_subscribed.store(false, std::memory_order_relaxed);
     m_authorized.store(false, std::memory_order_relaxed);
@@ -281,7 +281,7 @@ void StratumClient::resolve_handler(const boost::system::error_code& ec, tcp::re
         m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::start_connect, this)));
     } else {
         // Release locking flag and set connection status
-        cwarn << "Could not resolve host " << m_conn->Host() << ", " << ec.message();
+        cwarn << "Could not resolve host: " << m_conn->Host() << ", " << ec.message();
         m_connected.store(false, std::memory_order_relaxed);
         m_connecting.store(false, std::memory_order::memory_order_relaxed);
         // Trigger handlers
@@ -405,7 +405,7 @@ void StratumClient::connect_handler(const boost::system::error_code& ec)
 
     // We got a socket connection established
     m_canconnect.store(true, std::memory_order_relaxed);
-    cnote << "Socket connected to " << ActiveEndPoint();
+    cnote << "Socket connected to: " << ActiveEndPoint();
     if (m_conn->SecLevel() != SecureLevel::NONE) {
         boost::system::error_code hec;
         m_securesocket->lowest_layer().set_option(boost::asio::socket_base::keep_alive(true));
@@ -556,7 +556,7 @@ void StratumClient::processExtranonce(std::string& enonce)
 {
     m_extraNonceHexSize = enonce.length();
 
-    cnote << "Extranonce set to " + enonce;
+    cnote << "Extranonce set to: " + enonce;
 
     enonce.append(16 - m_extraNonceHexSize, '0');
     m_extraNonce = enonce;
@@ -751,13 +751,13 @@ void StratumClient::processResponse(Json::Value& responseObject)
             m_authpending.store(false, std::memory_order_relaxed);
             m_authorized.store(_isSuccess, std::memory_order_relaxed);
             if (!m_authorized) {
-                cnote << "Worker not authorized" << m_conn->User() << _errReason;
+                cnote << "Worker not authorized: " << m_conn->User() << _errReason;
                 m_conn->MarkUnrecoverable();
                 m_io_service.post(
                         m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
                 return;
             } else {
-                cnote << "Authorized worker " + m_conn->User();
+                cnote << "Authorized worker: " + m_conn->User();
                 // If we get here we have a valid application connection
                 // not only a socket connection
                 if (m_onConnected && m_conn->StratumModeConfirmed()) {
@@ -784,7 +784,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
                 } else {
                     if (m_onSolutionRejected) {
                         if (!_errReason.empty()) {
-                            cwarn << "Reject reason :" << (_errReason.empty() ? "Unspecified" : _errReason);
+                            cwarn << "Reject reason: " << (_errReason.empty() ? "Unspecified" : _errReason);
                         }
                         m_onSolutionRejected(true);
                     }
@@ -807,7 +807,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
             // Shall we do anything ?
             // Hashrate submit is actually out of stratum spec
             if (!_isSuccess) {
-                cwarn << "Submit hashRate failed:" << (_errReason.empty() ? "Unspecified error" : _errReason);
+                cwarn << "Submit hashRate failed: " << (_errReason.empty() ? "Unspecified error" : _errReason);
             }
             break;
         case 999:
@@ -818,12 +818,12 @@ void StratumClient::processResponse(Json::Value& responseObject)
             if (!_isSuccess) {
                 if (!m_subscribed) {
                     // Subscription pending
-                    cnote << "Subscription failed:" << _errReason;
+                    cnote << "Subscription failed: " << _errReason;
                     m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
                     return;
                 } else if (m_subscribed && !m_authorized) {
                     // Authorization pending
-                    cnote << "Worker not authorized:" << _errReason;
+                    cnote << "Worker not authorized: " << _errReason;
                     m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
                     return;
                 }
@@ -862,7 +862,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
             jPrm = responseObject.get("params", Json::Value::null);
             if (jPrm.isArray()) {
                 double nextWorkDifficulty = std::max(jPrm.get((Json::Value::ArrayIndex)0, 1).asDouble(), 0.0001);
-                cnote << "Difficulty set to"  << nextWorkDifficulty;
+                cnote << "Difficulty set to: "  << nextWorkDifficulty;
                 diffToTarget((uint32_t*)m_nextWorkTarget.data(), nextWorkDifficulty);
                 m_current.reset();
             }
@@ -1007,7 +1007,7 @@ void StratumClient::onRecvSocketDataCompleted(const boost::system::error_code& e
                 if (jRdr.parse(message, jMsg)) {
                     m_io_service.post(boost::bind(&StratumClient::processResponse, this, jMsg));
                 } else {
-                    cwarn << "Got invalid Json message :" + jRdr.getFormattedErrorMessages();
+                    cwarn << "Got invalid Json message: " + jRdr.getFormattedErrorMessages();
                 }
             }
             // Eventually keep reading from socket
@@ -1024,11 +1024,11 @@ void StratumClient::onRecvSocketDataCompleted(const boost::system::error_code& e
                     (ERR_GET_REASON(ec.value()) == SSL_RECEIVED_SHUTDOWN)
                )
             {
-                cnote << "SSL Stream remotely closed by" << m_conn->Host();
+                cnote << "SSL Stream remotely closed by " << m_conn->Host();
             } else if (ec == boost::asio::error::eof) {
-                cnote << "Connection remotely closed by" << m_conn->Host();
+                cnote << "Connection remotely closed by " << m_conn->Host();
             } else {
-                cwarn << "Socket read failed:" << ec.message();
+                cwarn << "Socket read failed: " << ec.message();
             }
             m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
         }
@@ -1055,7 +1055,7 @@ void StratumClient::onSendSocketDataCompleted(const boost::system::error_code& e
 {
     if (ec) {
         if ((ec.category() == boost::asio::error::get_ssl_category()) && (SSL_R_PROTOCOL_IS_SHUTDOWN == ERR_GET_REASON(ec.value()))) {
-            cnote << "SSL Stream error :" << ec.message();
+            cnote << "SSL Stream error: " << ec.message();
             m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this));
         }
         if (isConnected()) {

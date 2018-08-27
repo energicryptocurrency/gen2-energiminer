@@ -31,139 +31,103 @@
 #include <pthread.h>
 #endif
 
+using namespace std;
+using namespace energi;
+
 
 //⊳⊲◀▶■▣▢□▷◁▧▨▩▲◆◉◈◇◎●◍◌○◼☑☒☎☢☣☰☀♽♥♠✩✭❓✔✓✖✕✘✓✔✅⚒⚡⦸⬌∅⁕«««»»»⚙
-namespace energi
+
+// Logging
+int g_logVerbosity = 5;
+bool g_logNoColor = false;
+bool g_logSyslog = false;
+
+const char* LogChannel::name()
 {
-  static std::recursive_mutex cerrMutex;
+    return EthGray "..";
+}
+const char* WarnChannel::name()
+{
+    return EthRed " X";
+}
+const char* NoteChannel::name()
+{
+    return EthBlue " i";
+}
 
-  // Logging
-  int g_logVerbosity = 5;
-  std::mutex x_logOverride;
-
-  /// Map of Log Channel types to bool, false forces the channel to be disabled, true forces it to be enabled.
-  /// If a channel has no entry, then it will output as long as its verbosity (LogChannel::verbosity) is less than
-  /// or equal to the currently output verbosity (g_logVerbosity).
-  static std::map<std::type_info const*, bool> s_logOverride;
-
-  #ifdef _WIN32
-  const char* LogChannel::name() { return EthGray "..."; }
-  const char* LeftChannel::name() { return EthNavy "<--"; }
-  const char* RightChannel::name() { return EthGreen "-->"; }
-  const char* WarnChannel::name() { return EthOnRed EthBlackBold "  X"; }
-  const char* NoteChannel::name() { return EthBlue "  i"; }
-  const char* DebugChannel::name() { return EthWhite "  D"; }
-  #else
-  const char* LogChannel::name() { return EthGray "···"; }
-  const char* LeftChannel::name() { return EthNavy "◀▬▬"; }
-  const char* RightChannel::name() { return EthGreen "▬▬▶"; }
-  const char* WarnChannel::name() { return EthOnRed EthBlackBold "  ✘"; }
-  const char* NoteChannel::name() { return EthBlue "  ℹ"; }
-  const char* DebugChannel::name() { return EthWhite "  ◇"; }
-  #endif
-
-  LogOutputStreamBase::LogOutputStreamBase(char const* _id, std::type_info const* _info, unsigned _v, bool _autospacing):
-    m_autospacing(_autospacing),
-    m_verbosity(_v)
-  {
-    std::lock_guard<std::mutex> lock(x_logOverride);
-    auto it = s_logOverride.find(_info);
-    if ((it != s_logOverride.end() && it->second) || (it == s_logOverride.end() && (int)_v <= g_logVerbosity))
-    {
-      time_t rawTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-      char buf[24];
-      if (strftime(buf, 24, "%X", localtime(&rawTime)) == 0)
-        buf[0] = '\0'; // empty if case strftime fails
-      static char const* c_begin = "  " EthViolet;
-      static char const* c_sep1 = EthReset EthBlack "|" EthNavy;
-      static char const* c_sep2 = EthReset EthBlack "|" EthTeal;
-      static char const* c_end = EthReset "  ";
-      m_sstr << _id << c_begin << buf << c_sep1 << std::left << std::setw(8) << getThreadName() << ThreadContext::join(c_sep2) << c_end;
+LogOutputStreamBase::LogOutputStreamBase(char const* _id, unsigned _v) : m_verbosity(_v)
+{
+    static std::locale logLocl = std::locale("");
+    if ((int)_v <= g_logVerbosity) {
+        m_sstr.imbue(logLocl);
+        if (g_logSyslog)
+            m_sstr << std::left << std::setw(8) << getThreadName() << " " EthReset;
+        else {
+            time_t rawTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            char buf[24];
+            if (strftime(buf, 24, "%X", localtime(&rawTime)) == 0)
+                buf[0] = '\0';  // empty if case strftime fails
+            m_sstr << _id << " " EthViolet << buf << " " EthNavy << std::left << std::setw(8)
+                   << getThreadName() << " " EthReset;
+        }
     }
-  }
+}
 
-  /// Associate a name with each thread for nice logging.
-  struct ThreadLocalLogName
-  {
+
+/// Associate a name with each thread for nice logging.
+struct ThreadLocalLogName
+{
     ThreadLocalLogName(char const* _name) { name = _name; }
     thread_local static char const* name;
-  };
+};
 
-  thread_local char const* ThreadLocalLogName::name;
+thread_local char const* ThreadLocalLogName::name;
 
-  thread_local static std::vector<std::string> logContexts;
+ThreadLocalLogName g_logThreadName("main");
 
-  /// Associate a name with each thread for nice logging.
-  struct ThreadLocalLogContext
-  {
-    ThreadLocalLogContext() = default;
-
-    void push(std::string const& _name)
-    {
-      logContexts.push_back(_name);
-    }
-
-    void pop()
-    {
-      logContexts.pop_back();
-    }
-
-    std::string join(std::string const& _prior)
-    {
-      std::string ret;
-      for (auto const& i: logContexts)
-        ret += _prior + i;
-      return ret;
-    }
-  };
-
-  ThreadLocalLogContext g_logThreadContext;
-
-  ThreadLocalLogName g_logThreadName("main");
-
-  void ThreadContext::push(std::string const& _n)
-  {
-    g_logThreadContext.push(_n);
-  }
-
-  void ThreadContext::pop()
-  {
-    g_logThreadContext.pop();
-  }
-
-  std::string ThreadContext::join(std::string const& _prior)
-  {
-    return g_logThreadContext.join(_prior);
-  }
-
-  std::string getThreadName()
-  {
-  #if defined(__linux__) || defined(__APPLE__)
+string energi::getThreadName()
+{
+#if defined(__linux__) || defined(__APPLE__)
     char buffer[128];
     pthread_getname_np(pthread_self(), buffer, 127);
     buffer[127] = 0;
     return buffer;
-  #else
+#else
     return ThreadLocalLogName::name ? ThreadLocalLogName::name : "<unknown>";
-  #endif
-  }
+#endif
+}
 
-  void setThreadName(char const* _n)
-  {
-  #if defined(__linux__)
+void energi::setThreadName(char const* _n)
+{
+#if defined(__linux__)
     pthread_setname_np(pthread_self(), _n);
-  #elif defined(__APPLE__)
+#elif defined(__APPLE__)
     pthread_setname_np(_n);
-  #else
+#else
     ThreadLocalLogName::name = _n;
-  #endif
-  }
+#endif
+}
 
-  void simpleDebugOut(std::string const& _s)
-  {
-
-    std::lock_guard<std::recursive_mutex> lock(cerrMutex);
-    std::cerr << _s << '\n';
-  }
-
+void energi::simpleDebugOut(std::string const& _s)
+{
+    try {
+        if (!g_logNoColor) {
+            std::cerr << _s + '\n';
+            return;
+        }
+        bool skip = false;
+        std::stringstream ss;
+        for (auto it : _s) {
+            if (!skip && it == '\x1b')
+                skip = true;
+            else if (skip && it == 'm')
+                skip = false;
+            else if (!skip)
+                ss << it;
+        }
+        ss << '\n';
+        std::cerr << ss.str();
+    } catch (...) {
+        return;
+    }
 }

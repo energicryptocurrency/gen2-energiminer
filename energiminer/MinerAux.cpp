@@ -12,7 +12,7 @@ bool MinerCLI::g_running = false;
 
 struct MiningChannel: public LogChannel
 {
-	static const char* name() { return EthGreen "  m"; }
+	static const char* name() { return EthGreen " m"; }
 	static const int verbosity = 2;
 	static const bool debug = false;
 };
@@ -93,6 +93,13 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
             "Set the amount of time in minutes to stay on a failover pool before trying to reconnect to primary. If = 0 then no switch back.", true)
         ->group(CommonGroup)
         ->check(CLI::Range(0, 999));
+
+    app.add_flag("--nocolor", g_logNoColor, "Display monochrome log")->group(CommonGroup);
+
+    app.add_flag("--syslog", g_logSyslog,
+            "Use syslog appropriate log output (drop timestamp and channel prefix)")
+        ->group(CommonGroup);
+
 #if NRGHASHCL || NRGHASHCUDA
     app.add_flag("--list-devices", m_shouldListDevices,
             "List the detected OpenCL/CUDA devices and exit. Should be combined with -G, -U, or -X flag")
@@ -231,7 +238,15 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         << "    Stratum variants:" << endl
         << "    Example 1: stratum1+tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>" << endl
         << "    Example 2: stratum1+tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>/<miner name>"
-        << endl << endl;
+        << endl
+        << endl
+        << "Environment Variables:" << endl
+        << "    NO_COLOR - set to any value to disable color output. Unset to re-enable "
+        << "color output."
+        << endl
+        << "    SYSLOG   - set to any value to strip time and disable color from output, "
+        << "for logging under systemd";
+
     app.set_footer(ssHelp.str());
 
     try {

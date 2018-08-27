@@ -31,7 +31,7 @@ std::vector<int> CUDAMiner::s_devices(MAX_MINERS, -1);
 
 struct CUDAChannel: public LogChannel
 {
-    static const char* name() { return EthOrange " cu"; }
+    static const char* name() { return EthOrange "cu"; }
     static const int verbosity = 2;
     static const bool debug = false;
 };
@@ -381,8 +381,9 @@ bool CUDAMiner::cuda_init(
             m_current_target = 0;
             if (!hostDAG) {
                 if((m_device_num == dagCreateDevice) || !_cpyToHost) { //if !cpyToHost -> All devices shall generate their DAG
-                    cudalog << "Generating DAG for GPU #" << m_device_num << " with dagSize: "
-                        << dagSize <<" gridSize: " << s_gridSize;
+                    cudalog << "Generating DAG for GPU #" << m_device_num
+                        << " with dagSize: " << dagSize << " ("
+                        << device_props.totalGlobalMem - dagSize - lightSize << " bytes left)";
                     auto startDAG = std::chrono::steady_clock::now();
 
                     ethash_generate_dag(dagSize, s_gridSize, s_blockSize, m_streams[0]);
@@ -497,7 +498,7 @@ void CUDAMiner::search(
                 for (uint32_t i = 0; i < found_count; i++) {
                     work.nNonce = nonces[i];
                     if (s_noeval) {
-                        cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
+                        cudalog << name() << " Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << " nonce: " << nonces[i];
                         m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
 
                         addHashCount(batch_size);
@@ -505,12 +506,12 @@ void CUDAMiner::search(
                     } else {
                         auto const powHash = GetPOWHash(work);
                         if (UintToArith256(powHash) <= work.hashTarget) {
-                            cudalog << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << nonces[i];
+                            cudalog << name() << " Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << " nonce: " << nonces[i];
                             m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
                             addHashCount(batch_size);
                             break;
                         } else {
-                            cwarn << name() << "CUDA Miner proposed invalid solution" << work.GetHash().ToString() << "nonce: " << nonces[i];
+                            cwarn << name() << " CUDA Miner proposed invalid solution: " << work.GetHash().ToString() << " nonce: " << nonces[i];
                         }
                     }
                 }

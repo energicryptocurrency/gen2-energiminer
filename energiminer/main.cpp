@@ -49,8 +49,31 @@ int main(int argc, char** argv)
         energi::setenv("GPU_MAX_ALLOC_PERCENT", "100");
         energi::setenv("GPU_SINGLE_ALLOC_PERCENT", "100");
 
+        if (getenv("SYSLOG"))
+            g_logSyslog = true;
+        if (g_logSyslog || (getenv("NO_COLOR")))
+            g_logNoColor = true;
+#if defined(_WIN32)
+        if (!g_logNoColor) {
+            g_logNoColor = true;
+            // Set output mode to handle virtual terminal sequences
+            // Only works on Windows 10, but most users should use it anyway
+            HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+            if (hOut != INVALID_HANDLE_VALUE) {
+                DWORD dwMode = 0;
+                if (GetConsoleMode(hOut, &dwMode)) {
+                    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+                    if (SetConsoleMode(hOut, dwMode))
+                        g_logNoColor = false;
+                }
+            }
+        }
+#endif
+
         MinerCLI m;
         m.ParseCommandLine(argc, argv);
+
+
 
         m.execute();
     } catch (const std::exception& ex) {
