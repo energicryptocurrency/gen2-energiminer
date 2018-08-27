@@ -73,7 +73,7 @@ inline std::ostream& operator<<(std::ostream& os, SolutionStats s)
 class MinePlant : public Plant
 {
 public:
-    MinePlant(boost::asio::io_service & io_service);
+    MinePlant(boost::asio::io_service & io_service, bool hwmon, bool pwron);
     ~MinePlant();
 
     bool start(const std::vector<EnumMinerEngine> &vMinerEngine);
@@ -100,7 +100,10 @@ public:
 
     void setWork(const Work& work);
     void submitProof(const Solution &sol) const override;
-    const WorkingProgress& miningProgress(bool hwmon = false, bool power = false) const;
+    const WorkingProgress& miningProgress() const
+    {
+        return m_progress;
+    }
 
     using SolutionFound = std::function<void(Solution const&)>;
     using MinerRestart = std::function<void()>;
@@ -119,7 +122,6 @@ public:
         m_onMinerRestart = handler;
     }
 
-	void processHashRate(const boost::system::error_code& ec);
 	/**
 	 * @brief Stop all mining activities and Starts them again
 	 */
@@ -134,7 +136,8 @@ public:
     std::string farmLaunchedFormatted() const;
 
 private:
-    void collectHashRate();
+    // Collects data about hashing and hardware status
+    void collectData(const boost::system::error_code& ec);
 
 private:
 	mutable std::mutex                  x_minerWork;
@@ -152,23 +155,27 @@ private:
 	//std::string                             m_lastSealer;
 	bool                                    b_lastMixed = false;
 
-    std::chrono::steady_clock::time_point   m_lastStart;
-    uint64_t m_hashrateSmoothInterval = 10000;
-
     boost::asio::io_service::strand m_io_strand;
-    boost::asio::deadline_timer             m_hashrateTimer;
-    std::vector<WorkingProgress>            m_lastProgresses;
-
+    boost::asio::deadline_timer     m_collectTimer;
+    int m_collectInterval = 5000;
     SolutionStats                           m_solutionStats;
     std::chrono::steady_clock::time_point   m_farm_launched = std::chrono::steady_clock::now();
 
     std::string                             m_pool_addresses;
     uint64_t                                m_nonceScumbler;
+
+    unsigned int m_nonce_segment_with = 40;
+     // Switches for hw monitoring and power drain monitoring
+    bool m_hwmon, m_pwron;
+
+    // Hardware monitoring temperatures
     unsigned m_tstart = 0;
     unsigned m_tstop = 0;
 
+    // Wrappers for hardware monitoring libraries
     wrap_nvml_handle *nvmlh = nullptr;
     wrap_adl_handle *adlh = nullptr;
+
 #if defined(__linux)
     wrap_amdsysfs_handle *sysfsh = nullptr;
 #endif

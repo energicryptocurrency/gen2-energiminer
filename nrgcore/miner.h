@@ -52,6 +52,8 @@ public:
             m_work = work;
             m_work.incrementExtraNonce();
             m_newWorkAssigned = true;
+            if (g_logVerbosity >= 6)
+                workSwitchStart = std::chrono::steady_clock::now();
         }
         onSetWork();
     }

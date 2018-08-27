@@ -226,18 +226,27 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
             "iCoinbase address")
         ->group(CommonGroup);
 
-
     std::stringstream ssHelp;
     ssHelp
         << "Pool URL Specification:" << endl
         << "    URL takes the form: scheme://user[:password]@hostname:port" << endl
-        << "    for getwork use one of the following schemes:" << endl
-        << "      " << URI::KnownSchemes(ProtocolFamily::GETWORK) << endl
-        << "    for stratum use one of the following schemes: "<< endl
-        << "      " << URI::KnownSchemes(ProtocolFamily::STRATUM) << endl
-        << "    Stratum variants:" << endl
-        << "    Example 1: stratum1+tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>" << endl
-        << "    Example 2: stratum1+tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>/<miner name>"
+        << endl
+        << "    where can be any of : " << endl
+        << "    getwork     for getWork mode" << endl
+        << "    stratum     for stratum mode" << endl
+        << "    stratums    for secure stratum mode" << endl
+        << "    stratumss   for secure stratum mode with strong TLS12 verification" << endl
+        << endl
+        << "    Example 1: "
+        << "    tcps://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL.miner1@<host>:<port>"
+        << endl
+        << "    Example 2: "
+        << "    tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL.miner1@<host>:<port>/"
+        << "testemail@gmail.com"
+        << endl
+        << "    Example 3: "
+        << "    tcp:///tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>/miner1/"
+        << "testemail@gmail.com"
         << endl
         << endl
         << "Environment Variables:" << endl
@@ -476,7 +485,7 @@ void MinerCLI::doMiner()
         std::exit(1);
     }
     cnote << "Engines started!";
-    energi::MinePlant plant(m_io_service);
+    energi::MinePlant plant(m_io_service, m_show_hwmonitors, m_show_power);
     PoolManager mgr(m_io_service, client, plant, m_minerExecutionMode, m_maxFarmRetries, m_failovertimeout);
 
     // If we are in simulation mode we add a fake connection
@@ -505,7 +514,7 @@ void MinerCLI::doMiner()
             continue;
         }
         if (mgr.isConnected()) {
-            auto mp = plant.miningProgress(m_show_hwmonitors, m_show_power);
+            auto mp = plant.miningProgress();
             minelog << mp << ' ' << plant.getSolutionStats() << ' ' << plant.farmLaunchedFormatted();
         } else {
             minelog << "not-connected";
