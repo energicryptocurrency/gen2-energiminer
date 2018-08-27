@@ -238,14 +238,17 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         << "    stratumss   for secure stratum mode with strong TLS12 verification" << endl
         << endl
         << "    Example 1: "
-        << "    tcps://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL.miner1@<host>:<port>"
+        << "    stratum://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>"
         << endl
-        << "    Example 2: "
-        << "    tcp://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL.miner1@<host>:<port>/"
-        << "testemail@gmail.com"
+        << "    Example : "
+        << "    stratum:2//tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL.miner1@<host>:<port>"
         << endl
         << "    Example 3: "
-        << "    tcp:///tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>/miner1/"
+        << "    stratum://tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL.miner1@<host>:<port>/"
+        << "testemail@gmail.com"
+        << endl
+        << "    Example 4: "
+        << "    stratum:///tPBQiizBs2tUGfLcM5pQeA6rYYCPyj6czL@<host>:<port>/miner1/"
         << "testemail@gmail.com"
         << endl
         << endl
