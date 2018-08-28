@@ -384,8 +384,9 @@ bool OpenCLMiner::configureGPU(
         device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &gpu_mem_size);
         if (gpu_mem_size < dagSize) {
             devices_valid = false;
-            cwarn << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>() << " has insufficient GPU memory." << gpu_mem_size <<
-            " bytes of memory found < " << dagSize << " bytes of memory required";
+            cwarn << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>()
+                  << " has insufficient GPU memory." << FormatMemSize(gpu_mem_size)
+                  << " of memory found < " << FormatMemSize(dagSize) << " of memory required";
         }
     }
     return devices_valid;
@@ -641,8 +642,8 @@ bool OpenCLMiner::init_dag(uint32_t height)
         device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &result);
         if (result < dagSize) {
             cllog << name() << " OpenCL device " << device.getInfo<CL_DEVICE_NAME>()
-                << " has insufficient GPU memory. " << result
-                << " bytes of memory found < " << dagSize << " bytes of memory required";
+                << " has insufficient GPU memory. " << FormatMemSize(result)
+                << " of memory found < " << FormatMemSize(dagSize) << " of memory required";
             return false;
         }
         try {

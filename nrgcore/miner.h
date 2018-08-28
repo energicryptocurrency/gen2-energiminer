@@ -30,6 +30,32 @@
 
 namespace energi {
 
+class FormatMemSize
+{
+public:
+    FormatMemSize() = delete;
+    FormatMemSize(uint64_t s)
+        : m_size(s)
+    {}
+
+    uint64_t m_size;
+};
+
+inline std::ostream& operator<< (std::ostream& os, FormatMemSize s)
+{
+    const char* suffixes[] = {"bytes", "KB", "MB", "GB"};
+    double d = s.m_size;
+    unsigned i;
+    for (i = 0 ; i < 3; ++i) {
+        if (d < 1024.0)
+            break;
+        d /= 1024.0;
+    }
+    os << std::fixed << std::setprecision(3) << d << ' ' << suffixes[i];
+    return os;
+}
+
+
 class Miner : public Worker
 {
 public:

@@ -276,7 +276,9 @@ bool CUDAMiner::cuda_configureGPU(
                 if (props.totalGlobalMem >= dagSize) {
                     cudalog <<  "Found suitable CUDA device [" << string(props.name) << "] with " << props.totalGlobalMem << " bytes of GPU memory";
                 } else {
-                    cudalog <<  "CUDA device " << string(props.name) << " has insufficient GPU memory." << props.totalGlobalMem << " bytes of memory found < " << dagSize << " bytes of memory required";
+                    cudalog <<  "CUDA device " << string(props.name) << " has insufficient GPU memory."
+                            << FormatMemSize(props.totalGlobalMem) << " of memory found < "
+                            << FormatMemSize(dagSize) << " of memory required";
                     return false;
                 }
             }
@@ -340,7 +342,9 @@ bool CUDAMiner::cuda_init(
         if (dagNumItems != m_dag_size || !m_dag) {
             //Check whether the current device has sufficient memory every time we recreate the dag
             if (device_props.totalGlobalMem < dagSize) {
-                cudalog <<  "CUDA device " << string(device_props.name) << " has insufficient GPU memory." << device_props.totalGlobalMem << " bytes of memory found < " << dagSize << " bytes of memory required";
+                cudalog <<  "CUDA device " << string(device_props.name)
+                        << " has insufficient GPU memory." << FormatMemSize(device_props.totalGlobalMem) << " of memory found < "
+                        << FormatMemSize(dagSize) << " of memory required";
                 return false;
             }
             //We need to reset the device and recreate the dag
@@ -358,7 +362,7 @@ bool CUDAMiner::cuda_init(
         hash64_t* light = m_light[m_device_num];
 
         if(!light){
-            cudalog << "Allocating light with size: " << lightSize;
+            cudalog << "Allocating light with size: " << FormatMemSize(lightSize);
             CUDA_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&light), lightSize));
         }
         // copy lightData to device
@@ -382,8 +386,8 @@ bool CUDAMiner::cuda_init(
             if (!hostDAG) {
                 if((m_device_num == dagCreateDevice) || !_cpyToHost) { //if !cpyToHost -> All devices shall generate their DAG
                     cudalog << "Generating DAG for GPU #" << m_device_num
-                        << " with dagSize: " << dagSize << " ("
-                        << device_props.totalGlobalMem - dagSize - lightSize << " bytes left)";
+                        << " with dagSize: " << FormatMemSize(dagSize) << " ("
+                        << FormatMemSize(device_props.totalGlobalMem - dagSize - lightSize) << " left)";
                     auto startDAG = std::chrono::steady_clock::now();
 
                     ethash_generate_dag(dagSize, s_gridSize, s_blockSize, m_streams[0]);

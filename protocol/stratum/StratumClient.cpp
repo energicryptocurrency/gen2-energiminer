@@ -314,7 +314,8 @@ void StratumClient::start_connect()
             init_socket();
 
         setThreadName("stratum");
-        cnote << ("Trying " + toString(m_endpoint) + " ...");
+        if (g_logVerbosity >= 6)
+            cnote << ("Trying " + toString(m_endpoint) + " ...");
         m_conntimer.expires_from_now(boost::posix_time::seconds(m_responsetimeout));
         m_conntimer.async_wait(m_io_strand.wrap(boost::bind(
                         &StratumClient::check_connect_timeout, this, boost::asio::placeholders::error)));
@@ -1011,7 +1012,8 @@ void StratumClient::onRecvSocketDataCompleted(const boost::system::error_code& e
                 if (jRdr.parse(message, jMsg)) {
                     m_io_service.post(boost::bind(&StratumClient::processResponse, this, jMsg));
                 } else {
-                    cwarn << "Got invalid Json message: " + jRdr.getFormattedErrorMessages();
+                    if (g_logVerbosity >= 6)
+                        cwarn << "Got invalid Json message: " + jRdr.getFormattedErrorMessages();
                 }
             }
             // Eventually keep reading from socket
