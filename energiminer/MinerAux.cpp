@@ -231,26 +231,27 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         << "Pool URL Specification:" << endl
         << "    URL takes the form: scheme://user[:password]@hostname:port" << endl
         << endl
-        << "    where can be any of : " << endl
-        << "    getwork     for getWork mode" << endl
-        << "    stratum     for stratum mode" << endl
-        << "    stratums    for secure stratum mode" << endl
-        << "    stratumss   for secure stratum mode with strong TLS12 verification" << endl
-        << endl
-        << "    Example 1: "
-        << "    stratum://EbD5YRX1Q3mG73ihRJtJpsqBmWn42sygcy@<host>:<port>"
-        << endl
-        << "    Example 2: "
-        << "    stratum://EbD5YRX1Q3mG73ihRJtJpsqBmWn42sygcy.miner1@<host>:<port>"
-        << endl
-        << "    Example 3: "
-        << "    stratum://EbD5YRX1Q3mG73ihRJtJpsqBmWn42sygcy.miner1@<host>:<port>/"
-        << "testemail@gmail.com"
-        << endl
-        << "    Example 4: "
-        << "    stratum://EbD5YRX1Q3mG73ihRJtJpsqBmWn42sygcy@<host>:<port>/miner1/"
-        << "testemail@gmail.com"
-        << endl
+        << "    where scheme can be any of : " << endl
+        << "    http       for getWork mode" << endl
+        << "    getwork    for getWork mode" << endl
+        //<< "    stratum    for stratum mode" << endl
+        //<< "    stratums   for secure stratum mode" << endl
+        //<< "    stratumss  for secure stratum mode with strong TLS12 verification" << endl
+        //<< endl
+        //<< "    Example 1: "
+        //<< "    stratum://EbD5YRX1Q3mG73ihRJtJpsqBmWn42sygcy@<host>:<port>"
+        //<< endl
+        //<< "    Example 2: "
+        //<< "    stratum://EbD5YRX1Q3mG73ihRJtJpsqBmWn42sygcy.miner1@<host>:<port>"
+        //<< endl
+        //<< "    Example 3: "
+        //<< "    stratum://EbD5YRX1Q3mG73ihRJtJpsqBmWn42sygcy.miner1@<host>:<port>/"
+        //<< "testemail@gmail.com"
+        //<< endl
+        //<< "    Example 4: "
+        //<< "    stratum://EbD5YRX1Q3mG73ihRJtJpsqBmWn42sygcy@<host>:<port>/miner1/"
+        //<< "testemail@gmail.com"
+        //<< endl
         << endl
         << "Environment Variables:" << endl
         << "    NO_COLOR - set to any value to disable color output. Unset to re-enable "

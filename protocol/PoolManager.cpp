@@ -140,15 +140,10 @@ void PoolManager::trun()
                         m_activeConnectionIdx = 0;
                     }
 
-                    // Stop mining if applicable as we're switching
+                    // Suspend mining if applicable as we're switching
                     if (m_farm.isMining()) {
-                        cnote << "Shutting down miners...";
-                        m_farm.stop();
-
-                        // Give some time to mining threads to shutdown
-                        for (auto i = 4; --i; std::this_thread::sleep_for(std::chrono::seconds(1))) {
-                            cnote << "Retrying in " << i << "... \r";
-                        }
+                        cnote << "Suspend mining due connection change...";
+                        m_farm.setWork({});//
                     }
                 }
                 if (m_connections[m_activeConnectionIdx].Host() != "exit"  && m_connections.size() > 0) {

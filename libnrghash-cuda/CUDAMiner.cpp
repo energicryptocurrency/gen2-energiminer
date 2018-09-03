@@ -55,7 +55,7 @@ bool CUDAMiner::init_dag(uint32_t height)
     //!@brief get all platforms
     try {
         uint32_t epoch = height / nrghash::constants::EPOCH_LENGTH;
-        cudalog << name() << "Generating DAG for epoch #" << epoch;
+        cudalog << name() << " Generating DAG for epoch #" << epoch;
         if (s_dagLoadMode == DAG_LOAD_MODE_SEQUENTIAL)
             while (s_dagLoadIndex < m_index)
                 this_thread::sleep_for(chrono::milliseconds(100));

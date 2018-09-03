@@ -153,7 +153,6 @@ private:
 
 	//std::map<std::string, SealerDescriptor> m_sealers;
 	//std::string                             m_lastSealer;
-	bool                                    b_lastMixed = false;
 
     boost::asio::io_service::strand m_io_strand;
     boost::asio::deadline_timer     m_collectTimer;
