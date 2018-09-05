@@ -72,7 +72,7 @@ struct HwMonitor
     double powerW = 0;
 };
 
-inline std::ostream& operator<<(std::ostream& os, HwMonitor _hw)
+inline std::ostream& operator<<(std::ostream& os, const HwMonitor& _hw)
 {
     os << _hw.tempC << "C " << _hw.fanP << "%";
     if(_hw.powerW) {

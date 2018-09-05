@@ -59,7 +59,7 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
     app.add_option("--work-timeout", m_worktimeout,
             "Set disconnect timeout in seconds of working on the same job", true)
         ->group(CommonGroup)
-        ->check(CLI::Range(1, 99999));
+        ->check(CLI::Range(180, 99999));
 
     app.add_option("--response-timeout", m_responsetimeout,
             "Set disconnect timeout in seconds for pool responses", true)

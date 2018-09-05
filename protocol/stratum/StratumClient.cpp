@@ -45,13 +45,17 @@ StratumClient::StratumClient(boost::asio::io_service & io_service,
     , m_io_service(io_service)
     , m_io_strand(io_service)
     , m_socket(nullptr)
-    , m_conntimer(io_service)
-    , m_worktimer(io_service)
-    , m_responsetimer(io_service)
+    , m_workloop_timer(io_service)
+    , m_response_plea_times(64)
     , m_resolver(io_service)
     , m_endpoints()
     , m_submit_hashrate(submitHashrate)
 {
+    // Initialize workloop_timer to infinite wait
+    m_workloop_timer.expires_at(boost::posix_time::pos_infin);
+    m_workloop_timer.async_wait(m_io_strand.wrap(boost::bind(
+                    &StratumClient::workloop_timer_elapsed, this, boost::asio::placeholders::error)));
+    clear_response_pleas();
 }
 
 StratumClient::~StratumClient()
@@ -139,6 +143,11 @@ void StratumClient::connect()
     if (m_connecting.load(std::memory_order::memory_order_relaxed))
         return;
 
+    // Start timing operations
+    m_workloop_timer.expires_from_now(boost::posix_time::milliseconds(m_workloop_interval));
+    m_workloop_timer.async_wait(m_io_strand.wrap(boost::bind(
+                    &StratumClient::workloop_timer_elapsed, this, boost::asio::placeholders::error)));
+
     m_canconnect.store(false, std::memory_order_relaxed);
     m_connected.store(false, std::memory_order_relaxed);
     m_subscribed.store(false, std::memory_order_relaxed);
@@ -184,14 +193,6 @@ void StratumClient::disconnect()
     if (m_socket)
         m_socket->cancel();
 
-    m_io_service.post([&] {
-        m_conntimer.cancel();
-        m_worktimer.cancel();
-        m_responsetimer.cancel();
-    });
-
-    m_response_pending = false;
-
     if (m_socket && m_socket->is_open()) {
         try {
             boost::system::error_code sec;
@@ -201,8 +202,7 @@ void StratumClient::disconnect()
                 // As there may be a connection issue we also endorse a timeout
                 m_securesocket->async_shutdown(m_io_strand.wrap(boost::bind(&StratumClient::onSSLShutdownCompleted, this, boost::asio::placeholders::error)));
 
-                m_conntimer.expires_from_now(boost::posix_time::seconds(m_responsetimeout));
-                m_conntimer.async_wait(boost::bind(&StratumClient::check_connect_timeout, this, boost::asio::placeholders::error));
+                enqueue_response_plea();
                 // Rest of disconnection is performed asynchronously
                 return;
             } else {
@@ -260,6 +260,13 @@ void StratumClient::disconnect_finalize()
             }
         }
     }
+    // Clear plea queue and stop timing
+    std::chrono::steady_clock::time_point m_response_plea_time;
+    clear_response_pleas();
+    // Put the actor back to sleep
+    m_workloop_timer.expires_at(boost::posix_time::pos_infin);
+    m_workloop_timer.async_wait(m_io_strand.wrap(boost::bind(
+                    &StratumClient::workloop_timer_elapsed, this, boost::asio::placeholders::error)));
 
     // Trigger handlers
     if (m_onDisconnected) {
@@ -283,19 +290,12 @@ void StratumClient::resolve_handler(const boost::system::error_code& ec, tcp::re
         // Release locking flag and set connection status
         cwarn << "Could not resolve host: " << m_conn->Host() << ", " << ec.message();
         m_connected.store(false, std::memory_order_relaxed);
-        m_connecting.store(false, std::memory_order::memory_order_relaxed);
+        m_connecting.store(false, std::memory_order_relaxed);
         // Trigger handlers
         if (m_onDisconnected) {
             m_onDisconnected();
         }
     }
-}
-
-void StratumClient::reset_work_timeout()
-{
-    m_worktimer.expires_from_now(boost::posix_time::seconds(m_worktimeout));
-    m_worktimer.async_wait(
-            m_io_strand.wrap(boost::bind(&StratumClient::work_timeout_handler, this, boost::asio::placeholders::error)));
 }
 
 void StratumClient::start_connect()
@@ -316,11 +316,14 @@ void StratumClient::start_connect()
         setThreadName("stratum");
         if (g_logVerbosity >= 6)
             cnote << ("Trying " + toString(m_endpoint) + " ...");
-        m_conntimer.expires_from_now(boost::posix_time::seconds(m_responsetimeout));
-        m_conntimer.async_wait(m_io_strand.wrap(boost::bind(
-                        &StratumClient::check_connect_timeout, this, boost::asio::placeholders::error)));
+
+        clear_response_pleas();
+//        m_conntimer.expires_from_now(boost::posix_time::seconds(m_responsetimeout));
+//        m_conntimer.async_wait(m_io_strand.wrap(boost::bind(
+//                        &StratumClient::check_connect_timeout, this, boost::asio::placeholders::error)));
 
         m_connecting.store(true, std::memory_order::memory_order_relaxed);
+        enqueue_response_plea();
 
         // Start connecting async
         if (m_conn->SecLevel() != SecureLevel::NONE) {
@@ -341,44 +344,93 @@ void StratumClient::start_connect()
     }
 }
 
-void StratumClient::check_connect_timeout(const boost::system::error_code& ec)
+void StratumClient::workloop_timer_elapsed(const boost::system::error_code& ec)
 {
-    // Timer cancelled
+    using namespace std::chrono;
+    // On timer cancelled or nothing to check for then early exit
     if (ec == boost::asio::error::operation_aborted)
         return;
     // Check whether the deadline has passed. We compare the deadline against
     // the current time since a new asynchronous operation may have moved the
     // deadline before this actor had a chance to run.
-    if (isPendingState()) {
-        if (m_conntimer.expires_at() <= boost::asio::deadline_timer::traits_type::now()) {
+    if (m_response_pleas_count.load(std::memory_order_relaxed)) {
+        milliseconds response_delay_ms(0);
+        steady_clock::time_point m_response_plea_time(m_response_plea_older.load(std::memory_order_relaxed));
 
-            // The deadline has passed.
-			if (m_connecting.load(std::memory_order_relaxed)) {
-				// The socket is closed so that any outstanding
-				// asynchronous connection operations are cancelled.
-				m_socket->close();
-			}
-			// This is set for SSL disconnection
-			if (m_disconnecting.load(std::memory_order_relaxed) && (m_conn->SecLevel() != SecureLevel::NONE)) {
-				if (m_securesocket->lowest_layer().is_open()) {
-					m_securesocket->lowest_layer().close();
-				}
-			}
-			// There is no longer an active deadline. The expiry is set to positive
-			// infinity so that the actor takes no action until a new deadline is set.
-			m_conntimer.expires_at(boost::posix_time::pos_infin);
+        // Check responses while in connection/disconnection phase
+        if (isPendingState()) {
+            response_delay_ms =
+                duration_cast<milliseconds>(steady_clock::now() - m_response_plea_time);
+            if ((m_responsetimeout * 1000) >= response_delay_ms.count()) {
+                if (m_connecting.load(std::memory_order_relaxed)) {
+                    // The socket is closed so that any outstanding
+                    // asynchronous connection operations are cancelled.
+                    m_socket->close();
+                    return;
+                }
+                // This is set for SSL disconnection
+                if (m_disconnecting.load(std::memory_order_relaxed) &&
+                        (m_conn->SecLevel() != SecureLevel::NONE)) {
+                    if (m_securesocket->lowest_layer().is_open()) {
+                        m_securesocket->lowest_layer().close();
+                        return;
+                    }
+                }
+            }
 		}
-		// Put the actor back to sleep.
-		m_conntimer.async_wait(m_io_strand.wrap(boost::bind(
-                        &StratumClient::check_connect_timeout, this, boost::asio::placeholders::error)));
+        if (isConnected()) {
+            response_delay_ms =
+                duration_cast<milliseconds>(steady_clock::now() - m_response_plea_time);
+
+            if (response_delay_ms.count() >= (m_responsetimeout * 1000)) {
+                if (m_conn->StratumModeConfirmed() == false && m_conn->IsUnrecoverable() == false) {
+                    // Waiting for a response from pool to a login request
+                    // Async self send a fake error response
+                    Json::Value jRes;
+                    jRes["id"] = unsigned(1);
+                    jRes["result"] = Json::nullValue;
+                    jRes["error"] = true;
+                    clear_response_pleas();
+                    m_io_service.post(m_io_strand.wrap(
+                                boost::bind(&StratumClient::processResponse, this, jRes)));
+                } else {
+                    // Waiting for a response to solution submission
+                    setThreadName("stratum");
+                    cwarn << "No response received in " << m_responsetimeout << " seconds.";
+                    m_endpoints.pop();
+                    m_subscribed.store(false, std::memory_order_relaxed);
+                    m_authorized.store(false, std::memory_order_relaxed);
+                    clear_response_pleas();
+                    m_io_service.post(
+                            m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
+                }
+
+            }
+             // Check how old is last job received
+            if (duration_cast<seconds>(steady_clock::now() - m_current_timestamp).count() >
+                m_worktimeout) {
+                setThreadName("stratum");
+                cwarn << "No new work received in " << m_worktimeout << " seconds.";
+                m_endpoints.pop();
+                m_subscribed.store(false, std::memory_order_relaxed);
+                m_authorized.store(false, std::memory_order_relaxed);
+                clear_response_pleas();
+                m_io_service.post(
+                    m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
+            }
+        }
 	}
+    // Resubmit timing operations
+    m_workloop_timer.expires_from_now(boost::posix_time::milliseconds(m_workloop_interval));
+    m_workloop_timer.async_wait(m_io_strand.wrap(boost::bind(
+        &StratumClient::workloop_timer_elapsed, this, boost::asio::placeholders::error)));
+
 }
 
 void StratumClient::connect_handler(const boost::system::error_code& ec)
 {
     setThreadName("stratum");
     // Set status completion
-    m_conntimer.cancel();
     m_connecting.store(false, std::memory_order_relaxed);
 
     // Timeout has run before or we got error
@@ -451,9 +503,10 @@ void StratumClient::connect_handler(const boost::system::error_code& ec)
 
     // Clean buffer from any previous stale data
     m_sendBuffer.consume(4096);
+    clear_response_pleas();
 
-    //    // Trigger event handlers and begin counting for the next job
-    reset_work_timeout();
+    // Trigger event handlers and begin counting for the next job
+    //reset_work_timeout();
 
     size_t p;
     m_worker.clear();
@@ -523,9 +576,6 @@ void StratumClient::connect_handler(const boost::system::error_code& ec)
        +        if no response within that time consider the tentative login failed
        +        and switch to next stratum mode test
        +        */
-    m_responsetimer.cancel();
-    m_responsetimer.expires_from_now(boost::posix_time::milliseconds(1000));
-    m_responsetimer.async_wait(m_io_strand.wrap(boost::bind(&StratumClient::response_timeout_handler, this, boost::asio::placeholders::error)));
     sendSocketData(jReq);
 }
 
@@ -603,17 +653,21 @@ void StratumClient::processResponse(Json::Value& responseObject)
         cwarn << "Pool sent an invalid jsonrpc message ...";
         cwarn << "Do not blame energiminer for this. Ask pool devs to honor http://www.jsonrpc.org/ specifications ";
         cwarn << "Disconnecting ...";
+        m_subscribed.store(false, std::memory_order_relaxed);
+        m_authorized.store(false, std::memory_order_relaxed);
         m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
         return;
     }
 
-    // Handle awaited responses to OUR requests
+    // Handle awaited responses to OUR requests (calc response times)
     if (!_isNotification) {
         Json::Value jReq;
         Json::Value jResult = responseObject.get("result", Json::Value::null);
+        std::chrono::milliseconds response_delay_ms(0);
 
         switch (_id) {
         case 1:
+            response_delay_ms = dequeue_response_plea();
             /*
                This is the response to very first message after connection.
                I wish I could manage to have different Ids but apparently ethermine.org always replies
@@ -673,6 +727,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
                     jReq["params"] = Json::Value(Json::arrayValue);
                     jReq["params"].append(m_conn->User() + m_conn->Path());
                     jReq["params"].append(m_conn->Pass());
+                    enqueue_response_plea();
                 }
                 break;
             case StratumClient::NRGPROXY:
@@ -696,8 +751,8 @@ void StratumClient::processResponse(Json::Value& responseObject)
                     // If we get here we have a valid application connection
                     // not only a socket connection
                     if (m_onConnected && m_conn->StratumModeConfirmed()) {
+                        m_current_timestamp = std::chrono::steady_clock::now();
                         m_onConnected();
-                        reset_work_timeout();
                     }
                     jReq["id"] = unsigned(3);
                     jReq["jsonrpc"] = "2.0";
@@ -705,6 +760,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
                     jReq["params"] = Json::Value(Json::arrayValue);
                     jReq["params"].append(m_conn->User() + m_conn->Path());
                     jReq["params"].append(m_conn->Pass());
+                    enqueue_response_plea();
                 }
                 break;
             case StratumClient::ENERGISTRATUM:
@@ -732,6 +788,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
                     jReq["method"] = "mining.authorize";
                     jReq["params"].append(m_conn->User() + m_conn->Path());
                     jReq["params"].append(m_conn->Pass());
+                    enqueue_response_plea();
                 }
                 break;
             }
@@ -747,6 +804,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
             // Nothing to do here.
             break;
         case 3:
+            response_delay_ms = dequeue_response_plea();
             // Response to "mining.authorize" (https://en.bitcoin.it/wiki/Stratum_mining_protocol#mining.authorize)
             // Result should be boolean, some pools also throw an error, so _isSuccess can be false
             // Due to this reevaluate _isSuccess
@@ -766,13 +824,14 @@ void StratumClient::processResponse(Json::Value& responseObject)
                 // If we get here we have a valid application connection
                 // not only a socket connection
                 if (m_onConnected && m_conn->StratumModeConfirmed()) {
+                    m_current_timestamp = std::chrono::steady_clock::now();
                     m_onConnected();
-                    reset_work_timeout();
                 }
 
             }
             break;
         case 4:
+            response_delay_ms = dequeue_response_plea();
             // Response to solution submission mining.submit  (https://en.bitcoin.it/wiki/Stratum_mining_protocol#mining.submit)
             // Result should be boolean, some pools also throw an error, so _isSuccess can be false
             // Due to this reevaluate _isSucess
@@ -780,18 +839,17 @@ void StratumClient::processResponse(Json::Value& responseObject)
                 _isSuccess = jResult.asBool();
             }
             {
-                m_responsetimer.cancel();
-                m_response_pending = false;
+                dequeue_response_plea();
                 if (_isSuccess) {
                     if (m_onSolutionAccepted) {
-                        m_onSolutionAccepted(false);
+                        m_onSolutionAccepted(false, response_delay_ms);
                     }
                 } else {
                     if (m_onSolutionRejected) {
                         if (!_errReason.empty()) {
                             cwarn << "Reject reason: " << (_errReason.empty() ? "Unspecified" : _errReason);
                         }
-                        m_onSolutionRejected(true);
+                        m_onSolutionRejected(true, response_delay_ms);
                     }
                 }
             }
@@ -820,6 +878,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
             // However it has been tested that ethermine.org responds with this id when error replying to
             // either mining.subscribe (1) or mining.authorize requests (3)
             // To properly handle this situation we need to rely on Subscribed/Authorized states
+            response_delay_ms = dequeue_response_plea();
             if (!_isSuccess) {
                 if (!m_subscribed) {
                     // Subscription pending
@@ -850,13 +909,13 @@ void StratumClient::processResponse(Json::Value& responseObject)
             if (jPrm.isArray()) {
                 if (!jPrm.get((Json::Value::ArrayIndex)2, "").asString().empty() &&
                     !jPrm.get((Json::Value::ArrayIndex)3, "").asString().empty()) {
-                    reset_work_timeout();
 
                     auto work = energi::Work(jPrm, m_extraNonce, true);
                     if (m_current != work) {
                         m_current = work;
                         m_current.hashTarget = m_nextWorkTarget;
                         m_current.exSizeBits = m_extraNonceHexSize * 4;
+                        m_current_timestamp = std::chrono::steady_clock::now();
                         if (m_onWorkReceived) {
                             m_onWorkReceived(m_current);
                         }
@@ -900,45 +959,6 @@ void StratumClient::processResponse(Json::Value& responseObject)
     }
 }
 
-void StratumClient::work_timeout_handler(const boost::system::error_code& ec)
-{
-    if (!ec) {
-        if (isConnected()) {
-            setThreadName("stratum");
-            cwarn << "No new work received in " << m_worktimeout << " seconds.";
-            m_endpoints.pop();
-            m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
-        }
-    }
-}
-
-void StratumClient::response_timeout_handler(const boost::system::error_code& ec)
-{
-    if (!ec) {
-        if (isConnected()) {
-            if (m_response_pending) {
-                setThreadName("stratum");
-                // Waiting for a response to a submission
-                cwarn << "No response received in " << m_responsetimeout << " seconds.";
-                m_endpoints.pop();
-                m_io_service.post(
-                        m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
-            }
-
-            if (m_conn->StratumModeConfirmed() == false && m_conn->IsUnrecoverable() == false) {
-                // Waiting for a response from pool to a login request
-                // Async self send a fake error response
-                Json::Value jRes;
-                jRes["id"] = unsigned(1);
-                jRes["result"] = Json::nullValue;
-                jRes["error"] = true;
-                m_io_service.post(
-                    m_io_strand.wrap(boost::bind(&StratumClient::processResponse, this, jRes)));
-            }
-        }
-    }
-}
-
 void StratumClient::submitHashrate(const std::string& rate)
 {
     if(rate.empty()) {
@@ -957,9 +977,11 @@ void StratumClient::submitHashrate(const std::string& rate)
 
 void StratumClient::submitSolution(const Solution& solution)
 {
-    m_responsetimer.cancel();
-    m_responsetimer.expires_from_now(boost::posix_time::seconds(m_responsetimeout));
-    m_responsetimer.async_wait(m_io_strand.wrap(boost::bind(&StratumClient::response_timeout_handler, this, boost::asio::placeholders::error)));
+    if (!m_subscribed.load(std::memory_order_relaxed) ||
+            !m_authorized.load(std::memory_order_relaxed)) {
+        cwarn << "Not authorized";
+        return;
+    }
 
     Json::Value jReq;
     jReq["id"] = unsigned(4);
@@ -977,8 +999,8 @@ void StratumClient::submitSolution(const Solution& solution)
     if (m_worker.length()) {
         jReq["worker"] = m_worker;
     }
+    enqueue_response_plea();
     sendSocketData(jReq);
-    m_response_pending = true;
 }
 
 void StratumClient::recvSocketData()
@@ -1076,4 +1098,45 @@ void StratumClient::onSSLShutdownCompleted(const boost::system::error_code& ec)
     (void)ec;
     // cnote << "onSSLShutdownCompleted Error code is : " << ec.message();
     m_io_service.post(m_io_strand.wrap(boost::bind(&StratumClient::disconnect_finalize, this)));
+}
+
+void StratumClient::enqueue_response_plea()
+{
+    using namespace std::chrono;
+    steady_clock::time_point response_plea_time = steady_clock::now();
+    if (m_response_pleas_count++ == 0) {
+        m_response_plea_older.store(
+                response_plea_time.time_since_epoch(), std::memory_order_relaxed);
+    }
+    m_response_plea_times.push(response_plea_time);
+}
+
+std::chrono::milliseconds StratumClient::dequeue_response_plea()
+{
+    using namespace std::chrono;
+    steady_clock::time_point response_plea_time(m_response_plea_older.load(std::memory_order_relaxed));
+    milliseconds response_delay_ms =
+        duration_cast<milliseconds>(steady_clock::now() - response_plea_time);
+    if (m_response_plea_times.pop(response_plea_time)) {
+        m_response_plea_older.store(
+                response_plea_time.time_since_epoch(), std::memory_order_relaxed);
+    }
+    if (m_response_pleas_count.load(std::memory_order_relaxed) > 0) {
+        m_response_pleas_count--;
+        return response_delay_ms;
+    } else {
+        return milliseconds(0);
+    }
+}
+
+void StratumClient::clear_response_pleas()
+{
+    using namespace std::chrono;
+    steady_clock::time_point response_plea_time;
+    m_response_pleas_count.store(0, std::memory_order_relaxed);
+    while (m_response_plea_times.pop(response_plea_time))
+    {
+    };
+    m_response_plea_older.store(((steady_clock::time_point)steady_clock::now()).time_since_epoch(),
+            std::memory_order_relaxed);
 }

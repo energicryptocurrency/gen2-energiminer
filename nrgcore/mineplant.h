@@ -42,10 +42,10 @@ public:
 
     void reset() { accepts = rejects = failures = acceptedStales = 0; }
 
-    unsigned getAccepts()     { return accepts; }
-    unsigned getRejects()     { return rejects; }
-    unsigned getFailures()      { return failures; }
-    unsigned getAcceptedStales()  { return acceptedStales; }
+    unsigned getAccepts() const { return accepts; }
+    unsigned getRejects() const { return rejects; }
+    unsigned getFailures() const { return failures; }
+    unsigned getAcceptedStales() const { return acceptedStales; }
 private:
     unsigned accepts  = 0;
     unsigned rejects  = 0;

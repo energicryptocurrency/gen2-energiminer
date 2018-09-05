@@ -46,5 +46,4 @@ private:
     PoolClient *p_client;
     energi::MinePlant &m_farm;
     MinerExecutionMode m_minerType;
-    std::chrono::steady_clock::time_point m_submit_time;
 };

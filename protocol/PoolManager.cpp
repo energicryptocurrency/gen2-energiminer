@@ -53,24 +53,22 @@ PoolManager::PoolManager(boost::asio::io_service& io_service,
     {
         m_farm.setWork(wp);
     });
-	p_client->onSolutionAccepted([&](const bool& stale)
+	p_client->onSolutionAccepted([&](const bool& stale, const std::chrono::milliseconds& elapsedMs)
 	{
 		using namespace std::chrono;
-		auto ms = duration_cast<milliseconds>(steady_clock::now() - m_submit_time);
 		std::stringstream ss;
-		ss << std::setw(4) << std::setfill(' ') << ms.count();
+		ss << std::setw(4) << std::setfill(' ') << elapsedMs.count();
 		ss << " ms." << "   " << m_connections[m_activeConnectionIdx].Host() + p_client->ActiveEndPoint();
-		cnote << EthLime "**Accepted" EthReset << (stale ? "(stale)" : "") << ss.str();
+		cnote << EthLime "**Accepted  " EthReset << (stale ? "(stale)" : "") << ss.str();
 		m_farm.acceptedSolution(stale);
 	});
-	p_client->onSolutionRejected([&](const bool& stale)
+	p_client->onSolutionRejected([&](const bool& stale, std::chrono::milliseconds const& elapsedMs)
 	{
 		using namespace std::chrono;
-		auto ms = duration_cast<milliseconds>(steady_clock::now() - m_submit_time);
 		std::stringstream ss;
-		ss << std::setw(4) << std::setfill(' ') << ms.count();
+		ss << std::setw(4) << std::setfill(' ') << elapsedMs.count();
 		ss << " ms." << "   " << m_connections[m_activeConnectionIdx].Host() + p_client->ActiveEndPoint();
-		cwarn << EthRed "**Rejected" EthReset << (stale ? "(stale)" : "") << ss.str();
+		cwarn << EthRed "**Rejected  " EthReset << (stale ? "(stale)" : "") << ss.str();
 		m_farm.rejectedSolution();
 	});
 
@@ -80,7 +78,6 @@ PoolManager::PoolManager(boost::asio::io_service& io_service,
         // properly connected. Otherwise we'll have the bad behavior
         // to log nonce submission but receive no response
         if (p_client->isConnected()) {
-            m_submit_time = std::chrono::steady_clock::now();
             p_client->submitSolution(sol);
         } else {
             cnote << std::string(EthRed "Nonce ") + std::to_string(sol.getNonce()) << " wasted. Waiting for connection ...";
@@ -157,9 +154,7 @@ void PoolManager::trun()
                     p_client->connect();
 
                 } else {
-
                     cnote << "No more connections to try. Exiting ...";
-
                     // Stop mining if applicable
                     if (m_farm.isMining()) {
                         cnote << "Shutting down miners...";
@@ -177,9 +172,15 @@ void PoolManager::trun()
         m_hashrateReportingTimePassed++;
 
         if (m_hashrateReportingTimePassed > m_hashrateReportingTime) {
-            auto mp = m_farm.miningProgress();
-            cnote << mp.hashRate;
+            //auto mp = m_farm.miningProgress();
+            //std::string h = toHex(toCompactBigEndian(uint64_t(mp.hashRate), 1));
+            //std::string res = h[0] != '0' ? h : h.substr(1);
 
+            // Should be 32 bytes
+            // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_submithashrate
+            //std::ostringstream ss;
+            //ss << std::setw(64) << std::setfill('0') << res;
+            //cnote << res.str();
             //!TODO p_client->submitHashrate();
             m_hashrateReportingTimePassed = 0;
         }

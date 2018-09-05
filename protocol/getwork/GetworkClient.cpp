@@ -64,14 +64,18 @@ void GetworkClient::submit()
     if (m_connected.load(std::memory_order_relaxed)) {
         try {
             m_prevWork.reset();
+            std::chrono::steady_clock::time_point submit_start = std::chrono::steady_clock::now();
             bool accepted = p_client->submitWork(m_solutionToSubmit);
+            std::chrono::milliseconds response_delay_ms =
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - submit_start);
             if (accepted) {
                 if (m_onSolutionAccepted) {
-                    m_onSolutionAccepted(false);
+                    m_onSolutionAccepted(false, response_delay_ms);
                 }
             } else {
                 if (m_onSolutionRejected) {
-                    m_onSolutionRejected(false);
+                    m_onSolutionRejected(false, response_delay_ms);
                 }
             }
         } catch (const jsonrpc::JsonRpcException& ex) {

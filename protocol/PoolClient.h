@@ -3,6 +3,7 @@
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <queue>
+#include <chrono>
 
 #include <nrgcore/mineplant.h>
 #include <nrgcore/miner.h>
@@ -28,8 +29,8 @@ public:
     virtual bool isPendingState() = 0;
     virtual std::string ActiveEndPoint() = 0;
 
-    using SolutionAccepted = std::function<void(bool const&)>;
-    using SolutionRejected = std::function<void(bool const&)>;
+    using SolutionAccepted = std::function<void(bool const&, const std::chrono::milliseconds&)>;
+    using SolutionRejected = std::function<void(bool const&, const std::chrono::milliseconds&)>;
     using Disconnected = std::function<void()>;
     using Connected = std::function<void()>;
     using WorkReceived = std::function<void(energi::Work const&)>;

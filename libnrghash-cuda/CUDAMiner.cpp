@@ -433,7 +433,7 @@ void CUDAMiner::search(
     uint64_t startN,
     Work& work)
 {
-    const uint16_t kReportingInterval = 512;  // Must be a power of 2 passes
+    const uint16_t kReportingInterval = 4;  // Must be a power of 2 passes
     set_header(*reinterpret_cast<hash32_t const *>(header));
     if (m_current_target != target) {
         set_target(target);

@@ -26,7 +26,7 @@ uint8_t* Miner::s_dagInHostMemory = nullptr;
 
 bool Miner::s_noeval = false;
 
-void Miner::updateHashRate(uint64_t n)
+void Miner::updateHashRate(uint64_t _n)
 {
     using namespace std::chrono;
     steady_clock::time_point t = steady_clock::now();
