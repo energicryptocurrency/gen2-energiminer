@@ -259,34 +259,27 @@ struct MiningPause
 /// Describes the progress of a mining operation.
 struct WorkingProgress
 {
-    uint64_t hashes = 0;    ///< Total number of hashes computed.
-    uint64_t ms = 0;        ///< Total number of milliseconds of mining thus far.
-    uint64_t rate() const { return ms == 0 ? 0 : hashes * 1000 / ms; }
-
-    std::map<std::string, uint64_t> minersHashes; // maps a miner's device name to it's hash count
+    float hashRate = 0.0;
+    std::map<std::string, float> minersHashRates; // maps a miner's device name to it's hash count
     std::map<std::string, bool> miningIsPaused;
     std::map<std::string, HwMonitor> minerMonitors;
 
-    uint64_t minerRate(const uint64_t hashCount) const
-    {
-        return ms == 0 ? 0 : hashCount * 1000 / ms;
-    }
 };
 
 inline std::ostream& operator<<(std::ostream& _out, WorkingProgress _p)
 {
-    float mh = _p.rate() / 1000000.0f;
+    float mh = _p.hashRate / 1000000.0f;
     _out << "Speed "
          << EthTealBold << std::fixed << std::setprecision(2) << mh << EthReset
         << " Mh/s    ";
-    for (auto const & i : _p.minersHashes) {
+    for (auto const & i : _p.minersHashRates) {
         auto pauseIter = _p.miningIsPaused.find(i.first);
         if (pauseIter != _p.miningIsPaused.end()) {
             if (pauseIter->second) {
                 _out << EthRed;
             }
         }
-        mh = _p.minerRate(i.second) / 1000000.0f;
+        mh = _p.minersHashRates[i.first] / 1000000.0f;
         _out << i.first << " " << EthTeal << std::fixed << std::setprecision(2) << mh << EthReset << "  ";
         auto iter = _p.minerMonitors.find(i.first);
         if (iter != _p.minerMonitors.end()) {

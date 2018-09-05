@@ -55,7 +55,7 @@ void CpuMiner::trun()
             do {
                 auto hash = GetPOWHash(work);
                 if (UintToArith256(hash) < work.hashTarget) {
-                    addHashCount(work.nNonce + 1 - last_nonce);
+                    updateHashRate(work.nNonce + 1 - last_nonce);
                     Solution sol = Solution(work, work.getSecondaryExtraNonce());
                     cnote << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << work.nNonce;
                     m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
@@ -66,11 +66,11 @@ void CpuMiner::trun()
                 }
                 // rough guess
                 if ( work.nNonce % 10000 == 0 ) {
-                    addHashCount(work.nNonce - last_nonce);
+                    updateHashRate(work.nNonce - last_nonce);
                     last_nonce = work.nNonce;
                 }
             } while (!m_newWorkAssigned && !this->shouldStop());
-            addHashCount(work.nNonce - last_nonce);
+            updateHashRate(work.nNonce - last_nonce);
         }
     } catch(WorkException &ex) {
         cnote << ex.what();

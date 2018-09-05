@@ -385,8 +385,8 @@ bool OpenCLMiner::configureGPU(
         if (gpu_mem_size < dagSize) {
             devices_valid = false;
             cwarn << "OpenCL device " << device.getInfo<CL_DEVICE_NAME>()
-                  << " has insufficient GPU memory." << FormatMemSize(gpu_mem_size)
-                  << " of memory found < " << FormatMemSize(dagSize) << " of memory required";
+                  << " has insufficient GPU memory." << FormattedMemSize(gpu_mem_size)
+                  << " of memory found < " << FormattedMemSize(dagSize) << " of memory required";
         }
     }
     return devices_valid;
@@ -399,6 +399,8 @@ void OpenCLMiner::trun()
     // Memory for zero-ing buffers. Cannot be static because crashes on macOS.
     uint32_t const c_zero = 0;
     uint64_t startNonce = 0;
+
+    const uint8_t kIntervalPasses = 4;  // must be a power of 2 passes
     // this gives each miner a pretty big range of nonces, supporting up to 16 miners.
     // TODO: get smarter about how many miners we support.
     //uint64_t const nonceSegment = static_cast<uint64_t>(m_index) << (64 - 4);
@@ -486,7 +488,11 @@ void OpenCLMiner::trun()
             }
             // Increase start nonce for following kernel execution.
             startNonce += globalWorkSize_;
-            addHashCount(globalWorkSize_);
+            m_hashCount += globalWorkSize_;
+            if ((++m_searchPasses & (kIntervalPasses - 1)) == 0) {
+                updateHashRate(m_hashCount);
+                m_hashCount = 0;
+            }
 
             // Make sure the last buffer write has finished --
             // it reads local variable.
@@ -642,8 +648,8 @@ bool OpenCLMiner::init_dag(uint32_t height)
         device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &result);
         if (result < dagSize) {
             cllog << name() << " OpenCL device " << device.getInfo<CL_DEVICE_NAME>()
-                << " has insufficient GPU memory. " << FormatMemSize(result)
-                << " of memory found < " << FormatMemSize(dagSize) << " of memory required";
+                << " has insufficient GPU memory. " << FormattedMemSize(result)
+                << " of memory found < " << FormattedMemSize(dagSize) << " of memory required";
             return false;
         }
         try {

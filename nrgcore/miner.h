@@ -30,31 +30,29 @@
 
 namespace energi {
 
-class FormatMemSize
+class FormattedMemSize
 {
 public:
-    FormatMemSize() = delete;
-    FormatMemSize(uint64_t s)
-        : m_size(s)
-    {}
+    explicit FormattedMemSize(uint64_t s) noexcept
+    {
+        m_size = s;
+    }
 
     uint64_t m_size;
 };
 
-inline std::ostream& operator<< (std::ostream& os, FormatMemSize s)
+inline std::ostream& operator<<(std::ostream& os, const FormattedMemSize& s)
 {
-    const char* suffixes[] = {"bytes", "KB", "MB", "GB"};
-    double d = s.m_size;
+    static const char* suffixes[] = {"bytes", "KB", "MB", "GB"};
+    double d = double(s.m_size);
     unsigned i;
-    for (i = 0 ; i < 3; ++i) {
+    for (i = 0; i < 3; i++) {
         if (d < 1024.0)
             break;
         d /= 1024.0;
     }
-    os << std::fixed << std::setprecision(3) << d << ' ' << suffixes[i];
-    return os;
+    return os << std::fixed << std::setprecision(3) << d << ' ' << suffixes[i];
 }
-
 
 class Miner : public Worker
 {
@@ -64,7 +62,6 @@ public:
         , m_lastHeight(0)
         , m_index(index)
         , m_plant(plant)
-        , m_hashCount(0)
     {
     }
 
@@ -82,13 +79,6 @@ public:
                 workSwitchStart = std::chrono::steady_clock::now();
         }
         onSetWork();
-    }
-
-    uint64_t RetrieveAndClearHashCount()
-    {
-        auto expected = m_hashCount.load(std::memory_order_relaxed);
-        while (!m_hashCount.compare_exchange_weak(expected, 0, std::memory_order_relaxed));
-        return expected;
     }
 
     unsigned Index() { return m_index; };
@@ -110,6 +100,11 @@ public:
 
 	void update_temperature(unsigned temperature);
 	bool is_mining_paused() const;
+
+    float RetrieveHashRate()
+    {
+        return m_hashRate.load(std::memory_order_relaxed);
+    }
 
     void set_mining_paused(MinigPauseReason pause_reason);
     void clear_mining_paused(MinigPauseReason pause_reason);
@@ -135,10 +130,8 @@ protected:
         return m_work;
     }
 
-    void addHashCount(uint32_t _n)
-    {
-        m_hashCount.fetch_add(_n, std::memory_order_relaxed);
-    }
+    void updateHashRate(uint64_t _n);
+
     static unsigned s_dagLoadMode;
     static unsigned s_dagLoadIndex;
     static unsigned s_dagCreateDevice;
@@ -157,9 +150,11 @@ protected:
 
 private:
     MiningPause m_mining_paused;
-    std::atomic<uint32_t> m_hashCount;
 	Work m_work;
 	mutable std::mutex x_work;
+
+    std::chrono::steady_clock::time_point m_hashTime = std::chrono::steady_clock::now();
+    std::atomic<float> m_hashRate = {0.0};
 };
 
 using MinerPtr = std::shared_ptr<energi::Miner>;

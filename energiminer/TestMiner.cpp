@@ -31,16 +31,14 @@ namespace energi
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
 
-        addHashCount(hashes);
+        updateHashRate(hashes);
 
-        if ( maxLoop == 0 )
-        {
+        if ( maxLoop == 0 ) {
           Solution solution;
           m_plant.submitProof(solution);
         }
 
-        if ( shouldStop() )
-        {
+        if (shouldStop()) {
           break;
         }
       }

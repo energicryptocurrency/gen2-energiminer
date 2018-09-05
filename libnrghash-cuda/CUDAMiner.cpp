@@ -277,8 +277,8 @@ bool CUDAMiner::cuda_configureGPU(
                     cudalog <<  "Found suitable CUDA device [" << string(props.name) << "] with " << props.totalGlobalMem << " bytes of GPU memory";
                 } else {
                     cudalog <<  "CUDA device " << string(props.name) << " has insufficient GPU memory."
-                            << FormatMemSize(props.totalGlobalMem) << " of memory found < "
-                            << FormatMemSize(dagSize) << " of memory required";
+                            << FormattedMemSize(props.totalGlobalMem) << " of memory found < "
+                            << FormattedMemSize(dagSize) << " of memory required";
                     return false;
                 }
             }
@@ -343,8 +343,8 @@ bool CUDAMiner::cuda_init(
             //Check whether the current device has sufficient memory every time we recreate the dag
             if (device_props.totalGlobalMem < dagSize) {
                 cudalog <<  "CUDA device " << string(device_props.name)
-                        << " has insufficient GPU memory." << FormatMemSize(device_props.totalGlobalMem) << " of memory found < "
-                        << FormatMemSize(dagSize) << " of memory required";
+                        << " has insufficient GPU memory." << FormattedMemSize(device_props.totalGlobalMem) << " of memory found < "
+                        << FormattedMemSize(dagSize) << " of memory required";
                 return false;
             }
             //We need to reset the device and recreate the dag
@@ -361,8 +361,8 @@ bool CUDAMiner::cuda_init(
         hash128_t* dag = m_dag;
         hash64_t* light = m_light[m_device_num];
 
-        if(!light){
-            cudalog << "Allocating light with size: " << FormatMemSize(lightSize);
+        if(!light) {
+            cudalog << "Allocating light with size: " << FormattedMemSize(lightSize);
             CUDA_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&light), lightSize));
         }
         // copy lightData to device
@@ -386,8 +386,8 @@ bool CUDAMiner::cuda_init(
             if (!hostDAG) {
                 if((m_device_num == dagCreateDevice) || !_cpyToHost) { //if !cpyToHost -> All devices shall generate their DAG
                     cudalog << "Generating DAG for GPU #" << m_device_num
-                        << " with dagSize: " << FormatMemSize(dagSize) << " ("
-                        << FormatMemSize(device_props.totalGlobalMem - dagSize - lightSize) << " left)";
+                        << " with dagSize: " << FormattedMemSize(dagSize) << " ("
+                        << FormattedMemSize(device_props.totalGlobalMem - dagSize - lightSize) << " left)";
                     auto startDAG = std::chrono::steady_clock::now();
 
                     ethash_generate_dag(dagSize, s_gridSize, s_blockSize, m_streams[0]);
@@ -433,6 +433,7 @@ void CUDAMiner::search(
     uint64_t startN,
     Work& work)
 {
+    const uint16_t kReportingInterval = 512;  // Must be a power of 2 passes
     set_header(*reinterpret_cast<hash32_t const *>(header));
     if (m_current_target != target) {
         set_target(target);
@@ -475,7 +476,11 @@ void CUDAMiner::search(
             // Wait for stream batch to complete and immediately
             // store number of processed hashes
             CUDA_SAFE_CALL(cudaStreamSynchronize(stream));
-            addHashCount(batch_size);
+            // stretch cuda passes to miniize the effects of
+            // OS latency variability
+            m_searchPasses++;
+            if ((m_searchPasses & (kReportingInterval - 1)) == 0)
+                updateHashRate(batch_size * kReportingInterval);
             if (shouldStop()) {
                 m_new_work.store(false, std::memory_order_relaxed);
                 done = true;
@@ -493,15 +498,12 @@ void CUDAMiner::search(
                     if (s_noeval) {
                         cudalog << name() << " Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << " nonce: " << work.nNonce;
                         m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
-
-                        //addHashCount(batch_size);
                         break;
                     } else {
                         auto const powHash = GetPOWHash(work);
                         if (UintToArith256(powHash) <= work.hashTarget) {
                             cudalog << name() << " Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << " nonce: " << work.nNonce;
                             m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
-                            //addHashCount(batch_size);
                             break;
                         } else {
                             cwarn << name() << " CUDA Miner proposed invalid solution: " << work.GetHash().ToString() << " nonce: " << work.nNonce;

@@ -178,8 +178,7 @@ void PoolManager::trun()
 
         if (m_hashrateReportingTimePassed > m_hashrateReportingTime) {
             auto mp = m_farm.miningProgress();
-            mp.rate();
-            cnote << mp;
+            cnote << mp.hashRate;
 
             //!TODO p_client->submitHashrate();
             m_hashrateReportingTimePassed = 0;

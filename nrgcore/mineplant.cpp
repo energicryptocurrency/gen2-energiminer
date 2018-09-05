@@ -291,19 +291,17 @@ void MinePlant::collectData(const boost::system::error_code& ec)
         return;
 
     WorkingProgress progress;
-    progress.ms = m_collectInterval;
 
     // Process miners
-    for (auto const& miner : m_miners)
-    {
+    for (auto const& miner : m_miners) {
         // Collect and reset hashrates
-        auto minerHashCount = miner->RetrieveAndClearHashCount();
         if (!miner->is_mining_paused()) {
-            progress.hashes += minerHashCount;
-            progress.minersHashes.insert(std::make_pair<std::string, uint64_t>(miner->name(), std::move(minerHashCount)));
+            auto hr = miner->RetrieveHashRate();
+            progress.hashRate += hr;
+            progress.minersHashRates.insert(std::make_pair<std::string, float>(miner->name(), std::move(hr)));
             progress.miningIsPaused.insert(std::make_pair<std::string, bool>(miner->name(), false));
         } else {
-            progress.minersHashes.insert(std::make_pair<std::string, uint64_t>(miner->name(), 0));
+            progress.minersHashRates.insert(std::make_pair<std::string, float>(miner->name(), 0.0));
             progress.miningIsPaused.insert(std::make_pair<std::string, bool>(miner->name(), true));
         }
 

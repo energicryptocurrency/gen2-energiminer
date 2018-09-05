@@ -112,6 +112,9 @@ namespace energi
 	cl::Buffer m_header;
 	cl::Buffer m_searchBuffer;
 
+    uint64_t m_hashCount = 0;
+    uint8_t m_searchPasses = 0;
+
     unsigned                globalWorkSize_ = 0;
     unsigned                workgroupSize_ = 0;
 
