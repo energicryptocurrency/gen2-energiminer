@@ -51,13 +51,9 @@ private:
 
     void resolve_handler(const boost::system::error_code& ec, boost::asio::ip::tcp::resolver::iterator i);
     void start_connect();
-//    void check_connect_timeout(const boost::system::error_code& ec);
     void connect_handler(const boost::system::error_code& ec);
-//    void work_timeout_handler(const boost::system::error_code& ec);
-//    void response_timeout_handler(const boost::system::error_code& ec);
     void workloop_timer_elapsed(const boost::system::error_code& ec);
 
-//    void reset_work_timeout();
     void processResponse(Json::Value& responseObject);
     std::string processError(Json::Value& erroresponseObject);
     void processExtranonce(std::string& enonce);
@@ -103,10 +99,6 @@ private:
     boost::asio::streambuf m_recvBuffer;
     Json::FastWriter m_jWriter;
 
-    //boost::asio::deadline_timer m_conntimer;
-    //boost::asio::deadline_timer m_worktimer;
-    //boost::asio::deadline_timer m_responsetimer;
-    //bool m_response_pending = false;
     boost::asio::deadline_timer m_workloop_timer;
 
     std::atomic<int> m_response_pleas_count = {0};
