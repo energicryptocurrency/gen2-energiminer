@@ -124,10 +124,10 @@ void PoolManager::trun()
                 // If this connection is marked Unrecoverable then discard it
                 if (m_connections[m_activeConnectionIdx].IsUnrecoverable()) {
                     m_connections.erase(m_connections.begin() + m_activeConnectionIdx);
-                    m_connectionAttempt = 0;
-                    if (m_activeConnectionIdx > 0) {
-                        m_activeConnectionIdx--;
+                    if (m_activeConnectionIdx >= m_connections.size()) {
+                        m_activeConnectionIdx = 0;
                     }
+                    m_connectionAttempt = 0;
                 }
                 // Rotate connections if above max attempts threshold
                 if (m_connectionAttempt >= m_maxConnectionAttempts) {
