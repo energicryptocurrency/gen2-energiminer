@@ -88,7 +88,6 @@ bool CUDAMiner::init_dag(uint32_t height)
 void CUDAMiner::trun()
 {
     setThreadName("CUDA");
-    Work current;
     try {
         while(!shouldStop()) {
             if (is_mining_paused()) {
@@ -107,29 +106,24 @@ void CUDAMiner::trun()
                 //cudalog << name() << "Valid work.";
             }
 
-            if (current != work) {
+            if (m_current != work) {
                 if (!m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
                     init_dag(work.nHeight);
                     cnote << "End initialising";
                     m_dagLoaded = true;
                 }
                 m_lastHeight = work.nHeight;
-                current = work;
+                m_current = work;
             }
-            energi::CBlockHeaderTruncatedLE truncatedBlockHeader(current);
+            energi::CBlockHeaderTruncatedLE truncatedBlockHeader(m_current);
             nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
             // Upper 64 bits of the boundary.
-            const uint64_t upper64OfBoundary = *reinterpret_cast<uint64_t const *>((current.hashTarget >> 192).data());
+            const uint64_t upper64OfBoundary = *reinterpret_cast<uint64_t const *>((m_current.hashTarget >> 192).data());
             assert(upper64OfBoundary > 0);
-            uint64_t startN = current.startNonce;
-            if (current.exSizeBits >= 0) {
-                startN = m_plant.get_start_nonce(current, m_index);
-            } else {
-                startN = get_start_nonce();
-            }
+            uint64_t startN = m_plant.getStartNonce(m_current, m_index);
 
-            search(hash_header.data(), upper64OfBoundary, startN, current);
+            search(hash_header.data(), upper64OfBoundary, startN, m_current);
         }
         // Reset miner and stop working
         CUDA_SAFE_CALL(cudaDeviceReset());

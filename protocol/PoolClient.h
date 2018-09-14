@@ -33,6 +33,7 @@ public:
     using SolutionRejected = std::function<void(bool const&, const std::chrono::milliseconds&)>;
     using Disconnected = std::function<void()>;
     using Connected = std::function<void()>;
+    using ResetWork = std::function<void()>;
     using WorkReceived = std::function<void(energi::Work const&)>;
 
     void onSolutionAccepted(const SolutionAccepted& handler)
@@ -60,6 +61,11 @@ public:
         m_onWorkReceived = handler;
     }
 
+    void onResetWork(const ResetWork& handler)
+    {
+        m_onResetWork = handler;
+    }
+
 protected:
     std::atomic<bool> m_subscribed = { false };
     std::atomic<bool> m_authorized = { false };
@@ -74,5 +80,6 @@ protected:
     SolutionRejected m_onSolutionRejected;
     Disconnected m_onDisconnected;
     Connected m_onConnected;
+    ResetWork m_onResetWork;
     WorkReceived m_onWorkReceived;
 };

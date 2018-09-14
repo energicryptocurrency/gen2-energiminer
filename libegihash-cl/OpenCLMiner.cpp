@@ -404,7 +404,6 @@ void OpenCLMiner::trun()
     // this gives each miner a pretty big range of nonces, supporting up to 16 miners.
     // TODO: get smarter about how many miners we support.
     //uint64_t const nonceSegment = static_cast<uint64_t>(m_index) << (64 - 4);
-    Work current_work; // Here we need current work as to initialize gpu
     try {
         while (!shouldStop()) {
             if (is_mining_paused()) {
@@ -422,7 +421,7 @@ void OpenCLMiner::trun()
             } else {
                 //cllog << name() << "Valid work.";
             }
-            if ( current_work != work ) {
+            if (m_current != work) {
                 if (!m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
                     if (s_dagLoadMode == DAG_LOAD_MODE_SEQUENTIAL) {
                         while (s_dagLoadIndex < m_index)
@@ -433,12 +432,12 @@ void OpenCLMiner::trun()
                     m_dagLoaded = true;
                 }
                 m_lastHeight = work.nHeight;
-                current_work = work;
-                energi::CBlockHeaderTruncatedLE truncatedBlockHeader(current_work);
+                m_current = work;
+                energi::CBlockHeaderTruncatedLE truncatedBlockHeader(m_current);
                 nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
                 // Upper 64 bits of the boundary.
-                const uint64_t target = *reinterpret_cast<uint64_t const *>((current_work.hashTarget >> 192).data());
+                const uint64_t target = *reinterpret_cast<uint64_t const *>((m_current.hashTarget >> 192).data());
                 assert(target > 0);
 
                 // Update header constant buffer.
@@ -448,12 +447,7 @@ void OpenCLMiner::trun()
                 m_searchKernel.setArg(0, m_searchBuffer);  // Supply output buffer to kernel.
                 m_searchKernel.setArg(4, target);
 
-                //startNonce = nonceSegment;
-                if (current_work.exSizeBits >= 0) {
-                     startNonce = m_plant.get_start_nonce(current_work, m_index);
-                } else {
-                    startNonce = get_start_nonce();
-                }
+                startNonce = m_plant.getStartNonce(m_current, m_index);
             }
 
             // Run the kernel.
@@ -476,14 +470,14 @@ void OpenCLMiner::trun()
             // Report results while the kernel is running.
             // It takes some time because proof of work must be re-evaluated on CPU.
             if (nonce != 0) {
-                current_work.nNonce = nonce;
-                auto const powHash = GetPOWHash(current_work);
-                if (UintToArith256(powHash) <= current_work.hashTarget) {
-                    cllog << name() << " Submitting block blockhash: " << current_work.GetHash().ToString() << " height: " << current_work.nHeight << " nonce: " << nonce;
-                    Solution solution(current_work, current_work.getSecondaryExtraNonce());
+                m_current.nNonce = nonce;
+                auto const powHash = GetPOWHash(m_current);
+                if (UintToArith256(powHash) <= m_current.hashTarget) {
+                    cllog << name() << " Submitting block blockhash: " << m_current.GetHash().ToString() << " height: " << m_current.nHeight << " nonce: " << nonce;
+                    Solution solution(m_current, m_current.getSecondaryExtraNonce());
                     m_plant.submitProof(solution);
                 } else {
-                    cwarn << name() << " CL Miner proposed invalid solution: " << current_work.GetHash().ToString() << " nonce: " << nonce;
+                    cwarn << name() << " CL Miner proposed invalid solution: " << m_current.GetHash().ToString() << " nonce: " << nonce;
                 }
             }
             // Increase start nonce for following kernel execution.

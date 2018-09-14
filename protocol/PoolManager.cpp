@@ -41,6 +41,10 @@ PoolManager::PoolManager(boost::asio::io_service& io_service,
             m_farm.start(vEngineModes);
     }
 	});
+	p_client->onResetWork([&]()
+	{
+        m_farm.resetWork();
+	});
 	p_client->onDisconnected([&]()
 	{
         setThreadName("main");

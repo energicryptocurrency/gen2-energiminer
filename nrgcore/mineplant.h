@@ -79,8 +79,7 @@ public:
     bool start(const std::vector<EnumMinerEngine> &vMinerEngine);
     void stop();
 
-    uint64_t get_start_nonce(const Work& work, unsigned idx) const override;
-    uint64_t get_nonce_scumbler() const override;
+    uint64_t getStartNonce(const Work& work, unsigned idx) const override;
     //! Temperature
     void setTStartTStop(unsigned tstart, unsigned tstop);
     unsigned get_tstart() const override
@@ -99,6 +98,7 @@ public:
     //bool solutionFound() const override;
 
     void setWork(const Work& work);
+    void resetWork();
     void submitProof(const Solution &sol) const override;
     const WorkingProgress& miningProgress() const
     {
@@ -161,9 +161,9 @@ private:
     std::chrono::steady_clock::time_point   m_farm_launched = std::chrono::steady_clock::now();
 
     std::string                             m_pool_addresses;
-    uint64_t                                m_nonceScumbler;
+//    uint64_t                                m_nonceScumbler;
 
-    unsigned int m_nonce_segment_with = 40;
+//    unsigned int m_nonce_segment_with = 40;
      // Switches for hw monitoring and power drain monitoring
     bool m_hwmon, m_pwron;
 

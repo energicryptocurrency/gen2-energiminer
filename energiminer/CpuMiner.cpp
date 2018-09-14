@@ -18,7 +18,7 @@ CpuMiner::CpuMiner(const Plant &plant, int index)
 
 void CpuMiner::trun()
 {
-    uint64_t first_nonce = 0;
+    uint64_t startNonce = 0;
     try {
         while (true) {
             Work work = this->getWork(); // This work is a copy of last assigned work the worker was provided by plant
@@ -42,20 +42,16 @@ void CpuMiner::trun()
             }
             m_lastHeight = work.nHeight;
 
-            if (work.exSizeBits >=0) {
-                first_nonce = m_plant.get_start_nonce(work, m_index);
-            } else {
-                first_nonce = get_start_nonce();
-            }
+            startNonce = m_plant.getStartNonce(work, m_index);
 
-            work.nNonce = first_nonce;
-            uint64_t last_nonce = first_nonce;
+            work.nNonce = startNonce;
+            uint64_t lastNonce = startNonce;
             m_newWorkAssigned = false;
             // we dont use mixHash part to calculate hash but fill it later (below)
             do {
                 auto hash = GetPOWHash(work);
                 if (UintToArith256(hash) < work.hashTarget) {
-                    updateHashRate(work.nNonce + 1 - last_nonce);
+                    updateHashRate(work.nNonce + 1 - lastNonce);
                     Solution sol = Solution(work, work.getSecondaryExtraNonce());
                     cnote << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << work.nNonce;
                     m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
@@ -66,16 +62,15 @@ void CpuMiner::trun()
                 }
                 // rough guess
                 if ( work.nNonce % 10000 == 0 ) {
-                    updateHashRate(work.nNonce - last_nonce);
-                    last_nonce = work.nNonce;
+                    updateHashRate(work.nNonce - lastNonce);
+                    lastNonce = work.nNonce;
                 }
             } while (!m_newWorkAssigned && !this->shouldStop());
-            updateHashRate(work.nNonce - last_nonce);
+            updateHashRate(work.nNonce - lastNonce);
         }
     } catch(WorkException &ex) {
         cnote << ex.what();
-    }
-    catch(...) {
+    } catch(...) {
     }
 }
 

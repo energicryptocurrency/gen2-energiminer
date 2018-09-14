@@ -71,6 +71,11 @@ struct Work : public Block
         return m_jobName;
     }
 
+    void setJobName(const std::string& name)
+    {
+        m_jobName = name;
+    }
+
     std::string getBlockTransaction() const;
 
     void incrementExtraNonce();

@@ -68,35 +68,15 @@ public:
     virtual ~Miner() = default;
 
 public:
-    void setWork(const Work& work)
-    {
-        {
-            std::lock_guard<std::mutex> lock(x_work);
-            m_work = work;
-            m_work.incrementExtraNonce();
-            m_newWorkAssigned = true;
-            if (g_logVerbosity >= 6)
-                workSwitchStart = std::chrono::steady_clock::now();
-        }
-        onSetWork();
-    }
+    void setWork(const Work& work);
+    void resetWork();
+
 
     unsigned Index() { return m_index; };
 
 	HwMonitorInfo& hwmonInfo() { return m_hwmoninfo; }
 
-    uint64_t get_start_nonce() const
-    {
-        // Each GPU is given a non-overlapping 2^40 range to search
-        return m_plant.get_nonce_scumbler() + ((uint64_t) m_index << 40);
-    }
-
-    void updateWorkTimestamp()
-    {
-        static std::recursive_mutex s_rMutex;
-        std::lock_guard<std::recursive_mutex> lock(s_rMutex);
-        m_work.updateTimestamp();
-    }
+    void updateWorkTimestamp();
 
 	void update_temperature(unsigned temperature);
 	bool is_mining_paused() const;
@@ -148,9 +128,12 @@ protected:
     std::chrono::steady_clock::time_point workSwitchStart;
 	HwMonitorInfo m_hwmoninfo;
 
+protected:
+	Work m_work;
+    Work m_current;
+
 private:
     MiningPause m_mining_paused;
-	Work m_work;
 	mutable std::mutex x_work;
 
     std::chrono::steady_clock::time_point m_hashTime = std::chrono::steady_clock::now();
