@@ -37,32 +37,16 @@ public:
         : m_name(name)
     {}
 
-    Worker& operator=(const Worker &) = default;
+    Worker(Worker const&) = delete;
+    Worker& operator=(Worker const&) = delete;
     virtual ~Worker();
 
-    virtual bool start(); // starts a Worker thread
-    bool stop();  // stops  a Worker thread
-    void stopAllWork();
+    virtual void startWorking(); // starts a Worker thread
+    void stopWorking();  // stops  a Worker thread
 
     bool shouldStop() const
     {
         return m_state == State::Stopping || m_state == State::Stopped;
-    }
-
-    // Since work is assigned to the worked by the plant and Worker is doing the real
-    // work in a thread, protect the data carefully.
-    void setWork(const Work& work);
-
-    Work getWork()
-    {
-        std::lock_guard<std::recursive_mutex> lock(m_mutex);
-        return m_work;
-    }
-
-    void updateWorkTimestamp()
-    {
-        std::lock_guard<std::recursive_mutex> lock(m_mutex);
-        m_work.updateTimestamp();
     }
 
     std::string name() const
@@ -70,21 +54,18 @@ public:
         return m_name;
     }
 protected:
-
-    virtual void onSetWork(){}
     // run in a thread
     // This function is meant to run some logic in a loop.
     // Should quit once done or when new work is assigned
-
-    virtual void trun(){}
+    virtual void trun() = 0;
 
 private:
 
     std::string                   m_name;
-    Work                          m_work; // Dont expose this, instead allow it to be copied
+    mutable std::mutex            x_work;
+    std::unique_ptr<std::thread>  m_work;
+
     std::atomic<State>            m_state { State::Starting };
-    mutable std::recursive_mutex  m_mutex; // protext work since its actually used in a thread
-    std::unique_ptr<std::thread>  m_threadWorker;
 };
 
 } //! namespace energi

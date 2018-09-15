@@ -10,7 +10,7 @@
 // one solution per stream hash calculation
 // Leave room for up to 4 results. A power
 // of 2 here will yield better CUDA optimization
-#define SEARCH_RESULTS 4
+#define SEARCH_RESULTS 4U
 
 typedef struct {
 	uint32_t count;
@@ -63,8 +63,8 @@ void set_target(
 	);
 
 void run_ethash_search(
-	uint32_t search_batch_size,
-	uint32_t workgroup_size,
+	uint32_t gridSize,
+	uint32_t blockSize,
 	cudaStream_t stream,
 	volatile search_results* g_output,
 	uint64_t start_nonce,
@@ -75,13 +75,12 @@ void ethash_generate_dag(
 	uint64_t dag_size,
 	uint32_t blocks,
 	uint32_t threads,
-	cudaStream_t stream,
-	int device
+	cudaStream_t stream
 	);
 
 struct cuda_runtime_error : public virtual std::runtime_error
 {
-	cuda_runtime_error( std::string msg ) : std::runtime_error(msg) {}
+	cuda_runtime_error( const std::string &msg ) : std::runtime_error(msg) {}
 };
 
 #define CUDA_SAFE_CALL(call)				\

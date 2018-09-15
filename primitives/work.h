@@ -37,11 +37,11 @@ struct Work : public Block
     Work& operator=(Work &&) = default;
     Work(const Work &) = default; // -> Blank work for comparisons
     Work(const Json::Value& gbt,
-         const std::string& coinbase_addr,
-         const std::string& coinbase1 = std::string(),
-         const std::string& coinbase2 = std::string(),
-         const std::string& job = std::string(),
-         const std::string& extraNonce = std::string()); // -> coinbase to transfer miners reward
+         const std::string& extraNonce, bool);
+
+    Work(const Json::Value& gbt,
+         const std::string& coinbase_addr); // -> coinbase to transfer miners reward
+
     Work& operator=(const Work &) = default;
 
     bool operator==(const Work& other) const
@@ -57,6 +57,8 @@ struct Work : public Block
     void reset()
     {
         SetNull();
+        m_jobName = std::string();
+        m_extraNonce = std::string();
     }
 
     bool isValid() const
@@ -69,8 +71,14 @@ struct Work : public Block
         return m_jobName;
     }
 
+    void setJobName(const std::string& name)
+    {
+        m_jobName = name;
+    }
+
+    std::string getBlockTransaction() const;
+
     void incrementExtraNonce();
-    void incrementExtraNonce(unsigned int& nExtraNonce);
 
     void updateTimestamp();
 
@@ -87,6 +95,11 @@ struct Work : public Block
         return std::strtol(m_extraNonce.c_str(), nullptr, 16);
     }
 
+    inline uint32_t getSecondaryExtraNonce() const
+    {
+        return m_secondaryExtraNonce;
+    }
+
     void setExtraNonce(const std::string& exNonce)
     {
         m_extraNonce = exNonce;
@@ -94,7 +107,9 @@ struct Work : public Block
 
 
     //!TODO keep only this part
+    uint64_t       startNonce = 0;
     int            exSizeBits = -1;
+    uint32_t       m_secondaryExtraNonce = 0;
     std::string    m_jobName;
     std::string    m_extraNonce;
     arith_uint256  hashTarget;

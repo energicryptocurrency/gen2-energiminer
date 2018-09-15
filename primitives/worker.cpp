@@ -13,86 +13,57 @@
 
 using namespace energi;
 
-bool Worker::start()
+void Worker::startWorking()
 {
-    std::lock_guard<std::recursive_mutex> lock(m_mutex);
-    cdebug << "Worker spawning a thread to get its job done" << m_name;
-    if (m_threadWorker) {
-        if ( m_state == State::Stopped ) { // start only if already stopped else let it continue
-            m_state = State::Starting;
-        }
-    } else  { // Launch thread first time
+    std::lock_guard<std::mutex> lock(x_work);
+    if (m_work) {
+        State ex = State::Stopped;
+        m_state.compare_exchange_strong(ex, State::Starting);
+    } else {
         m_state = State::Starting;
-        m_threadWorker.reset(new std::thread([&]() {
-            while (m_state != State::Killing) {// let thread spin till its killed
-                if ( m_state == State::Starting ) {
-                    m_state = State::Started;
+        m_work.reset(new std::thread([&]() {
+                while (m_state != State::Killing) {
+                    State ex = State::Starting;
+                    m_state.compare_exchange_strong(ex, State::Started);
                     try {
-                        trun(); // real computational work happens here
-                        m_state = State::Stopped;
-                        //cnote << " Out of trun" << name();
-                    } catch (const std::exception& ex) {
-                        std::cout << "Worker thread: Exception thrown: " << m_name  << ex.what();
-                        std::cout.flush();
+                        trun();
+                    } catch (std::exception const& _e) {
+                        clog(WarnChannel) << "Exception thrown in Worker thread: " << _e.what();
                     }
-                    if ( m_state == State::Killing ) {// Pre check: what if we directly kill, we want to break then
-                        break;
+                    ex = m_state.exchange(State::Stopped);
+                    if (ex == State::Killing || ex == State::Starting) {
+                        m_state.exchange(ex);
                     }
-                    //cnote << " Last State " << static_cast<int>(m_state.load()) << name();
-                }
-                // Its like waiting to be woken up, unless killed
-                while (m_state == State::Stopped) {
-                    // TODO: real wait not sleep
-                    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-                }
-            }
+                    while (m_state == State::Stopped) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                    }
+               }
         }));
     }
-    // Wait for thread to switch to started state after start
     while (m_state == State::Starting) {
-        // TODO: real wait not sleep
         std::this_thread::sleep_for(std::chrono::microseconds(20));
     }
-    return true;
 }
 
-bool Worker::stop()
+void Worker::stopWorking()
 {
-    std::lock_guard<std::recursive_mutex> lock(m_mutex);
-    if (m_threadWorker) {
-        //cnote << " State now" << m_name << static_cast<int>(m_state.load());
-        if ( m_state != State::Stopped ) {
-            m_state = State::Stopping;
-            // TODO: should be a proper wait/signal not a sleep
-            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-            //cnote << " Waiting here" << m_name << static_cast<int>(m_state.load());
-            m_state = State::Stopped;
+    DEV_GUARDED(x_work)
+    if (m_work) {
+        State ex = State::Started;
+        m_state.compare_exchange_strong(ex, State::Stopping);
+
+        while (m_state != State::Stopped) {
+            std::this_thread::sleep_for(std::chrono::microseconds(20));
         }
     }
-    return true;
-}
-
-void Worker::setWork(const Work& work)
-{
-    std::lock_guard<std::recursive_mutex> lock(m_mutex);
-    m_work = work;
-    m_work.incrementExtraNonce();
-    m_state = State::Starting;
-
-    onSetWork();
-}
-
-void Worker::stopAllWork()
-{
-    stop();
 }
 
 Worker::~Worker()
 {
-    std::lock_guard<std::recursive_mutex> lock(m_mutex);
-    if (m_threadWorker) {
-        m_state = State::Killing;
-        m_threadWorker->join();
-        m_threadWorker.reset();
+    DEV_GUARDED(x_work)
+    if (m_work) {
+        m_state.exchange(State::Killing);
+        m_work->join();
+        m_work.reset();
     }
 }

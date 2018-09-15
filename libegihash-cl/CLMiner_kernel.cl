@@ -315,7 +315,7 @@ __kernel void ethash_search(
 	state[8] = 0x8000000000000000;
 
 	keccak_f1600_no_absorb((uint2*)state, 8, isolate);
-
+	
 	// Threads work together in this phase in groups of 8.
 	uint const thread_id = gid & 7;
 	uint const hash_id = (gid % GROUP_SIZE) >> 3;
@@ -394,7 +394,7 @@ static void SHA3_512(uint2* s, uint isolate)
 __kernel void ethash_calculate_dag_item(uint start, __global hash64_t const* g_light, __global hash64_t * g_dag, uint isolate)
 {
 	uint const node_index = start + get_global_id(0);
-	if (node_index > DAG_SIZE * 2) return;
+	if (node_index >= DAG_SIZE * 2) return;
 
 	hash200_t dag_node;
 	copy(dag_node.uint4s, g_light[node_index % LIGHT_SIZE].uint4s, 4);

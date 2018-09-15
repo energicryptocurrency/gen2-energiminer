@@ -24,10 +24,24 @@ unsigned Miner::s_dagCreateDevice = 0;
 
 uint8_t* Miner::s_dagInHostMemory = nullptr;
 
-bool Miner::LoadNrgHashDAG()
+bool Miner::s_noeval = false;
+
+void Miner::updateHashRate(uint64_t _n)
+{
+    using namespace std::chrono;
+    steady_clock::time_point t = steady_clock::now();
+    auto us = duration_cast<microseconds>(t - m_hashTime).count();
+    m_hashTime = t;
+    float hr = 0.0;
+    if (us)
+        hr = (float(_n) * 1.0e6f) / us;
+    m_hashRate.store(hr, std::memory_order_relaxed);
+}
+
+bool Miner::LoadNrgHashDAG(uint64_t blockHeight)
 {
     // initialize the DAG
-    InitDAG([](::std::size_t step, ::std::size_t max, int phase) -> bool {
+    InitDAG(blockHeight, [](::std::size_t step, ::std::size_t max, int phase) -> bool {
         std::stringstream ss;
         ss << std::fixed << std::setprecision(2)
            << static_cast<double>(step) / static_cast<double>(max) * 100.0 << "%"
@@ -126,40 +140,104 @@ boost::filesystem::path Miner::GetDataDir()
 #endif
 }
 
-void Miner::InitDAG(nrghash::progress_callback_type callback)
+void Miner::InitDAG(uint64_t blockHeight, nrghash::progress_callback_type callback)
 {
     using namespace nrghash;
 
     auto const & dag = ActiveDAG();
     if (!dag) {
-        auto const height = 0;// TODO (max)(GetHeight(), 0);
-        auto const epoch = height / constants::EPOCH_LENGTH;
+        auto const epoch = blockHeight / constants::EPOCH_LENGTH;
         auto const & seedhash = cache_t::get_seedhash(0).to_hex();
         std::stringstream ss;
         ss << std::hex << std::setw(4) << std::setfill('0') << epoch << "-" << seedhash.substr(0, 12) << ".dag";
         auto const epoch_file = GetDataDir() / "dag" / ss.str();
 
-        printf("\nDAG file for epoch %u is \"%s\"", epoch, epoch_file.string().c_str());
+        std::cout << "\nDAG file for epoch " << epoch << " is " << epoch_file.string() << std::endl;
         // try to load the DAG from disk
         try {
             std::unique_ptr<dag_t> new_dag(new dag_t(epoch_file.string(), callback));
             ActiveDAG(move(new_dag));
-            printf("\nDAG file \"%s\" loaded successfully. \n\n\n", epoch_file.string().c_str());
+            std::cout << "\nDAG file " << epoch_file.string() << " loaded successfully. \n\n\n";
 
             return;
         } catch (hash_exception const & e) {
-            printf("\nDAG file \"%s\" not loaded, will be generated instead. Message: %s\n", epoch_file.string().c_str(), e.what());
+            std::cout << "\nDAG file " << epoch_file.string() << " not loaded, will be generated instead. Message: \n" << e.what() << std::endl;
         }
         // try to generate the DAG
         try {
-            std::unique_ptr<dag_t> new_dag(new dag_t(height, callback));
+            std::unique_ptr<dag_t> new_dag(new dag_t(blockHeight, callback));
             boost::filesystem::create_directories(epoch_file.parent_path());
             new_dag->save(epoch_file.string());
             ActiveDAG(move(new_dag));
-            printf("\nDAG generated successfully. Saved to \"%s\".\n", epoch_file.string().c_str());
+            std::cout << "\nDAG generated successfully. Saved to " << epoch_file.string() << std::endl;
         } catch (hash_exception const & e) {
-            printf("\nDAG for epoch %u could not be generated: %s", epoch, e.what());
+            std::cout << "\nDAG for epoch " << epoch << " could not be generated: " << e.what() << std::endl;
         }
     }
-    printf("\nDAG has been initialized already. Use ActiveDAG() to swap.\n");
+    std::cout << "\nDAG has been initialized already. Use ActiveDAG() to swap.\n" << std::endl;
+}
+
+void Miner::update_temperature(unsigned temperature)
+{
+    /*
+       cnote << "Setting temp" << temperature << " for gpu" << index <<
+       " tstop=" << farm.get_tstop() << " tstart=" << farm.get_tstart();
+       */
+    bool _wait_for_tstart_temp = (m_mining_paused.get_mining_paused() &
+                                 MinigPauseReason::MINING_PAUSED_WAIT_FOR_T_START) == MinigPauseReason::MINING_PAUSED_WAIT_FOR_T_START;
+    if(!_wait_for_tstart_temp) {
+        unsigned tstop = m_plant.get_tstop();
+        if (tstop && temperature >= tstop) {
+            cwarn << "Pause mining on gpu" << m_index << " due -tstop";
+            m_mining_paused.set_mining_paused(MinigPauseReason::MINING_PAUSED_WAIT_FOR_T_START);
+        }
+    } else {
+        unsigned tstart = m_plant.get_tstart();
+        if (tstart && temperature <= tstart) {
+            cnote << "(Re)starting mining on gpu" << m_index << " due -tstart";
+            m_mining_paused.clear_mining_paused(MinigPauseReason::MINING_PAUSED_WAIT_FOR_T_START);
+        }
+    }
+}
+
+bool Miner::is_mining_paused() const
+{
+    return m_mining_paused.is_mining_paused();
+}
+
+void Miner::set_mining_paused(MinigPauseReason pause_reason)
+{
+    m_mining_paused.set_mining_paused(pause_reason);
+}
+
+void Miner::clear_mining_paused(MinigPauseReason pause_reason)
+{
+    m_mining_paused.clear_mining_paused(pause_reason);
+}
+
+void Miner::setWork(const Work& work)
+{
+    {
+        std::lock_guard<std::mutex> lock(x_work);
+        m_work = work;
+        m_work.incrementExtraNonce();
+        m_newWorkAssigned = true;
+        if (g_logVerbosity >= 6)
+            workSwitchStart = std::chrono::steady_clock::now();
+    }
+    onSetWork();
+}
+
+void Miner::resetWork()
+{
+    std::lock_guard<std::mutex> lock(x_work);
+    m_work.reset();
+    m_current.reset();
+}
+
+void Miner::updateWorkTimestamp()
+{
+    static std::recursive_mutex s_rMutex;
+    std::lock_guard<std::recursive_mutex> lock(s_rMutex);
+    m_work.updateTimestamp();
 }
