@@ -29,7 +29,7 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
 #if NRGHASHCUDA
     const char* CUDAGroup =   "CUDA Options";
 #endif
-    CLI::App app("Ethminer - GPU Ethereum miner");
+    CLI::App app("energiminer - GPU energiminer miner");
 
     bool help = false;
     app.set_help_flag();
@@ -62,13 +62,14 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         ->check(CLI::Range(180, 99999));
 
     app.add_option("--response-timeout", m_responsetimeout,
-            "Set disconnect timeout in seconds for pool responses", true)
+            "Set disconnect timeout in seconds for responses", true)
+//            "Set disconnect timeout in seconds for pool responses", true)
         ->group(CommonGroup)
         ->check(CLI::Range(3, 999));
 
-    app.add_flag("-R,--report-hashrate", m_report_stratum_hashrate,
-            "Report current hashrate to pool")
-        ->group(CommonGroup);
+//    app.add_flag("-R,--report-hashrate", m_report_stratum_hashrate,
+//            "Report current hashrate to pool")
+//        ->group(CommonGroup);
 
     app.add_option("--display-interval", m_displayInterval,
             "Set mining stats log interval in seconds", true)
@@ -86,11 +87,13 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
             "Stops the miner whenever an error is encountered")
         ->group(CommonGroup);
     std::vector<std::string> pools;
-    app.add_option("-P,--pool,pool", pools,
-            "Specify one or more pool URLs. See below for URL syntax")
+    app.add_option("-P,--protocol,protocol", pools,
+//            "Specify one or more pool URLs. See below for URL syntax")
+            "Specify one or more protocol URLs. See below for URL syntax")
         ->group(CommonGroup);
     app.add_option("--failover-timeout", m_failovertimeout,
-            "Set the amount of time in minutes to stay on a failover pool before trying to reconnect to primary. If = 0 then no switch back.", true)
+            "Set the amount of time in minutes to stay on a failover before trying to reconnect to primary. If = 0 then no switch back.", true)
+//            "Set the amount of time in minutes to stay on a failover pool before trying to reconnect to primary. If = 0 then no switch back.", true)
         ->group(CommonGroup)
         ->check(CLI::Range(0, 999));
 
@@ -223,7 +226,7 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         ->group(CommonGroup)
         ->check(CLI::Range(30, 100));
     app.add_option("--coinbase-addr", m_coinbase_addr,
-            "iCoinbase address")
+            "Coinbase address")
         ->group(CommonGroup);
 
     std::stringstream ssHelp;
@@ -234,13 +237,13 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         << "    where scheme can be any of : " << endl
         << "    http       for getWork mode" << endl
         << "    getwork    for getWork mode" << endl
-        << "    stratum    for stratum mode" << endl
-        << "    stratums   for secure stratum mode" << endl
-        << "    stratumss  for secure stratum mode with strong TLS12 verification" << endl
+        //<< "    stratum    for stratum mode" << endl
+        //<< "    stratums   for secure stratum mode" << endl
+        //<< "    stratumss  for secure stratum mode with strong TLS12 verification" << endl
         << endl
-        << "    Example 1: "
-        << "    stratum://EbD5YRX1Q3mG73ihRJtJpsqBmWn42sygcy@<host>:<port>"
-        << endl
+        //<< "    Example 1: "
+        //<< "    stratum://EbD5YRX1Q3mG73ihRJtJpsqBmWn42sygcy@<host>:<port>"
+        //<< endl
         //<< "    Example 2: "
         //<< "    stratum://EbD5YRX1Q3mG73ihRJtJpsqBmWn42sygcy.miner1@<host>:<port>"
         //<< endl
