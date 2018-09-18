@@ -179,9 +179,20 @@ struct Block : public BlockHeader
             ////! masternode payment
             ////! masternaode transaction
             bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
+            uint64_t masternodeAmount = 0;
             //bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool(); // not used currently
             if (masternode_payments_started && !gbt["masternode"].empty()) {
-                txoutMasternode = outTransaction(gbt["masternode"]);
+                auto mast = gbt["masternode"];
+                std::string scriptStr = mast["script"].asString();
+                if (!IsHex(scriptStr)) {
+                    throw WorkException("Cannot decode script");
+                }
+                auto data = ParseHex(scriptStr);
+                CScript transScript(data.begin(), data.end());
+                masternodeAmount = mast["amount"].asUInt64();
+                txoutMasternode = CTxOut(mast["amount"].asUInt64(), transScript);
+
+                //txoutMasternode = outTransaction(gbt["masternode"]);
                 coinbaseTransaction.vout.push_back(txoutMasternode);
             }
             //! end masternode transaction
@@ -207,7 +218,7 @@ struct Block : public BlockHeader
             {
                 txoutBackbone = outTransaction(gbt["backbone"]);
                 coinbaseTransaction.vout.push_back(txoutBackbone);
-                coinbaseTransaction.vout.push_back(CTxOut(coinbaseValue - txoutBackbone.nValue, GetScriptForDestination(keyID)));
+                coinbaseTransaction.vout.push_back(CTxOut(coinbaseValue - txoutBackbone.nValue - masternodeAmount, GetScriptForDestination(keyID)));
             }
             //! end Backbone transaction
 
