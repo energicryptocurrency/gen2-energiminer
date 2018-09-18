@@ -8,7 +8,7 @@
 #ifndef ENERGIMINER_CPUMINER_H_
 #define ENERGIMINER_CPUMINER_H_
 
-#include "energiminer/miner.h"
+#include "nrgcore/miner.h"
 
 namespace energi
 {
@@ -17,11 +17,10 @@ namespace energi
   public:
     CpuMiner(const Plant &plant, int index);
 
-    virtual ~CpuMiner()
-    {}
+    virtual ~CpuMiner() {stopWorking();}
 
   protected:
-    void trun();
+    void trun() override;
   };
 
 } /* namespace energi */

@@ -9,8 +9,8 @@
 #define ENERGIMINER_TESTMINER_H_
 
 
-#include "energiminer/plant.h"
-#include "energiminer/miner.h"
+#include "nrgcore/plant.h"
+#include "nrgcore/miner.h"
 
 
 namespace energi
@@ -24,7 +24,7 @@ namespace energi
 
     void setWork(const Work& work)
     {
-      Worker::setWork(work);
+        Miner::setWork(work);
     }
 
 

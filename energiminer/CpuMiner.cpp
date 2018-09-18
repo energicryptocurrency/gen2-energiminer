@@ -6,23 +6,20 @@
  */
 
 #include "CpuMiner.h"
-#include "energiminer/common/Log.h"
-#include "energiminer/common/common.h"
+#include "common/Log.h"
+#include "common/common.h"
 
 using namespace energi;
 
 CpuMiner::CpuMiner(const Plant &plant, int index)
     :Miner("CPU/", plant, index)
 {
-    // First time init egi hash dag
-    // We got to do for every epoch change below
-    LoadNrgHashDAG();
 }
 
 void CpuMiner::trun()
 {
+    uint64_t startNonce = 0;
     try {
-        unsigned int nExtraNonce = 0;
         while (true) {
             Work work = this->getWork(); // This work is a copy of last assigned work the worker was provided by plant
             if ( !work.isValid() ) {
@@ -35,35 +32,45 @@ void CpuMiner::trun()
             } else {
                 //cnote << "Valid work.";
             }
-            work.incrementExtraNonce(nExtraNonce);
-            const uint64_t first_nonce = m_nonceStart.load();
-            const uint64_t max_nonce = m_nonceEnd.load();
 
-            work.nNonce = first_nonce;
-            uint64_t last_nonce = first_nonce;
+            if (!m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
+                static std::mutex mtx;
+                std::lock_guard<std::mutex> lock(mtx);
+                LoadNrgHashDAG(work.nHeight);
+                cnote << "End initialising";
+                m_dagLoaded = true;
+            }
+            m_lastHeight = work.nHeight;
+
+            startNonce = m_plant.getStartNonce(work, m_index);
+
+            work.nNonce = startNonce;
+            uint64_t lastNonce = startNonce;
+            m_newWorkAssigned = false;
             // we dont use mixHash part to calculate hash but fill it later (below)
             do {
                 auto hash = GetPOWHash(work);
                 if (UintToArith256(hash) < work.hashTarget) {
-                    addHashCount(work.nNonce + 1 - last_nonce);
-
-                    Solution solution(work, work.nNonce, work.hashMix);
-                    m_plant.submit(solution);
-                    return;
+                    updateHashRate(work.nNonce + 1 - lastNonce);
+                    Solution sol = Solution(work, work.getSecondaryExtraNonce());
+                    cnote << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << work.nNonce;
+                    m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
+                    ++work.nNonce;
+                    break;
+                } else {
+                    ++work.nNonce;
                 }
-                ++work.nNonce;
                 // rough guess
                 if ( work.nNonce % 10000 == 0 ) {
-                    addHashCount(work.nNonce - last_nonce);
-                    last_nonce = work.nNonce;
+                    updateHashRate(work.nNonce - lastNonce);
+                    lastNonce = work.nNonce;
                 }
-            } while (work.nNonce < max_nonce || !this->shouldStop() );
-            addHashCount(work.nNonce - last_nonce);
+            } while (!m_newWorkAssigned && !this->shouldStop());
+            updateHashRate(work.nNonce - lastNonce);
         }
     } catch(WorkException &ex) {
         cnote << ex.what();
-    }
-    catch(...) {
+    } catch(...) {
     }
 }
 
