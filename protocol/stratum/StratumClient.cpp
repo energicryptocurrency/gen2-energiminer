@@ -910,11 +910,11 @@ void StratumClient::processResponse(Json::Value& responseObject)
                 if (!jPrm.get((Json::Value::ArrayIndex)2, "").asString().empty() &&
                     !jPrm.get((Json::Value::ArrayIndex)3, "").asString().empty()) {
 
-                    bool resetJob = !jPrm.get((Json::Value::ArrayIndex)8, "").asBool();
+                    bool resetJob = jPrm.get((Json::Value::ArrayIndex)8, "").asBool();
 
                     auto work = energi::Work(jPrm, m_extraNonce, true);
                     if (resetJob || m_current != work) {
-                        if (resetJob && m_onResetWork) {
+                        if (m_onResetWork) {
                             m_onResetWork();
                         }
                         m_current = work;
