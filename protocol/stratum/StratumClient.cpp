@@ -318,9 +318,6 @@ void StratumClient::start_connect()
             cnote << ("Trying " + toString(m_endpoint) + " ...");
 
         clear_response_pleas();
-//        m_conntimer.expires_from_now(boost::posix_time::seconds(m_responsetimeout));
-//        m_conntimer.async_wait(m_io_strand.wrap(boost::bind(
-//                        &StratumClient::check_connect_timeout, this, boost::asio::placeholders::error)));
 
         m_connecting.store(true, std::memory_order::memory_order_relaxed);
         enqueue_response_plea();
