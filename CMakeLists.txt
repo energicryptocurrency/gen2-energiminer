@@ -37,7 +37,7 @@ endif()
 
 
 project(energiminer)
-set(PROJECT_VERSION 2.0.0)
+set(PROJECT_VERSION 2.0.1)
 
 # link_directories interprate relative paths with respect to CMAKE_CURRENT_SOURCE_DIR
 cmake_policy(SET CMP0015 NEW)

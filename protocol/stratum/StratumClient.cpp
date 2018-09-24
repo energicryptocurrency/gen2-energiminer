@@ -738,11 +738,10 @@ void StratumClient::processResponse(Json::Value& responseObject)
                     return;
                 } else {
                     cnote << "Logged in to nrg-proxy server";
-
-                    if (!jResult.empty() && jResult.isArray()) {
-                        std::string enonce = jResult.get((Json::Value::ArrayIndex)1, "").asString();
-                        processExtranonce(enonce);
-                    }
+                    //if (!jResult.empty() && jResult.isArray()) {
+                    //    std::string enonce = jResult.get((Json::Value::ArrayIndex)1, "").asString();
+                    //    processExtranonce(enonce);
+                    //}
                     m_authorized.store(true, std::memory_order_relaxed);
 
                     // If we get here we have a valid application connection
@@ -1009,10 +1008,12 @@ void StratumClient::recvSocketData()
 {
     if (m_conn->SecLevel() != SecureLevel::NONE) {
         async_read_until(*m_securesocket, m_recvBuffer, "\n",
-                m_io_strand.wrap(boost::bind(&StratumClient::onRecvSocketDataCompleted, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
+                m_io_strand.wrap(boost::bind(&StratumClient::onRecvSocketDataCompleted, this,
+                        boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
     } else {
         async_read_until(*m_nonsecuresocket, m_recvBuffer, "\n",
-                m_io_strand.wrap(boost::bind(&StratumClient::onRecvSocketDataCompleted, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
+                m_io_strand.wrap(boost::bind(&StratumClient::onRecvSocketDataCompleted, this,
+                        boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
     }
 }
 
