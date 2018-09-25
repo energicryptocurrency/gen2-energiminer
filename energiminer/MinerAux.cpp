@@ -258,7 +258,13 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         << "color output."
         << endl
         << "    SYSLOG   - set to any value to strip time and disable color from output, "
-        << "for logging under systemd";
+        << "for logging under systemd"
+#ifndef _WIN32
+            << endl
+            << "    SSL_CERT_FILE - full path to your CA certificates file if elsewhere than "
+               "/etc/ssl/certs/ca-certificates.crt"
+#endif
+            ;
 
     app.set_footer(ssHelp.str());
 
