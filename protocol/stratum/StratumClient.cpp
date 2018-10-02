@@ -994,7 +994,7 @@ void StratumClient::submitSolution(const Solution& solution)
     jReq["params"].append(solution.getJobName());
     jReq["params"].append(solution.getExtraNonce());
     jReq["params"].append(solution.getTime());
-    jReq["params"].append(std::to_string(solution.getNonce()));
+    jReq["params"].append(solution.getNonce());
     jReq["params"].append(solution.getHashMix().GetHex());
     jReq["params"].append(solution.getBlockTransaction());
     if (m_worker.length()) {

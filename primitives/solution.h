@@ -57,9 +57,13 @@ public:
         return m_work;
     }
 
-    uint64_t getNonce() const
+    inline std::string getNonce() const
     {
-        return m_work.getNonce();
+        uint64_t nonce = m_work.getNonce();
+        std::stringstream stream;
+        stream << std::setfill ('0') << std::setw(sizeof(nonce)*2)
+               << std::hex << nonce;
+        return stream.str();
     }
 
     const uint256& getHashMix() const
