@@ -101,7 +101,7 @@ void GetworkClient::trun()
         if (m_connected.load(std::memory_order_relaxed)) {
             // Get Work
             try {
-                if (m_solutionToSubmit.getNonce() > 0) {
+                if (m_solutionToSubmit.getWork().getNonce() > 0) {
                     submit();
                 }
                 energi::Work newWork = p_client->getWork();
