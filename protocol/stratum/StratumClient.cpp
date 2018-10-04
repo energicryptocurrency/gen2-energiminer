@@ -738,10 +738,10 @@ void StratumClient::processResponse(Json::Value& responseObject)
                     return;
                 } else {
                     cnote << "Logged in to nrg-proxy server";
-                    //if (!jResult.empty() && jResult.isArray()) {
-                    //    std::string enonce = jResult.get((Json::Value::ArrayIndex)1, "").asString();
-                    //    processExtranonce(enonce);
-                    //}
+                    if (!jResult.empty() && jResult.isArray()) {
+                        std::string enonce = jResult.get((Json::Value::ArrayIndex)1, "").asString();
+                        processExtranonce(enonce);
+                    }
                     m_authorized.store(true, std::memory_order_relaxed);
 
                     // If we get here we have a valid application connection
