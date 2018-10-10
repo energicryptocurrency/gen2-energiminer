@@ -14,43 +14,48 @@ namespace energi {
 
 CScript COINBASE_FLAGS;
 
-Work::Work(const Json::Value &gbt,
-           const std::string &coinbase_addr,
-           const std::string& coinbase1,
-           const std::string& coinbase2,
-           const std::string& job,
-           const std::string& extraNonce)
-    : Block(gbt, coinbase_addr, coinbase1, coinbase2, extraNonce)
-    , m_jobName(job)
+Work::Work(const Json::Value& gbt,
+           const std::string& extraNonce, bool)
+    : Block(gbt, extraNonce, true)
     , m_extraNonce(extraNonce)
+{
+    m_jobName = gbt.get((Json::Value::ArrayIndex)0, "").asString();
+    hashTarget = arith_uint256().SetCompact(this->nBits);
+}
+
+Work::Work(const Json::Value &gbt,
+           const std::string &coinbase_addr)
+    : Block(gbt, coinbase_addr)
 {
     hashTarget = arith_uint256().SetCompact(this->nBits);
 }
 
-void Work::incrementExtraNonce(unsigned int& nExtraNonce)
+void Work::incrementExtraNonce()
 {
     static uint256 hashPrev;
     if (hashPrev != this->hashPrevBlock) {
-        nExtraNonce = 0;
+        m_secondaryExtraNonce = 0;
         hashPrev = this->hashPrevBlock;
     }
-    ++nExtraNonce;
+    ++m_secondaryExtraNonce;
     CMutableTransaction txCoinbase(this->vtx[0]);
-    txCoinbase.vin[0].scriptSig = (CScript() << this->nHeight << CScriptNum(nExtraNonce)) + COINBASE_FLAGS;
+    txCoinbase.vin[0].scriptSig = (CScript() << this->nHeight << CScriptNum(m_secondaryExtraNonce)) + COINBASE_FLAGS;
 
    this->vtx[0] = txCoinbase;
    this->hashMerkleRoot = BlockMerkleRoot(*this);
 }
 
-void Work::incrementExtraNonce()
-{
-    unsigned int extraNonce=0;
-    incrementExtraNonce(extraNonce);
-}
-
 void Work::updateTimestamp()
 {
     nTime = std::chrono::seconds(std::time(NULL)).count();
+}
+
+std::string Work::getBlockTransaction() const
+{
+    std::stringstream ss;
+    //! TODO check and provid correct nType and nVersion for this operation
+    vtx[0].Serialize(ss, (1 << 0), 70208);
+    return strToHex(ss.str());
 }
 
 } //! namespace energi

@@ -5,25 +5,12 @@
 #include <sstream>
 #include <cstdlib>
 #include <vector>
-#include <random>
 
 #include "transaction.h"
 #include "common/utilstrencodings.h"
 #include "common/serialize.h"
 #include "uint256.h"
-
-inline std::string randomExtraNonce()
-{
-    std::random_device device;
-    std::mt19937 engine(device());
-    std::uniform_int_distribution<uint32_t> distribution;
-    uint32_t extraNonce = distribution(engine);
-    std::stringstream stream;
-    stream << std::setfill ('0') << std::setw(sizeof(extraNonce) * 2)
-           << std::hex << extraNonce;
-    return stream.str();
-}
-
+#include "extranoncesingleton.h"
 
 namespace energi {
 
@@ -53,6 +40,21 @@ struct BlockHeader
         nHeight          = gbt["height"].asInt();
         hashMix.SetNull();
         nNonce = 0;
+    }
+
+    uint64_t getNonce() const
+    {
+        return nNonce;
+    }
+
+    const uint256& getHashMix() const
+    {
+        return hashMix;
+    }
+
+    const uint256& getMerkleRoot() const
+    {
+        return hashMerkleRoot;
     }
 
     ADD_SERIALIZE_METHODS
@@ -112,17 +114,42 @@ struct Block : public BlockHeader
         SetNull();
     }
 
+    Block(const Json::Value& jPrm,
+          const std::string& extraNonce, bool)
+    {
+        hashPrevBlock = uint256S(jPrm.get((Json::Value::ArrayIndex)1, "").asString());
+        hashMerkleRoot.SetNull();
+        nVersion = std::stoul(jPrm.get((Json::Value::ArrayIndex)5, "").asString(), 0, 16);
+        nTime = std::stoul(jPrm.get((Json::Value::ArrayIndex)7, "").asString(), 0, 16);
+        nBits = std::stoul(jPrm.get((Json::Value::ArrayIndex)6, "").asString(), 0, 16);
+        hashMix.SetNull();
+        nNonce = 0;
+        nHeight = jPrm.get((Json::Value::ArrayIndex)9, "").asUInt();
+
+        std::string coinbase1 = jPrm.get((Json::Value::ArrayIndex)2, "").asString();
+        std::string coinbase2 = jPrm.get((Json::Value::ArrayIndex)3, "").asString();
+        std::string hexData = coinbase1 + extraNonce +/* + "00000000" +*/ coinbase2;
+        CTransaction coinbaseTx;
+        DecodeHexTx(coinbaseTx, hexData);
+
+        vtx.push_back(coinbaseTx);
+        vtx[0].UpdateHash();
+        const auto merkleBranches = jPrm.get((Json::Value::ArrayIndex)4, "");
+        for (const auto branch : merkleBranches) {
+            CTransaction trans;
+            DecodeHexTx(trans, branch["data"].asString());
+            vtx.push_back(trans);
+        }
+    }
+
     Block(const Json::Value& gbt,
-          const std::string& coinbaseAddress,
-          const std::string& coinbase1 = std::string(),
-          const std::string& coinbase2 = std::string(),
-          const std::string& extraNonce = std::string())
+          const std::string& coinbaseAddress)
         : BlockHeader(gbt)
     {
         if ( !( gbt.isMember("height") && gbt.isMember("version") && gbt.isMember("previousblockhash") ) ) {
             throw WorkException("Height or Version or Previous Block Hash not found");
         }
-        fillTransactions(gbt, coinbaseAddress, coinbase1, coinbase2, extraNonce);
+        fillTransactions(gbt, coinbaseAddress);
     }
 
     Block(const BlockHeader& header)
@@ -132,18 +159,11 @@ struct Block : public BlockHeader
     }
 
     void fillTransactions(const Json::Value& gbt,
-                          const std::string& coinbaseAddress,
-                          const std::string& coinbase1,
-                          const std::string& coinbase2,
-                          const std::string& extraNonce)
+                          const std::string& coinbaseAddress)
     {
         if (coinbaseAddress.empty()) {
-            std::string hexData = coinbase1 + extraNonce + randomExtraNonce() + coinbase2;
-            //std::reverse(hexData.begin(), hexData.end());
-            CTransaction coinbaseTx;
-            DecodeHexTx(coinbaseTx, hexData);
-            vtx.push_back(coinbaseTx);
-            vtx[0].UpdateHash();
+            std::cerr << "Empty coinbase address" << std::endl;
+            exit(1);
         } else {
             //! first transaction for coinbase output
             //! CoinbaseTransaction
@@ -159,9 +179,20 @@ struct Block : public BlockHeader
             ////! masternode payment
             ////! masternaode transaction
             bool const masternode_payments_started = gbt["masternode_payments_started"].asBool();
+            uint64_t masternodeAmount = 0;
             //bool const masternode_payments_enforced = gbt["masternode_payments_enforced"].asBool(); // not used currently
-            if (masternode_payments_started) {
-                txoutMasternode = outTransaction(gbt["masternode"]);
+            if (masternode_payments_started && !gbt["masternode"].empty()) {
+                auto mast = gbt["masternode"];
+                std::string scriptStr = mast["script"].asString();
+                if (!IsHex(scriptStr)) {
+                    throw WorkException("Cannot decode script");
+                }
+                auto data = ParseHex(scriptStr);
+                CScript transScript(data.begin(), data.end());
+                masternodeAmount = mast["amount"].asUInt64();
+                txoutMasternode = CTxOut(mast["amount"].asUInt64(), transScript);
+
+                //txoutMasternode = outTransaction(gbt["masternode"]);
                 coinbaseTransaction.vout.push_back(txoutMasternode);
             }
             //! end masternode transaction
@@ -187,7 +218,7 @@ struct Block : public BlockHeader
             {
                 txoutBackbone = outTransaction(gbt["backbone"]);
                 coinbaseTransaction.vout.push_back(txoutBackbone);
-                coinbaseTransaction.vout.push_back(CTxOut(coinbaseValue - txoutBackbone.nValue, GetScriptForDestination(keyID)));
+                coinbaseTransaction.vout.push_back(CTxOut(coinbaseValue - txoutBackbone.nValue - masternodeAmount, GetScriptForDestination(keyID)));
             }
             //! end Backbone transaction
 
