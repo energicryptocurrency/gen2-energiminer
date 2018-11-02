@@ -36,8 +36,9 @@ if(HUNTER_ENABLED)
 endif()
 
 
-project(energiminer)
-set(PROJECT_VERSION 2.1.0)
+project(energiminer
+        VERSION "2.0.0" # AUTO-REPLACE
+        )
 
 # link_directories interprate relative paths with respect to CMAKE_CURRENT_SOURCE_DIR
 cmake_policy(SET CMP0015 NEW)

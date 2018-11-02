@@ -1,0 +1,7 @@
+{
+  "name": "energiminer",
+  "version": "2.0.0",
+  "plugins": {
+    "release": "futoin.cid.misc.releasetool"
+  }
+}
