@@ -315,7 +315,7 @@ bool CUDAMiner::cuda_init(
 
         cudalog << "Using device: " << device_props.name << " (Compute " + to_string(device_props.major) + "." + to_string(device_props.minor) + ")";
 
-        m_search_buf = new volatile search_results * [s_numStreams];
+        m_search_buf = new volatile Search_results * [s_numStreams];
         m_streams = new cudaStream_t[s_numStreams];
 
         nrghash::cache_t cache = nrghash::cache_t(height);
@@ -373,7 +373,7 @@ bool CUDAMiner::cuda_init(
             // create mining buffers
             cudalog << "Generating mining buffers";
             for (unsigned i = 0; i != s_numStreams; ++i) {
-                CUDA_SAFE_CALL(cudaMallocHost(&m_search_buf[i], sizeof(search_results)));
+                CUDA_SAFE_CALL(cudaMallocHost(&m_search_buf[i], sizeof(Search_results)));
                 CUDA_SAFE_CALL(cudaStreamCreateWithFlags(&m_streams[i], cudaStreamNonBlocking));
             }
             m_current_target = 0;
@@ -441,7 +441,7 @@ void CUDAMiner::search(
     const uint32_t batch_size = s_gridSize * s_blockSize;
     // Nonces processed in one pass by all streams
     const uint32_t streams_batch_size = batch_size * s_numStreams;
-    volatile search_results* buffer;
+    volatile Search_results* buffer;
 
     // prime each stream and clear search result buffers
     uint32_t current_index;
@@ -482,7 +482,7 @@ void CUDAMiner::search(
             }
 
             // See if we got solutions in this batch
-            uint32_t found_count = std::min((unsigned)buffer->count, SEARCH_RESULTS);
+            uint32_t found_count = std::min((unsigned)buffer->count, MAX_SEARCH_RESULTS);
             if (found_count) {
                 buffer->count = 0;
                 uint64_t nonce_base = current_nonce - streams_batch_size;

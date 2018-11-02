@@ -10,19 +10,23 @@
 // one solution per stream hash calculation
 // Leave room for up to 4 results. A power
 // of 2 here will yield better CUDA optimization
-#define SEARCH_RESULTS 4U
+#define MAX_SEARCH_RESULTS 4U
 
-typedef struct {
-	uint32_t count;
-	struct {
-		// One word for gid and 8 for mix hash
-		uint32_t gid;
-		uint32_t mix[8];
-		uint32_t pad[7]; // pad to size power of 2
-	} result[SEARCH_RESULTS];
-} search_results;
+struct Search_Result
+{
+    // One word for gid and 8 for mix hash
+    uint32_t gid;
+    uint32_t mix[8];
+    uint32_t pad[7];  // pad to size power of 2
+};
 
-#define _ACCESSES 64
+struct Search_results
+{
+    Search_Result result[MAX_SEARCH_RESULTS];
+    uint32_t count = 0;
+};
+
+#define HASH_ACCESSES 64
 #define THREADS_PER_HASH (128 / 16)
 
 typedef struct
@@ -66,7 +70,7 @@ void run_ethash_search(
 	uint32_t gridSize,
 	uint32_t blockSize,
 	cudaStream_t stream,
-	volatile search_results* g_output,
+	volatile Search_results* g_output,
 	uint64_t start_nonce,
 	uint32_t parallelHash
 	);
