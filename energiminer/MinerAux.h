@@ -145,74 +145,73 @@ private:
     void doMiner();
 
 private:
-	/// Operating mode.
-	OperationMode m_mode;
+    /// Operating mode.
+    OperationMode m_mode;
 
-	/// Global boost's io_service
-	std::thread m_io_thread;									// The IO service thread
-	boost::asio::io_service m_io_service;						// The IO service itself
-	boost::asio::io_service::work m_io_work;					// The IO work which prevents io_service.run() to return on no work thus terminating thread
-	boost::asio::deadline_timer m_io_work_timer;				// A dummy timer to keep io_service with something to do and prevent io shutdown
-	boost::asio::io_service::strand m_io_strand;				// A strand to serialize posts in multithreaded environment
+    /// Global boost's io_service
+    std::thread m_io_thread;									// The IO service thread
+    boost::asio::io_service m_io_service;						// The IO service itself
+    boost::asio::io_service::work m_io_work;					// The IO work which prevents io_service.run() to return on no work thus terminating thread
+    boost::asio::deadline_timer m_io_work_timer;				// A dummy timer to keep io_service with something to do and prevent io shutdown
+    boost::asio::io_service::strand m_io_strand;				// A strand to serialize posts in multithreaded environment
 
-	/// Mining options
-	static bool g_running;
-	MinerExecutionMode m_minerExecutionMode = MinerExecutionMode::kCL;
+    /// Mining options
+    static bool g_running;
+    MinerExecutionMode m_minerExecutionMode = MinerExecutionMode::kCL;
 
-	unsigned m_openclPlatform = 0;
-	unsigned m_miningThreads = 1;
-	bool m_shouldListDevices = false;
+    unsigned m_openclPlatform = 0;
+    unsigned m_miningThreads = 1;
+    bool m_shouldListDevices = false;
 
 #if NRGHASHCL
-	unsigned m_openclDeviceCount = 0;
+    unsigned m_openclDeviceCount = 0;
     std::vector<unsigned> m_openclDevices = std::vector<unsigned>(MAX_MINERS, -1);
-	unsigned m_openclThreadsPerHash = 8;
+    unsigned m_openclThreadsPerHash = 8;
 
     int m_globalWorkSizeMultiplier = energi::OpenCLMiner::c_defaultGlobalWorkSizeMultiplier;
-	unsigned m_localWorkSize = energi::OpenCLMiner::c_defaultLocalWorkSize;
+    unsigned m_localWorkSize = energi::OpenCLMiner::c_defaultLocalWorkSize;
 #endif
 #if NRGHASHCUDA
-	unsigned m_cudaDeviceCount = 0;
-	vector<unsigned> m_cudaDevices = vector<unsigned>(MAX_MINERS, -1);
-	unsigned m_numStreams = CUDAMiner::c_defaultNumStreams;
-	unsigned m_cudaSchedule = 4; // sync
-	unsigned m_cudaGridSize = CUDAMiner::c_defaultGridSize;
-	unsigned m_cudaBlockSize = CUDAMiner::c_defaultBlockSize;
-	unsigned m_cudaParallelHash    = 4;
+    unsigned m_cudaDeviceCount = 0;
+    vector<unsigned> m_cudaDevices = vector<unsigned>(MAX_MINERS, -1);
+    unsigned m_numStreams = CUDAMiner::c_defaultNumStreams;
+    unsigned m_cudaSchedule = 4; // sync
+    unsigned m_cudaGridSize = CUDAMiner::c_defaultGridSize;
+    unsigned m_cudaBlockSize = CUDAMiner::c_defaultBlockSize;
+    unsigned m_cudaParallelHash    = 4;
 #endif
 
-	unsigned m_dagLoadMode = 0; // parallel
-	bool m_noEval = false;
-	unsigned m_dagCreateDevice = 0;
+    unsigned m_dagLoadMode = 0; // parallel
+    bool m_noEval = false;
+    unsigned m_dagCreateDevice = 0;
     bool m_exit = false;
 
-	/// Benchmarking params
-	unsigned m_benchmarkWarmup = 15;
-	unsigned m_benchmarkTrial = 3;
-	unsigned m_benchmarkTrials = 5;
-	unsigned m_benchmarkBlock = 0;
+    /// Benchmarking params
+    unsigned m_benchmarkWarmup = 15;
+    unsigned m_benchmarkTrial = 3;
+    unsigned m_benchmarkTrials = 5;
+    unsigned m_benchmarkBlock = 0;
     std::vector<URI> m_endpoints;
 
-
-	/// Farm params
-	int m_worktimeout = 180;
-	// Number of seconds to wait before triggering a response timeout from pool
-	int m_responsetimeout = 3;
+    /// Farm params
+    int m_worktimeout = 240;
+    // Number of seconds to wait before triggering a response timeout from pool
+    int m_responsetimeout = 4;
     // Number of minutes to wait on a failover pool before trying to go back to primary. In minutes !!
     unsigned m_failovertimeout = 0;
 
-	bool m_show_hwmonitors = false;
-	bool m_show_power = false;
+    bool m_show_hwmonitors = false;
+    bool m_show_power = false;
 
     unsigned m_tstop = 0;
     unsigned m_tstart = 40;
 
-	unsigned m_maxFarmRetries = 3;
-	unsigned m_farmRecheckPeriod = 500;
-	unsigned m_displayInterval = 5;
-	bool m_farmRecheckSet = false;
+    unsigned m_maxFarmRetries = 3;
+    unsigned m_farmRecheckPeriod = 500;
+    unsigned m_displayInterval = 5;
+    bool m_farmRecheckSet = false;
 
-	std::string m_coinbase_addr;
+    std::string m_coinbase_addr;
 
-	bool m_report_stratum_hashrate = false;
+    bool m_report_stratum_hashrate = false;
 };

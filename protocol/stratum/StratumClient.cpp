@@ -318,9 +318,6 @@ void StratumClient::start_connect()
             cnote << ("Trying " + toString(m_endpoint) + " ...");
 
         clear_response_pleas();
-//        m_conntimer.expires_from_now(boost::posix_time::seconds(m_responsetimeout));
-//        m_conntimer.async_wait(m_io_strand.wrap(boost::bind(
-//                        &StratumClient::check_connect_timeout, this, boost::asio::placeholders::error)));
 
         m_connecting.store(true, std::memory_order::memory_order_relaxed);
         enqueue_response_plea();
@@ -741,7 +738,6 @@ void StratumClient::processResponse(Json::Value& responseObject)
                     return;
                 } else {
                     cnote << "Logged in to nrg-proxy server";
-
                     if (!jResult.empty() && jResult.isArray()) {
                         std::string enonce = jResult.get((Json::Value::ArrayIndex)1, "").asString();
                         processExtranonce(enonce);
@@ -910,11 +906,11 @@ void StratumClient::processResponse(Json::Value& responseObject)
                 if (!jPrm.get((Json::Value::ArrayIndex)2, "").asString().empty() &&
                     !jPrm.get((Json::Value::ArrayIndex)3, "").asString().empty()) {
 
-                    bool resetJob = !jPrm.get((Json::Value::ArrayIndex)8, "").asBool();
+                    bool resetJob = jPrm.get((Json::Value::ArrayIndex)8, "").asBool();
 
                     auto work = energi::Work(jPrm, m_extraNonce, true);
                     if (resetJob || m_current != work) {
-                        if (resetJob && m_onResetWork) {
+                        if (m_onResetWork) {
                             m_onResetWork();
                         }
                         m_current = work;
@@ -998,7 +994,7 @@ void StratumClient::submitSolution(const Solution& solution)
     jReq["params"].append(solution.getJobName());
     jReq["params"].append(solution.getExtraNonce());
     jReq["params"].append(solution.getTime());
-    jReq["params"].append(std::to_string(solution.getNonce()));
+    jReq["params"].append(solution.getNonce());
     jReq["params"].append(solution.getHashMix().GetHex());
     jReq["params"].append(solution.getBlockTransaction());
     if (m_worker.length()) {
@@ -1012,10 +1008,12 @@ void StratumClient::recvSocketData()
 {
     if (m_conn->SecLevel() != SecureLevel::NONE) {
         async_read_until(*m_securesocket, m_recvBuffer, "\n",
-                m_io_strand.wrap(boost::bind(&StratumClient::onRecvSocketDataCompleted, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
+                m_io_strand.wrap(boost::bind(&StratumClient::onRecvSocketDataCompleted, this,
+                        boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
     } else {
         async_read_until(*m_nonsecuresocket, m_recvBuffer, "\n",
-                m_io_strand.wrap(boost::bind(&StratumClient::onRecvSocketDataCompleted, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
+                m_io_strand.wrap(boost::bind(&StratumClient::onRecvSocketDataCompleted, this,
+                        boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
     }
 }
 

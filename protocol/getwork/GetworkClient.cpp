@@ -49,6 +49,8 @@ void GetworkClient::disconnect()
 	if (m_onDisconnected) {
 		m_onDisconnected();
 	}
+    delete p_client;
+    p_client = nullptr;
 }
 
 void GetworkClient::submitHashrate(const std::string& rate)
@@ -99,7 +101,7 @@ void GetworkClient::trun()
         if (m_connected.load(std::memory_order_relaxed)) {
             // Get Work
             try {
-                if (m_solutionToSubmit.getNonce() > 0) {
+                if (m_solutionToSubmit.getWork().getNonce() > 0) {
                     submit();
                 }
                 energi::Work newWork = p_client->getWork();
@@ -112,6 +114,9 @@ void GetworkClient::trun()
                 }
             } catch (jsonrpc::JsonRpcException) {
                 cwarn << "Failed getting work!";
+                if (m_onResetWork) {
+                    m_onResetWork();
+                }
                 disconnect();
             }
             //TODO submit hashrate part
