@@ -147,8 +147,7 @@ void StratumClient::connect()
      * Those above statement imply we MAY NOT receive difficulty thus at each new connection restart from 1
      */
     m_nextWorkTarget = DIFF1_TARGET;
-    m_extraNonce = "";
-    m_extraNonceHexSize = 0;
+    m_extraNonce1 = "f000000f";
 
     // Initializes socket and eventually secure stream
     if (!m_socket)
@@ -593,12 +592,8 @@ std::string StratumClient::processError(Json::Value& responseObject)
 
 void StratumClient::processExtranonce(std::string& enonce)
 {
-    m_extraNonceHexSize = enonce.length();
-
     cnote << "Extranonce set to: " + enonce;
-
-    enonce.append(16 - m_extraNonceHexSize, '0');
-    m_extraNonce = enonce;
+    m_extraNonce1 = enonce;
 }
 
 void StratumClient::processResponse(Json::Value& responseObject)
@@ -895,14 +890,12 @@ void StratumClient::processResponse(Json::Value& responseObject)
 
                     bool resetJob = jPrm.get((Json::Value::ArrayIndex)8, "").asBool();
 
-                    auto work = energi::Work(jPrm, m_extraNonce, true);
+                    auto work = energi::Work(jPrm, m_extraNonce1, m_nextWorkTarget);
                     if (resetJob || m_current != work) {
                         if (m_onResetWork) {
                             m_onResetWork();
                         }
                         m_current = work;
-                        m_current.hashTarget = m_nextWorkTarget;
-                        m_current.exSizeBits = m_extraNonceHexSize * 4;
                         m_current_timestamp = std::chrono::steady_clock::now();
                         if (m_onWorkReceived) {
                             m_onWorkReceived(m_current);
@@ -979,7 +972,7 @@ void StratumClient::submitSolution(const Solution& solution)
     jReq["jsonrpc"] = "2.0";
     jReq["params"].append(m_conn->User());
     jReq["params"].append(solution.getJobName());
-    jReq["params"].append(solution.getExtraNonce());
+    jReq["params"].append(solution.getExtraNonce2());
     jReq["params"].append(solution.getTime());
     jReq["params"].append(solution.getNonce());
     jReq["params"].append(solution.getHashMix().GetHex());

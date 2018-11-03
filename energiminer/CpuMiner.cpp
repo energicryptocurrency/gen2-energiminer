@@ -52,9 +52,9 @@ void CpuMiner::trun()
                 auto hash = GetPOWHash(work);
                 if (UintToArith256(hash) < work.hashTarget) {
                     updateHashRate(work.nNonce + 1 - lastNonce);
-                    Solution sol = Solution(work, work.getSecondaryExtraNonce());
+                    Solution sol = Solution(work);
                     cnote << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << work.nNonce;
-                    m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
+                    m_plant.submitProof(sol);
                     ++work.nNonce;
                     break;
                 } else {

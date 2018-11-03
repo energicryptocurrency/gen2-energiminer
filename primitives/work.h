@@ -9,6 +9,7 @@
 #define ENERGIMINER_WORK_H_
 
 #include "common/common.h"
+#include "common/utilstrencodings.h"
 #include "merkle.h"
 #include "uint256.h"
 #include "arith_uint256.h"
@@ -37,7 +38,7 @@ struct Work : public Block
     Work& operator=(Work &&) = default;
     Work(const Work &) = default; // -> Blank work for comparisons
     Work(const Json::Value& gbt,
-         const std::string& extraNonce, bool);
+         const std::string& extraNonce, const arith_uint256& hashTarget);
 
     Work(const Json::Value& gbt,
          const std::string& coinbase_addr); // -> coinbase to transfer miners reward
@@ -46,7 +47,10 @@ struct Work : public Block
 
     bool operator==(const Work& other) const
     {
-        return (hashPrevBlock == other.hashPrevBlock) && (nHeight == other.nHeight);
+        return (hashPrevBlock == other.hashPrevBlock) &&
+               (nHeight == other.nHeight) &&
+               (m_extraNonce1 == other.m_extraNonce1) &&
+               (hashTarget == other.hashTarget);
     }
 
     bool operator!=(const Work& other) const
@@ -58,7 +62,7 @@ struct Work : public Block
     {
         SetNull();
         m_jobName = std::string();
-        m_extraNonce = std::string();
+        m_extraNonce1 = std::string();
     }
 
     bool isValid() const
@@ -78,11 +82,12 @@ struct Work : public Block
 
     std::string getBlockTransaction() const;
 
-    void incrementExtraNonce();
+    void updateExtraNonce();
+    void mutateCoinbase(const std::string &extraNonce1, const std::string &extraNonce2);
 
     void updateTimestamp();
 
-    ADD_SERIALIZE_METHODS
+    //ADD_SERIALIZE_METHODS
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
@@ -90,28 +95,17 @@ struct Work : public Block
         READWRITE(*(Block*)this);
     }
 
-    inline uint64_t getExtraNonce() const
+    inline std::string getExtraNonce2() const
     {
-        return std::strtol(m_extraNonce.c_str(), nullptr, 16);
-    }
-
-    inline uint32_t getSecondaryExtraNonce() const
-    {
-        return m_secondaryExtraNonce;
-    }
-
-    void setExtraNonce(const std::string& exNonce)
-    {
-        m_extraNonce = exNonce;
+        return HexStr(&m_extraNonce2, sizeof(m_extraNonce2));
     }
 
 
     //!TODO keep only this part
     uint64_t       startNonce = 0;
-    int            exSizeBits = -1;
-    uint32_t       m_secondaryExtraNonce = 0;
+    std::string    m_extraNonce1;
+    uint32_t       m_extraNonce2 = 0;
     std::string    m_jobName;
-    std::string    m_extraNonce;
     arith_uint256  hashTarget;
 
     std::string ToString() const

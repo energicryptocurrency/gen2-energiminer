@@ -22,12 +22,6 @@ namespace energi
     virtual ~TestMiner()
     {}
 
-    void setWork(const Work& work)
-    {
-        Miner::setWork(work);
-    }
-
-
   protected:
     void trun();
   };

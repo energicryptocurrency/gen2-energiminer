@@ -9,18 +9,17 @@
 #include <memory>
 #include "base58.h"
 #include "work.h"
+#include "extranoncesingleton.h"
 
 namespace energi {
 
-CScript COINBASE_FLAGS;
-
-Work::Work(const Json::Value& gbt,
-           const std::string& extraNonce, bool)
-    : Block(gbt, extraNonce, true)
-    , m_extraNonce(extraNonce)
+Work::Work(const Json::Value& stratum,
+           const std::string& extraNonce1, const arith_uint256& hashTarget)
+    : Block(stratum, extraNonce1, true)
+    , m_extraNonce1(extraNonce1)
+    , hashTarget(hashTarget)
 {
-    m_jobName = gbt.get((Json::Value::ArrayIndex)0, "").asString();
-    hashTarget = arith_uint256().SetCompact(this->nBits);
+    m_jobName = stratum.get(Json::Value::ArrayIndex(0), "").asString();
 }
 
 Work::Work(const Json::Value &gbt,
@@ -30,19 +29,12 @@ Work::Work(const Json::Value &gbt,
     hashTarget = arith_uint256().SetCompact(this->nBits);
 }
 
-void Work::incrementExtraNonce()
+void Work::updateExtraNonce()
 {
-    static uint256 hashPrev;
-    if (hashPrev != this->hashPrevBlock) {
-        m_secondaryExtraNonce = 0;
-        hashPrev = this->hashPrevBlock;
-    }
-    ++m_secondaryExtraNonce;
-    CMutableTransaction txCoinbase(this->vtx[0]);
-    txCoinbase.vin[0].scriptSig = (CScript() << this->nHeight << CScriptNum(m_secondaryExtraNonce)) + COINBASE_FLAGS;
-
-   this->vtx[0] = txCoinbase;
-   this->hashMerkleRoot = BlockMerkleRoot(*this);
+    auto &noncegen = ExtraNonceSingleton::getInstance();
+    noncegen.generateExtraNonce();
+    m_extraNonce2 = noncegen.getExtraNonce();
+    mutateCoinbase(m_extraNonce1, getExtraNonce2());
 }
 
 void Work::updateTimestamp()
@@ -56,6 +48,25 @@ std::string Work::getBlockTransaction() const
     //! TODO check and provid correct nType and nVersion for this operation
     vtx[0].Serialize(ss, (1 << 0), 70208);
     return strToHex(ss.str());
+}
+
+void Work::mutateCoinbase(const std::string &extraNonce1, const std::string &extraNonce2) {
+    if (stratum_coinbase1.empty()) {
+        CMutableTransaction coinbaseTx(this->vtx[0]);
+        coinbaseTx.vin[0].scriptSig = CScript()
+            << this->nHeight
+            << ParseHex(extraNonce1 + extraNonce2);
+        vtx[0] = coinbaseTx;
+    } else {
+        std::string hexData = stratum_coinbase1 + extraNonce1 + extraNonce2 + stratum_coinbase2;
+        CTransaction coinbaseTx;
+        DecodeHexTx(coinbaseTx, hexData);
+
+        vtx[0] = coinbaseTx;
+        vtx[0].UpdateHash();
+    }
+
+    hashMerkleRoot = BlockMerkleRoot(*this);
 }
 
 } //! namespace energi

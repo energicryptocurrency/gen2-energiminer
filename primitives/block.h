@@ -107,6 +107,8 @@ struct Block : public BlockHeader
     CTxOut txoutBackbone; // Energibackbone payment
     CTxOut txoutMasternode; // masternode payment
     std::vector<CTxOut> voutSuperblock; //superblock payment
+    std::string stratum_coinbase1;
+    std::string stratum_coinbase2;
 
     Block()
         : BlockHeader()
@@ -126,9 +128,9 @@ struct Block : public BlockHeader
         nNonce = 0;
         nHeight = jPrm.get((Json::Value::ArrayIndex)9, "").asUInt();
 
-        std::string coinbase1 = jPrm.get((Json::Value::ArrayIndex)2, "").asString();
-        std::string coinbase2 = jPrm.get((Json::Value::ArrayIndex)3, "").asString();
-        std::string hexData = coinbase1 + extraNonce +/* + "00000000" +*/ coinbase2;
+        stratum_coinbase1 = jPrm.get((Json::Value::ArrayIndex)2, "").asString();
+        stratum_coinbase2 = jPrm.get((Json::Value::ArrayIndex)3, "").asString();
+        std::string hexData = stratum_coinbase1 + extraNonce + extraNonce + stratum_coinbase2;
         CTransaction coinbaseTx;
         DecodeHexTx(coinbaseTx, hexData);
 

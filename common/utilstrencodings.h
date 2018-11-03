@@ -102,6 +102,12 @@ inline std::string HexStr(const T& vch, bool fSpaces=false)
     return HexStr(vch.begin(), vch.end(), fSpaces);
 }
 
+template<typename T>
+inline std::string HexStr(const T* vch, size_t size, bool fSpaces=false)
+{
+    return HexStr(vch, vch+size, fSpaces);
+}
+
 /**
  * Format a paragraph of text to a fixed width, adding spaces for
  * indentation to any added line.

@@ -220,7 +220,7 @@ void Miner::setWork(const Work& work)
     {
         std::lock_guard<std::mutex> lock(x_work);
         m_work = work;
-        m_work.incrementExtraNonce();
+        m_work.updateExtraNonce();
         m_newWorkAssigned = true;
         if (g_logVerbosity >= 6)
             workSwitchStart = std::chrono::steady_clock::now();

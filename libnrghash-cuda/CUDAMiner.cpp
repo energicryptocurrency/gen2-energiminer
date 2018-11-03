@@ -491,13 +491,13 @@ void CUDAMiner::search(
                     work.nNonce = nonce_base + buffer->result[i].gid;
                     if (s_noeval) {
                         cudalog << name() << " Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << " nonce: " << work.nNonce;
-                        m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
+                        m_plant.submitProof(Solution(work));
                         break;
                     } else {
                         auto const powHash = GetPOWHash(work);
                         if (UintToArith256(powHash) <= work.hashTarget) {
                             cudalog << name() << " Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << " nonce: " << work.nNonce;
-                            m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
+                            m_plant.submitProof(Solution(work));
                             break;
                         } else {
                             cwarn << name() << " CUDA Miner proposed invalid solution: " << work.GetHash().ToString() << " nonce: " << work.nNonce;

@@ -53,7 +53,7 @@ public:
      * @brief create the singleton object if it is not exist and returns this object
      *  \ if it is exist returns it.
      **/
-    static ExtraNonceSingleton* getInstance();
+    static ExtraNonceSingleton& getInstance();
 
     /**
      * @brief removes the singleton object

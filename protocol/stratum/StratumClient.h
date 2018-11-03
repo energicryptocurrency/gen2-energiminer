@@ -110,8 +110,7 @@ private:
 
     arith_uint256 m_nextWorkTarget;
 
-    std::string m_extraNonce;
-    int m_extraNonceHexSize = 0;
+    std::string m_extraNonce1;
 
     bool m_submit_hashrate;
     std::string m_submit_hashrate_id;

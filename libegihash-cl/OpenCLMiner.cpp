@@ -474,7 +474,7 @@ void OpenCLMiner::trun()
                 auto const powHash = GetPOWHash(m_current);
                 if (UintToArith256(powHash) <= m_current.hashTarget) {
                     cllog << name() << " Submitting block blockhash: " << m_current.GetHash().ToString() << " height: " << m_current.nHeight << " nonce: " << nonce;
-                    Solution solution(m_current, m_current.getSecondaryExtraNonce());
+                    Solution solution(m_current);
                     m_plant.submitProof(solution);
                 } else {
                     cwarn << name() << " CL Miner proposed invalid solution: " << m_current.GetHash().ToString() << " nonce: " << nonce;
