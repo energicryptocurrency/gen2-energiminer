@@ -8,29 +8,15 @@
 
 #define BOOST_ASIO_ENABLE_CANCELIO
 
-namespace {
+static const auto DIFF1_TARGET = arith_uint256("0x00000fffff000000000000000000000000000000000000000000000000000000");
+static constexpr auto DIFF_MULT = 10e4;
 
-void diffToTarget(uint32_t *target, double diff)
+static void diffToTarget(arith_uint256 &target, double diff)
 {
-    uint32_t target2[8];
-    uint64_t m;
-    int k;
-
-    for (k = 6; k > 0 && diff > 1.0; k--)
-        diff /= 4294967296.0;
-    m = (uint64_t)(4294901760.0 / diff);
-    if (m == 0 && k == 6)
-        memset(target2, 0xff, 32);
-    else {
-        memset(target2, 0, 32);
-        target2[k] = (uint32_t)m;
-        target2[k + 1] = (uint32_t)(m >> 32);
-    }
-
-    for (int i = 0; i < 32; i++)
-        ((uint8_t*)target)[i] = ((uint8_t*)target2)[i];
-}
-
+    target = DIFF1_TARGET;
+    uint64_t mdiff = diff * DIFF_MULT;
+    target /= mdiff;
+    target *= DIFF_MULT;
 }
 
 using boost::asio::ip::tcp;
@@ -49,6 +35,7 @@ StratumClient::StratumClient(boost::asio::io_service & io_service,
     , m_response_plea_times(64)
     , m_resolver(io_service)
     , m_endpoints()
+    , m_nextWorkTarget(DIFF1_TARGET)
     , m_submit_hashrate(submitHashrate)
 {
     // Initialize workloop_timer to infinite wait
@@ -159,7 +146,7 @@ void StratumClient::connect()
      * If pool does not set difficulty before first job, then miner can assume difficulty 1 was being set."
      * Those above statement imply we MAY NOT receive difficulty thus at each new connection restart from 1
      */
-    m_nextWorkTarget = arith_uint256("0xffff000000000000000000000000000000000000000000000000000000000000");
+    m_nextWorkTarget = DIFF1_TARGET;
     m_extraNonce = "";
     m_extraNonceHexSize = 0;
 
@@ -927,8 +914,8 @@ void StratumClient::processResponse(Json::Value& responseObject)
             jPrm = responseObject.get("params", Json::Value::null);
             if (jPrm.isArray()) {
                 double nextWorkDifficulty = std::max(jPrm.get((Json::Value::ArrayIndex)0, 1).asDouble(), 0.0001);
-                cnote << "Difficulty set to: "  << nextWorkDifficulty;
-                diffToTarget((uint32_t*)m_nextWorkTarget.data(), nextWorkDifficulty);
+                diffToTarget(m_nextWorkTarget, nextWorkDifficulty);
+                cnote << "Difficulty set to: "  << nextWorkDifficulty << " = " << m_nextWorkTarget.GetHex();
                 m_current.reset();
             }
         } else if (_method == "mining.set_extranonce") {

@@ -108,7 +108,7 @@ private:
     boost::asio::ip::tcp::resolver m_resolver;
     std::queue<boost::asio::ip::basic_endpoint<boost::asio::ip::tcp>> m_endpoints;
 
-    arith_uint256 m_nextWorkTarget = arith_uint256("0xffff000000000000000000000000000000000000000000000000000000000000");
+    arith_uint256 m_nextWorkTarget;
 
     std::string m_extraNonce;
     int m_extraNonceHexSize = 0;

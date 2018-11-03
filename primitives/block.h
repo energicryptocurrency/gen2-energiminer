@@ -190,7 +190,7 @@ struct Block : public BlockHeader
                 auto data = ParseHex(scriptStr);
                 CScript transScript(data.begin(), data.end());
                 masternodeAmount = mast["amount"].asUInt64();
-                txoutMasternode = CTxOut(mast["amount"].asUInt64(), transScript);
+                txoutMasternode = CTxOut(masternodeAmount, transScript);
 
                 //txoutMasternode = outTransaction(gbt["masternode"]);
                 coinbaseTransaction.vout.push_back(txoutMasternode);
