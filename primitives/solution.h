@@ -74,12 +74,8 @@ public:
 
     void reset()
     {
-        m_extraNonce2 = 0;
         m_work.reset();
     }
-
-public:
-    unsigned m_extraNonce2;
 
 private:
     Work m_work;

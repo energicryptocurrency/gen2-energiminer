@@ -26,7 +26,7 @@ uint32_t ExtraNonceSingleton::getExtraNonce() const
 
 std::string ExtraNonceSingleton::toString() const
 {
-    return HexStr(&m_extraNonce, sizeof(m_extraNonce));
+    return HexStrMemory(m_extraNonce);
 }
 
 std::string ExtraNonceSingleton::genAndSendExtraNonce()

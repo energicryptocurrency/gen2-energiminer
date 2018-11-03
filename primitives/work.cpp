@@ -44,10 +44,9 @@ void Work::updateTimestamp()
 
 std::string Work::getBlockTransaction() const
 {
-    std::stringstream ss;
-    //! TODO check and provid correct nType and nVersion for this operation
-    vtx[0].Serialize(ss, (1 << 0), 70208);
-    return strToHex(ss.str());
+    CDataStream stream(SER_NETWORK, 70208);
+    stream << vtx[0];
+    return HexStr(stream);
 }
 
 void Work::mutateCoinbase(const std::string &extraNonce1, const std::string &extraNonce2) {

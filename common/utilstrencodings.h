@@ -103,9 +103,10 @@ inline std::string HexStr(const T& vch, bool fSpaces=false)
 }
 
 template<typename T>
-inline std::string HexStr(const T* vch, size_t size, bool fSpaces=false)
+inline std::string HexStrMemory(const T &vch, bool fSpaces=false)
 {
-    return HexStr(vch, vch+size, fSpaces);
+    auto buf = reinterpret_cast<const uint8_t*>(&vch);
+    return HexStr(buf, buf+sizeof(T), fSpaces);
 }
 
 /**

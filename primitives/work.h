@@ -49,6 +49,8 @@ struct Work : public Block
     {
         return (hashPrevBlock == other.hashPrevBlock) &&
                (nHeight == other.nHeight) &&
+               // Do not enable due to restart on curtime update
+               //(nTime == other.nTime) &&
                (m_extraNonce1 == other.m_extraNonce1) &&
                (hashTarget == other.hashTarget);
     }
@@ -97,7 +99,7 @@ struct Work : public Block
 
     inline std::string getExtraNonce2() const
     {
-        return HexStr(&m_extraNonce2, sizeof(m_extraNonce2));
+        return HexStrMemory(m_extraNonce2);
     }
 
 

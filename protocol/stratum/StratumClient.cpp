@@ -977,9 +977,11 @@ void StratumClient::submitSolution(const Solution& solution)
     jReq["params"].append(solution.getNonce());
     jReq["params"].append(solution.getHashMix().GetHex());
     jReq["params"].append(solution.getBlockTransaction());
+    jReq["params"].append(solution.getWork().getMerkleRoot().GetHex());
     if (m_worker.length()) {
         jReq["worker"] = m_worker;
     }
+    
     enqueue_response_plea();
     sendSocketData(jReq);
 }
