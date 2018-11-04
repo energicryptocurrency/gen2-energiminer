@@ -88,9 +88,6 @@ public:
 	// default number of CUDA streams
 	static unsigned const c_defaultNumStreams;
 
-protected:
-	void onSetWork() override;
-
 private:
     std::atomic<bool> m_new_work = {false};
 

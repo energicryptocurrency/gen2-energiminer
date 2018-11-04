@@ -410,29 +410,30 @@ void OpenCLMiner::trun()
                 std::this_thread::sleep_for(std::chrono::seconds(3));
                 continue;
             }
-            const Work& work = this->getWork(); // This work is a copy of last assigned work the worker was provided by plant
-            if ( !work.isValid() ) {
-                cnote << "No work received. Pause for 1 s.";
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-                if ( this->shouldStop() ) {
-                    break;
+
+            if (haveNewWork()) {
+                m_current = getWork();
+                
+                if ( !m_current.isValid() ) {
+                    continue;
                 }
-                continue;
-            } else {
-                //cllog << name() << "Valid work.";
-            }
-            if (m_current != work) {
-                if (!m_dagLoaded || ((work.nHeight / nrghash::constants::EPOCH_LENGTH) != (m_lastHeight / nrghash::constants::EPOCH_LENGTH))) {
+
+                auto height = m_current.nHeight;
+                auto new_epoch = height / nrghash::constants::EPOCH_LENGTH;
+                auto last_epoch = m_lastHeight / nrghash::constants::EPOCH_LENGTH;
+
+                if (!m_dagLoaded || (new_epoch != last_epoch)) {
                     if (s_dagLoadMode == DAG_LOAD_MODE_SEQUENTIAL) {
                         while (s_dagLoadIndex < m_index)
                             std::this_thread::sleep_for(std::chrono::seconds(1));
                         ++s_dagLoadIndex;
                     }
-                    init_dag(work.nHeight);
+                    init_dag(height);
                     m_dagLoaded = true;
                 }
-                m_lastHeight = work.nHeight;
-                m_current = work;
+
+                m_lastHeight = height;
+
                 energi::CBlockHeaderTruncatedLE truncatedBlockHeader(m_current);
                 nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
@@ -448,6 +449,11 @@ void OpenCLMiner::trun()
                 m_searchKernel.setArg(4, target);
 
                 startNonce = m_plant.getStartNonce(m_current, m_index);
+            }
+
+            if ( !m_current.isValid() ) {
+                waitMoreWork();
+                continue;
             }
 
             // Run the kernel.
@@ -474,8 +480,7 @@ void OpenCLMiner::trun()
                 auto const powHash = GetPOWHash(m_current);
                 if (UintToArith256(powHash) <= m_current.hashTarget) {
                     cllog << name() << " Submitting block blockhash: " << m_current.GetHash().ToString() << " height: " << m_current.nHeight << " nonce: " << nonce;
-                    Solution solution(m_current);
-                    m_plant.submitProof(solution);
+                    m_plant.submitProof(m_current);
                 } else {
                     cwarn << name() << " CL Miner proposed invalid solution: " << m_current.GetHash().ToString() << " nonce: " << nonce;
                 }

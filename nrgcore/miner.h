@@ -15,6 +15,7 @@
 #include <string>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 
 #include <tuple>
 #include <memory>
@@ -99,15 +100,22 @@ public:
     static std::unique_ptr<nrghash::dag_t> const & ActiveDAG(std::unique_ptr<nrghash::dag_t> next_dag  = std::unique_ptr<nrghash::dag_t>());
 
 protected:
-	/**
-	 * @brief No work left to be done. Pause until told to kickOff().
-	 */
-    virtual void onSetWork() {}
-
-    const Work& getWork() const
+    Work getWork()
     {
-        std::lock_guard<std::mutex> lock(x_work);
+        std::lock_guard<std::mutex> lock(work_mutex);
+        m_newWorkAssigned.store(false, std::memory_order_release);
         return m_work;
+    }
+
+    bool haveNewWork() {
+        return m_newWorkAssigned.load(std::memory_order_relaxed);
+    }
+
+    void waitMoreWork() {
+        std::unique_lock<std::mutex> lock(work_mutex);
+        
+        cnote << "No work received. Waiting...";
+        work_cond.wait_for(lock, std::chrono::seconds(1));
     }
 
     void updateHashRate(uint64_t _n);
@@ -119,7 +127,7 @@ protected:
     static bool s_exit;
     static bool s_noeval;
 
-    bool     m_newWorkAssigned = false;
+    std::atomic_bool     m_newWorkAssigned{false};
     bool     m_dagLoaded = false;
     uint64_t m_lastHeight;
 
@@ -129,12 +137,13 @@ protected:
 	HwMonitorInfo m_hwmoninfo;
 
 protected:
-	Work m_work;
     Work m_current;
 
 private:
+    Work m_work;
     MiningPause m_mining_paused;
-	mutable std::mutex x_work;
+	std::mutex work_mutex;
+    std::condition_variable work_cond;
 
     std::chrono::steady_clock::time_point m_hashTime = std::chrono::steady_clock::now();
     std::atomic<float> m_hashRate = {0.0};

@@ -218,21 +218,30 @@ void Miner::clear_mining_paused(MinigPauseReason pause_reason)
 void Miner::setWork(const Work& work)
 {
     {
-        std::lock_guard<std::mutex> lock(x_work);
+        std::lock_guard<std::mutex> lock(work_mutex);
+        
+        if (work == m_work) {
+            return;
+        }
+        
         m_work = work;
         m_work.updateExtraNonce();
-        m_newWorkAssigned = true;
+        m_newWorkAssigned.store(true, std::memory_order_release);
         if (g_logVerbosity >= 6)
             workSwitchStart = std::chrono::steady_clock::now();
     }
-    onSetWork();
+
+    work_cond.notify_one();
 }
 
 void Miner::resetWork()
 {
-    std::lock_guard<std::mutex> lock(x_work);
-    m_work.reset();
-    m_current.reset();
+    {
+        std::lock_guard<std::mutex> lock(work_mutex);
+        m_work.reset();
+        m_newWorkAssigned.store(true, std::memory_order_release);
+    }
+    work_cond.notify_one();
 }
 
 void Miner::updateWorkTimestamp()

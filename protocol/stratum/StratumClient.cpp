@@ -964,6 +964,13 @@ void StratumClient::submitSolution(const Solution& solution)
         return;
     }
 
+    const auto &work = solution.getWork();
+
+    if (m_current != work) {
+        // stale
+        return;
+    }
+
     Json::Value jReq;
     jReq["id"] = unsigned(4);
     jReq["method"] = "mining.submit";
@@ -977,7 +984,7 @@ void StratumClient::submitSolution(const Solution& solution)
     jReq["params"].append(solution.getNonce());
     jReq["params"].append(solution.getHashMix().GetHex());
     jReq["params"].append(solution.getBlockTransaction());
-    jReq["params"].append(solution.getWork().getMerkleRoot().GetHex());
+    jReq["params"].append(work.getMerkleRoot().GetHex());
     if (m_worker.length()) {
         jReq["worker"] = m_worker;
     }

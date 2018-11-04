@@ -7,6 +7,7 @@
 
 #include <jsonrpccpp/client.h>
 #include <string>
+#include <memory>
 #include <primitives/solution.h>
 #include "common/Log.h"
 
@@ -16,7 +17,7 @@ public:
     JsonrpcGetwork(jsonrpc::IClientConnector* conn, const std::string& coinbaseAddress)
         : m_coinbaseAddress(coinbaseAddress)
     {
-        this->m_client = new jsonrpc::Client(*conn, jsonrpc::JSONRPC_CLIENT_V1);
+        m_client.reset(new jsonrpc::Client(*conn, jsonrpc::JSONRPC_CLIENT_V1));
     }
 
     Json::Value getBlockTemplate() throw (jsonrpc::JsonRpcException)
@@ -62,15 +63,9 @@ public:
         return resultStr == "null";
     }
 
-    ~JsonrpcGetwork()
-    {
-        delete m_client;
-        m_client = nullptr;
-    }
-
 private:
     std::string m_coinbaseAddress;
-	jsonrpc::Client* m_client;
+	std::unique_ptr<jsonrpc::Client> m_client;
 };
 
 #endif //JSONRPC_CPP_STUB_GETWORK_H_

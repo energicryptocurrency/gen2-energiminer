@@ -13,14 +13,12 @@ GetworkClient::GetworkClient(unsigned const & farmRecheckPeriod, const std::stri
     , m_coinbase(coinbase)
 {
 	m_farmRecheckPeriod = farmRecheckPeriod;
-    m_subscribed.store(true, std::memory_order_relaxed);
-    m_authorized.store(true, std::memory_order_relaxed);
+    m_subscribed.store(true, std::memory_order_release);
+    m_authorized.store(true, std::memory_order_release);
 }
 
 GetworkClient::~GetworkClient()
-{
-	p_client = nullptr;
-}
+{}
 
 void GetworkClient::connect()
 {
@@ -28,9 +26,10 @@ void GetworkClient::connect()
     std::string uri = "http://" + m_conn->User() + ":" + m_conn->Pass() + "@" + m_conn->Host() + ":" + std::to_string(m_conn->Port());
     if (m_conn->Path().length())
         uri += m_conn->Path();
-    p_client = new ::JsonrpcGetwork(new jsonrpc::HttpClient(uri), m_coinbase);
 
-    m_connected.store(true, std::memory_order_relaxed);
+    m_client.reset(new ::JsonrpcGetwork(new jsonrpc::HttpClient(uri), m_coinbase));
+
+    m_connected.store(true, std::memory_order_release);
     // Since we do not have a real connected state with getwork, we just fake it
     if (m_onConnected) {
         m_onConnected();
@@ -43,31 +42,39 @@ void GetworkClient::connect()
 void GetworkClient::disconnect()
 {
     std::lock_guard<std::mutex> lock(s_mutex);
-    m_connected.store(false, std::memory_order_relaxed);
+    m_connected.store(false, std::memory_order_release);
 
 	// Since we do not have a real connected state with getwork, we just fake it.
 	if (m_onDisconnected) {
 		m_onDisconnected();
 	}
-    delete p_client;
-    p_client = nullptr;
+
+	m_client.reset();
 }
 
 void GetworkClient::submitHashrate(const std::string& rate)
 {
-    std::lock_guard<std::mutex> lock(s_mutex);
+    //std::lock_guard<std::mutex> lock(s_mutex);
 	// Store the rate in temp var. Will be handled in workLoop
-	m_currentHashrateToSubmit = rate;
+	//m_currentHashrateToSubmit = rate;
 }
 
-void GetworkClient::submit()
+void GetworkClient::submitSolution(const Solution& solution)
 {
+    if (m_onResetWork) {
+        m_onResetWork();
+    }
+
     std::lock_guard<std::mutex> lock(s_mutex);
+
+    if (!m_prevWork.isValid()) {
+        return;
+    }
+
     if (m_connected.load(std::memory_order_relaxed)) {
         try {
-            m_prevWork.reset();
             std::chrono::steady_clock::time_point submit_start = std::chrono::steady_clock::now();
-            bool accepted = p_client->submitWork(m_solutionToSubmit);
+            bool accepted = m_client->submitWork(solution);
             std::chrono::milliseconds response_delay_ms =
                 std::chrono::duration_cast<std::chrono::milliseconds>(
                         std::chrono::steady_clock::now() - submit_start);
@@ -85,14 +92,10 @@ void GetworkClient::submit()
             cwarn << boost::diagnostic_information(ex);
         }
     }
-    m_solutionToSubmit.reset();
+
+    m_prevWork.reset();
 }
 
-void GetworkClient::submitSolution(const Solution& solution)
-{
-    std::lock_guard<std::mutex> lock(s_mutex);
-    m_solutionToSubmit = solution;
-}
 
 // Handles all getwork communication.
 void GetworkClient::trun()
@@ -101,13 +104,15 @@ void GetworkClient::trun()
         if (m_connected.load(std::memory_order_relaxed)) {
             // Get Work
             try {
-                if (m_solutionToSubmit.getWork().getNonce() > 0) {
-                    submit();
-                }
-                energi::Work newWork = p_client->getWork();
+                auto newWork = m_client->getWork();
+                
+                std::atomic_thread_fence(std::memory_order_acquire);
+
                 // Check if header changes so the new workpackage is really new
                 if (newWork != m_prevWork) {
+                    std::lock_guard<std::mutex> lock(s_mutex);
                     m_prevWork = newWork;
+                    
                     if (m_onWorkReceived) {
                         cnote << "Difficulty set to: " << newWork.hashTarget.GetHex();
                         m_onWorkReceived(m_prevWork);
@@ -118,14 +123,12 @@ void GetworkClient::trun()
                 if (m_onResetWork) {
                     m_onResetWork();
                 }
-                disconnect();
             }
             //TODO submit hashrate part
         }
         // Sleep
         std::this_thread::sleep_for(std::chrono::milliseconds(m_farmRecheckPeriod));
     }
-    if (m_onDisconnected) {
-        m_onDisconnected();
-    }
+
+    disconnect();
 }

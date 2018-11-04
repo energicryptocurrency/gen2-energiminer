@@ -46,7 +46,7 @@ void CpuMiner::trun()
 
             work.nNonce = startNonce;
             uint64_t lastNonce = startNonce;
-            m_newWorkAssigned = false;
+
             // we dont use mixHash part to calculate hash but fill it later (below)
             do {
                 auto hash = GetPOWHash(work);
@@ -65,7 +65,7 @@ void CpuMiner::trun()
                     updateHashRate(work.nNonce - lastNonce);
                     lastNonce = work.nNonce;
                 }
-            } while (!m_newWorkAssigned && !this->shouldStop());
+            } while (!haveNewWork() && !this->shouldStop());
             updateHashRate(work.nNonce - lastNonce);
         }
     } catch(WorkException &ex) {

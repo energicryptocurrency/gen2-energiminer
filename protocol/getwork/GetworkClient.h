@@ -2,6 +2,7 @@
 
 #include <jsonrpccpp/client/connectors/httpclient.h>
 #include <iostream>
+#include <memory>
 #include <primitives/worker.h>
 #include "jsonrpc_getwork.h"
 #include "../PoolClient.h"
@@ -23,17 +24,16 @@ public:
 	void submitHashrate(const std::string& rate) override;
 	void submitSolution(const energi::Solution& solution) override;
 
-    void submit();
-
 private:
 	void trun() override;
 	unsigned m_farmRecheckPeriod = 500;
 
 private:
-    energi::Solution m_solutionToSubmit;
     std::string m_coinbase;
-    std::string m_currentHashrateToSubmit = "";
-    JsonrpcGetwork *p_client = nullptr;
+    //std::string m_currentHashrateToSubmit = "";
+
+    std::unique_ptr<JsonrpcGetwork> m_client;
+
     energi::Work m_prevWork;
     static std::mutex s_mutex;
 };
