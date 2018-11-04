@@ -662,20 +662,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
 
                 switch (m_conn->StratumMode()) {
                     case StratumClient::ENERGISTRATUM:
-                        // In case of success we also need to verify third parameter of "result" array
-                        // member is exactly "ereumStratum/1.0.0". Otherwise try with another mode
-                        if (jResult.isArray() && jResult[0].isArray() && jResult[0].size() == 3 &&
-                                jResult[0].get((Json::Value::ArrayIndex)2, "").asString() == "EnergiStratum/2.0.0") {
-                                // ENERGISTRATUM is confirmed
-                                cnote << "Stratum mode detected : ENERGISTRATUM";
-                                m_conn->SetStratumMode(2, true);
-                            } else {
-                                // Disconnect and Proceed with next step of autodetection NRGPROXY
-                                // compatible
-                                m_io_service.post(
-                                        m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
-                                return;
-                            }
+                        m_conn->SetStratumMode(2, true);
                         break;
                     case StratumClient::NRGPROXY:
                         m_conn->SetStratumMode(1, true);
