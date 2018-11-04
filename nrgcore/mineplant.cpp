@@ -122,6 +122,7 @@ bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
         for ( unsigned i = 0; i < count; ++i ) {
             m_miners.push_back(createMiner(minerEngine, i, *this));
             m_miners.back()->startWorking();
+            m_miners.back()->setWork(m_work);
         }
     }
     m_isMining.store(true, std::memory_order_relaxed);
