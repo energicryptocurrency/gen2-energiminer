@@ -234,7 +234,8 @@ unsigned OpenCLMiner::s_workgroupSize = OpenCLMiner::c_defaultLocalWorkSize;
 unsigned OpenCLMiner::s_initialGlobalWorkSize = OpenCLMiner::c_defaultGlobalWorkSizeMultiplier * OpenCLMiner::c_defaultLocalWorkSize;
 unsigned OpenCLMiner::s_threadsPerHash = 8;
 bool OpenCLMiner::s_adjustWorkSize = false;
-constexpr size_t c_maxSearchResults = 1;
+constexpr size_t c_maxSearchResults = 7;
+constexpr size_t c_maxSearchResultsSize = c_maxSearchResults + 1;
 
 unsigned OpenCLMiner::s_platformId = 0;
 unsigned OpenCLMiner::s_numInstances = 0;
@@ -441,6 +442,8 @@ void OpenCLMiner::trun()
                 const uint64_t target = *reinterpret_cast<uint64_t const *>((m_current.hashTarget >> 192).data());
                 assert(target > 0);
 
+                m_queue.finish();
+
                 // Update header constant buffer.
                 m_queue.enqueueWriteBuffer(m_header, CL_FALSE, 0, hash_header.hash_size, &hash_header.b[0]);
                 m_queue.enqueueWriteBuffer(m_searchBuffer, CL_FALSE, 0, sizeof(c_zero), &c_zero);
@@ -449,6 +452,10 @@ void OpenCLMiner::trun()
                 m_searchKernel.setArg(4, target);
 
                 startNonce = m_plant.getStartNonce(m_current, m_index);
+
+                // Run the kernel.
+                m_searchKernel.setArg(3, startNonce);
+                m_queue.enqueueNDRangeKernel(m_searchKernel, cl::NullRange, globalWorkSize_, workgroupSize_);
             }
 
             if ( !m_current.isValid() ) {
@@ -456,35 +463,12 @@ void OpenCLMiner::trun()
                 continue;
             }
 
-            // Run the kernel.
-            m_searchKernel.setArg(3, startNonce);
-            m_queue.enqueueNDRangeKernel(m_searchKernel, cl::NullRange, globalWorkSize_, workgroupSize_);
-
-            // Read results.
+            // Read previous results.
             // TODO: could use pinned host pointer instead.
-            uint32_t results[c_maxSearchResults + 1] = { 0 };
+            uint32_t results[c_maxSearchResultsSize] = { 0 };
+            auto current_start_nonce = startNonce;
             m_queue.enqueueReadBuffer(m_searchBuffer, CL_TRUE, 0, sizeof(results), &results);
 
-            uint64_t nonce = 0;
-            if (results[0] > 0) {
-                // Ignore results except the first one.
-                nonce = startNonce + results[1];
-                // Reset search buffer if any solution found.
-                m_queue.enqueueWriteBuffer(m_searchBuffer, CL_TRUE, 0, sizeof(c_zero), &c_zero);
-            }
-
-            // Report results while the kernel is running.
-            // It takes some time because proof of work must be re-evaluated on CPU.
-            if (nonce != 0) {
-                m_current.nNonce = nonce;
-                auto const powHash = GetPOWHash(m_current);
-                if (UintToArith256(powHash) <= m_current.hashTarget) {
-                    cllog << name() << " Submitting block blockhash: " << m_current.GetHash().ToString() << " height: " << m_current.nHeight << " nonce: " << nonce;
-                    m_plant.submitProof(m_current);
-                } else {
-                    cwarn << name() << " CL Miner proposed invalid solution: " << m_current.GetHash().ToString() << " nonce: " << nonce;
-                }
-            }
             // Increase start nonce for following kernel execution.
             startNonce += globalWorkSize_;
             m_hashCount += globalWorkSize_;
@@ -493,9 +477,39 @@ void OpenCLMiner::trun()
                 m_hashCount = 0;
             }
 
-            // Make sure the last buffer write has finished --
-            // it reads local variable.
-            m_queue.finish();
+            // Run the kernel.
+            m_searchKernel.setArg(3, startNonce);
+            m_queue.enqueueNDRangeKernel(m_searchKernel, cl::NullRange, globalWorkSize_, workgroupSize_);
+
+
+            if (results[0] > 0) {
+                // Reset search buffer if any solution found.
+                m_queue.enqueueWriteBuffer(m_searchBuffer, CL_FALSE, 0, sizeof(c_zero), &c_zero);
+                auto index_max = std::min(size_t(results[0]+1), c_maxSearchResultsSize);
+                
+                for (auto i = 1U; (i < index_max) && !haveNewWork(); ++i) {
+                    uint64_t nonce = current_start_nonce + results[i];
+
+                    // Report results while the kernel is running.
+                    // It takes some time because proof of work must be re-evaluated on CPU.
+                    if (nonce != 0) {
+                        m_current.nNonce = nonce;
+                        auto const powHash = GetPOWHash(m_current);
+
+                        if (UintToArith256(powHash) <= m_current.hashTarget) {
+                            cllog << name() << " Submitting block blockhash: " << m_current.GetHash().ToString() << " height: " << m_current.nHeight << " nonce: " << nonce;
+                            m_plant.submitProof(m_current);
+                        } else {
+                            cwarn << name() << " CL Miner proposed invalid solution: " << m_current.GetHash().ToString() << " nonce: " << nonce;
+                        }
+                    }
+                }
+                
+                if (results[0] > c_maxSearchResults) {
+                    cwarn << name()
+                        << " OpenCL result limit hit - report to developers!";
+                }
+            }
         }
         m_queue.finish();
     } catch (cl::Error const& _e) {
