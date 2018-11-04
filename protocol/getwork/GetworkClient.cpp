@@ -109,6 +109,7 @@ void GetworkClient::trun()
                 if (newWork != m_prevWork) {
                     m_prevWork = newWork;
                     if (m_onWorkReceived) {
+                        cnote << "Difficulty set to: " << newWork.hashTarget.GetHex();
                         m_onWorkReceived(m_prevWork);
                     }
                 }
