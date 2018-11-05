@@ -8,7 +8,7 @@
 
 #define BOOST_ASIO_ENABLE_CANCELIO
 
-static const auto DIFF1_TARGET = arith_uint256("0x00000fffff000000000000000000000000000000000000000000000000000000");
+static const auto DIFF1_TARGET = arith_uint256("0x00000000ffff0000000000000000000000000000000000000000000000000000");
 static constexpr auto DIFF_MULT = 10e4;
 
 static void diffToTarget(arith_uint256 &target, double diff)
