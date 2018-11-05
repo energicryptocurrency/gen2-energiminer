@@ -952,6 +952,16 @@ void StratumClient::submitSolution(const Solution& solution)
         return;
     }
 
+    if (m_response_pleas_count.load(std::memory_order_relaxed) > PARALLEL_REQUEST_LIMIT) {
+        cwarn << "Reject reason: throttling submitted requests";
+
+        if (m_onSolutionRejected) {
+            m_onSolutionRejected(true, std::chrono::milliseconds(0));
+        }
+
+        return;
+    }
+
     Json::Value jReq;
     jReq["id"] = unsigned(4);
     jReq["method"] = "mining.submit";

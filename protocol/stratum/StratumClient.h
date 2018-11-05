@@ -17,6 +17,7 @@ using namespace energi;
 class StratumClient : public PoolClient
 {
 public:
+	static constexpr auto PARALLEL_REQUEST_LIMIT = 10;
 
 	typedef enum { STRATUM = 0, NRGPROXY, ENERGISTRATUM } StratumProtocol;
 
