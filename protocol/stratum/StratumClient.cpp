@@ -742,12 +742,6 @@ void StratumClient::processResponse(Json::Value& responseObject)
                         std::string enonce = jResult.get((Json::Value::ArrayIndex)1, "").asString();
                         processExtranonce(enonce);
                     }
-                    // Notify we're ready for extra nonce subscribtion on the fly
-                    // reply to this message should not perform any logic
-                    jReq["id"] = unsigned(2);
-                    jReq["method"] = "mining.extranonce.subscribe";
-                    jReq["params"] = Json::Value(Json::arrayValue);
-                    sendSocketData(jReq);
                     // Eventually request authorization
                     jReq["id"] = unsigned(3);
                     jReq["method"] = "mining.authorize";
