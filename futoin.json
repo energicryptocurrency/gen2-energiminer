@@ -8,6 +8,7 @@
     "clean" : "cte git clean -ffdx -e .vagrant/ . || true",
     "prepare" : [
         "which apt >/dev/null && sudo -n apt install nvidia-cuda-dev nvidia-cuda-toolkit || true"
-    ]
+    ],
+    "package" : "cte make -C build package"
   }
 }
