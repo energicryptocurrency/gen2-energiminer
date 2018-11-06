@@ -54,7 +54,7 @@ cable_set_build_type(DEFAULT Release CONFIGURATION_TYPES Release RelWithDebInfo)
 ######################################################################################################
 
 option(HASHCL "Build with OpenCL mining" ON)
-option(HASHCUDA "Build with CUDA mining" OFF)
+option(HASHCUDA "Build with CUDA mining" ON)
 
 # propagates CMake configuration options to the compiler
 function(configureProject)
