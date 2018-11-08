@@ -37,7 +37,7 @@ endif()
 
 
 project(energiminer
-        VERSION "2.0.0" # AUTO-REPLACE
+        VERSION "2.0.99" # AUTO-REPLACE
         )
 
 # link_directories interprate relative paths with respect to CMAKE_CURRENT_SOURCE_DIR
