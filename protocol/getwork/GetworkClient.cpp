@@ -104,13 +104,13 @@ void GetworkClient::trun()
         if (m_connected.load(std::memory_order_relaxed)) {
             // Get Work
             try {
+                std::lock_guard<std::mutex> lock(s_mutex);
                 auto newWork = m_client->getWork();
                 
                 std::atomic_thread_fence(std::memory_order_acquire);
 
                 // Check if header changes so the new workpackage is really new
                 if (newWork != m_prevWork) {
-                    std::lock_guard<std::mutex> lock(s_mutex);
                     m_prevWork = newWork;
                     
                     if (m_onWorkReceived) {
@@ -118,8 +118,8 @@ void GetworkClient::trun()
                         m_onWorkReceived(m_prevWork);
                     }
                 }
-            } catch (jsonrpc::JsonRpcException) {
-                cwarn << "Failed getting work!";
+            } catch (jsonrpc::JsonRpcException &e) {
+                cwarn << "Failed getting work! " << e.what();
                 if (m_onResetWork) {
                     m_onResetWork();
                 }
