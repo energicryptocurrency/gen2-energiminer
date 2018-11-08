@@ -50,6 +50,9 @@ cmake_policy(SET CMP0020 NEW)
 # 3.1 and above
 cmake_policy(SET CMP0054 NEW)
 
+# 3.12+ compatibility
+cmake_policy(SET CMP0074 OLD)
+
 cable_set_build_type(DEFAULT Release CONFIGURATION_TYPES Release RelWithDebInfo)
 ######################################################################################################
 
