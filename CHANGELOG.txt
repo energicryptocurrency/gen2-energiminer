@@ -1,0 +1,20 @@
+
+=== (next) ===
+
+Major changes:
+
+* NEW: official support for Energi Stratum protocol.
+* NEW: overall new work/submit processing efficiency.
+* FIXED: to randomize nonce value to support multiple
+  instances with same coinbase address.
+* FIXED: miner not starting work sometimes (race condition).
+* CHANGED: rewritten getwork protocol support (solo mining):
+  - Fast found block submit,
+  - Fast new work polling on lack of work (after submit).
+
+Minor changes:
+
+* CHANGED: synced CUDA logic with latest ethminer.
+* NEW: difficulty level log for solo mining.
+* NEW: CUDA 10 support on demand.
+
