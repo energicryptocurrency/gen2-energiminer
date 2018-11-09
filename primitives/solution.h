@@ -23,9 +23,8 @@ public:
     Solution()
     {}
 
-    Solution(Work work, unsigned extraNonce)
-        : m_extraNonce(extraNonce)
-        , m_work(work)
+    Solution(const Work &work) :
+        m_work(work)
     {}
 
     std::string getSubmitBlockData() const;
@@ -44,12 +43,9 @@ public:
         return stream.str();
     }
 
-    inline std::string getExtraNonce() const
+    inline std::string getExtraNonce2() const
     {
-        std::stringstream stream;
-        stream << std::setfill ('0') << std::setw(sizeof(m_extraNonce)*2)
-               << std::hex << m_extraNonce;
-        return stream.str();
+        return m_work.getExtraNonce2();
     }
 
     const Work& getWork() const
@@ -57,9 +53,13 @@ public:
         return m_work;
     }
 
-    uint64_t getNonce() const
+    inline std::string getNonce() const
     {
-        return m_work.getNonce();
+        uint64_t nonce = m_work.getNonce();
+        std::stringstream stream;
+        stream << std::setfill ('0') << std::setw(sizeof(nonce)*2)
+               << std::hex << nonce;
+        return stream.str();
     }
 
     const uint256& getHashMix() const
@@ -74,12 +74,8 @@ public:
 
     void reset()
     {
-        m_extraNonce = 0;
         m_work.reset();
     }
-
-public:
-    unsigned m_extraNonce;
 
 private:
     Work m_work;

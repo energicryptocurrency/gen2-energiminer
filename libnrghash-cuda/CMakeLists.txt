@@ -25,6 +25,14 @@ else()
 		"-gencode arch=compute_62,code=sm_62"
 		"-gencode arch=compute_70,code=sm_70"
 	)
+
+	if(NOT CUDA_VERSION VERSION_LESS 10)
+        set(
+            CUDA_NVCC_FLAGS
+            ${CUDA_NVCC_FLAGS}
+            "-gencode arch=compute_75,code=sm_75"
+        )
+	endif()
 endif()
 
 file(GLOB sources "*.cpp" "*.cu")

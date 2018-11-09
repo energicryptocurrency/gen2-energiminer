@@ -59,13 +59,12 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
     app.add_option("--work-timeout", m_worktimeout,
             "Set disconnect timeout in seconds of working on the same job", true)
         ->group(CommonGroup)
-        ->check(CLI::Range(180, 99999));
+        ->check(CLI::Range(240, 99999));
 
     app.add_option("--response-timeout", m_responsetimeout,
-            "Set disconnect timeout in seconds for responses", true)
-//            "Set disconnect timeout in seconds for pool responses", true)
+            "Set disconnect timeout in seconds for pool responses", true)
         ->group(CommonGroup)
-        ->check(CLI::Range(3, 999));
+        ->check(CLI::Range(4, 999));
 
 //    app.add_flag("-R,--report-hashrate", m_report_stratum_hashrate,
 //            "Report current hashrate to pool")
@@ -88,12 +87,10 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         ->group(CommonGroup);
     std::vector<std::string> pools;
     app.add_option("-P,--protocol,protocol", pools,
-//            "Specify one or more pool URLs. See below for URL syntax")
-            "Specify one or more protocol URLs. See below for URL syntax")
+            "Specify one or more pool URLs. See below for URL syntax")
         ->group(CommonGroup);
     app.add_option("--failover-timeout", m_failovertimeout,
-            "Set the amount of time in minutes to stay on a failover before trying to reconnect to primary. If = 0 then no switch back.", true)
-//            "Set the amount of time in minutes to stay on a failover pool before trying to reconnect to primary. If = 0 then no switch back.", true)
+            "Set the amount of time in minutes to stay on a failover pool before trying to reconnect to primary. If = 0 then no switch back.", true)
         ->group(CommonGroup)
         ->check(CLI::Range(0, 999));
 
@@ -237,13 +234,13 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         << "    where scheme can be any of : " << endl
         << "    http       for getWork mode" << endl
         << "    getwork    for getWork mode" << endl
-        //<< "    stratum    for stratum mode" << endl
-        //<< "    stratums   for secure stratum mode" << endl
-        //<< "    stratumss  for secure stratum mode with strong TLS12 verification" << endl
+        << "    stratum    for stratum mode" << endl
+        << "    stratums   for secure stratum mode" << endl
+        << "    stratumss  for secure stratum mode with strong TLS12 verification" << endl
         << endl
-        //<< "    Example 1: "
-        //<< "    stratum://EbD5YRX1Q3mG73ihRJtJpsqBmWn42sygcy@<host>:<port>"
-        //<< endl
+        << "    Example 1: "
+        << "    stratum://EbD5YRX1Q3mG73ihRJtJpsqBmWn42sygcy@<host>:<port>"
+        << endl
         //<< "    Example 2: "
         //<< "    stratum://EbD5YRX1Q3mG73ihRJtJpsqBmWn42sygcy.miner1@<host>:<port>"
         //<< endl
@@ -261,7 +258,13 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         << "color output."
         << endl
         << "    SYSLOG   - set to any value to strip time and disable color from output, "
-        << "for logging under systemd";
+        << "for logging under systemd"
+#ifndef _WIN32
+            << endl
+            << "    SSL_CERT_FILE - full path to your CA certificates file if elsewhere than "
+               "/etc/ssl/certs/ca-certificates.crt"
+#endif
+            ;
 
     app.set_footer(ssHelp.str());
 
@@ -289,7 +292,7 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
 
     if (m_minerExecutionMode != MinerExecutionMode::kCPU) {
         if (!cl_miner && !cuda_miner && !mixed_miner && !bench_opt->count() && !sim_opt->count()) {
-            cerr << endl << "One of -G, -U, -X, -M, or -Z must be specified" << "\n\n";
+            cerr << endl << "One of -G, -U must be specified" << "\n\n";
             exit(-1);
         }
     }
@@ -308,7 +311,7 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
     }
     for (auto url : pools) {
         if (url == "exit") // add fake scheme and port to 'exit' url
-            url = "stratum+tcp://-:x@exit:0";
+            url = "stratum://-:x@exit:0";
         URI uri(url);
         if (!uri.Valid()) {
             cerr << endl << "Bad endpoint address: " << url << "\n\n";

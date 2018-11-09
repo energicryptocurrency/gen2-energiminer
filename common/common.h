@@ -289,15 +289,6 @@ inline std::ostream& operator<<(std::ostream& _out, WorkingProgress _p)
     return _out;
 }
 
-inline std::string GetHex(const uint8_t* data, unsigned int size)
-{
-    std::string psz(size * 2 + 1, '\0');
-    for (unsigned int i = 0; i < size; i++)
-        sprintf(const_cast<char*>(psz.data()) + i * 2, "%02x", data[size - i - 1]);
-    return std::string(const_cast<char*>(psz.data()), const_cast<char*>(psz.data()) + size * 2);
-}
-
-
 #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
 #define WANT_BUILTIN_BSWAP
 #else

@@ -84,7 +84,7 @@ PoolManager::PoolManager(boost::asio::io_service& io_service,
         if (p_client->isConnected()) {
             p_client->submitSolution(sol);
         } else {
-            cnote << std::string(EthRed "Nonce ") + std::to_string(sol.getNonce()) << " wasted. Waiting for connection ...";
+            cnote << std::string(EthRed "Nonce ") + std::to_string(sol.getWork().getNonce()) << " wasted. Waiting for connection ...";
         }
     return false;
 	});
@@ -144,7 +144,7 @@ void PoolManager::trun()
                     // Suspend mining if applicable as we're switching
                     if (m_farm.isMining()) {
                         cnote << "Suspend mining due connection change...";
-                        m_farm.setWork({});//
+                        m_farm.resetWork();//
                     }
                 }
                 if (m_connections[m_activeConnectionIdx].Host() != "exit"  && m_connections.size() > 0) {

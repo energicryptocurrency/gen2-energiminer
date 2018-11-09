@@ -46,15 +46,15 @@ void CpuMiner::trun()
 
             work.nNonce = startNonce;
             uint64_t lastNonce = startNonce;
-            m_newWorkAssigned = false;
+
             // we dont use mixHash part to calculate hash but fill it later (below)
             do {
                 auto hash = GetPOWHash(work);
                 if (UintToArith256(hash) < work.hashTarget) {
                     updateHashRate(work.nNonce + 1 - lastNonce);
-                    Solution sol = Solution(work, work.getSecondaryExtraNonce());
+                    Solution sol = Solution(work);
                     cnote << name() << "Submitting block blockhash: " << work.GetHash().ToString() << " height: " << work.nHeight << "nonce: " << work.nNonce;
-                    m_plant.submitProof(Solution(work, work.getSecondaryExtraNonce()));
+                    m_plant.submitProof(sol);
                     ++work.nNonce;
                     break;
                 } else {
@@ -65,7 +65,7 @@ void CpuMiner::trun()
                     updateHashRate(work.nNonce - lastNonce);
                     lastNonce = work.nNonce;
                 }
-            } while (!m_newWorkAssigned && !this->shouldStop());
+            } while (!haveNewWork() && !this->shouldStop());
             updateHashRate(work.nNonce - lastNonce);
         }
     } catch(WorkException &ex) {

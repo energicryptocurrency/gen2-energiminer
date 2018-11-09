@@ -54,6 +54,10 @@ int main(int argc, char** argv)
         if (g_logSyslog || (getenv("NO_COLOR")))
             g_logNoColor = true;
 #if defined(_WIN32)
+#   ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+#       define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+#   endif
+
         if (!g_logNoColor) {
             g_logNoColor = true;
             // Set output mode to handle virtual terminal sequences

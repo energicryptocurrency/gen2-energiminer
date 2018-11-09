@@ -36,8 +36,9 @@ if(HUNTER_ENABLED)
 endif()
 
 
-project(energiminer)
-set(PROJECT_VERSION 2.0.0)
+project(energiminer
+        VERSION "2.0.992" # AUTO-REPLACE
+        )
 
 # link_directories interprate relative paths with respect to CMAKE_CURRENT_SOURCE_DIR
 cmake_policy(SET CMP0015 NEW)
@@ -49,11 +50,16 @@ cmake_policy(SET CMP0020 NEW)
 # 3.1 and above
 cmake_policy(SET CMP0054 NEW)
 
+if(POLICY CMP0074)
+    # 3.12+ compatibility
+    cmake_policy(SET CMP0074 OLD)
+endif()
+
 cable_set_build_type(DEFAULT Release CONFIGURATION_TYPES Release RelWithDebInfo)
 ######################################################################################################
 
 option(HASHCL "Build with OpenCL mining" ON)
-option(HASHCUDA "Build with CUDA mining" OFF)
+option(HASHCUDA "Build with CUDA mining" ON)
 
 # propagates CMake configuration options to the compiler
 function(configureProject)

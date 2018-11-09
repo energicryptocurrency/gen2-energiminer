@@ -18,7 +18,7 @@
 template <uint32_t _PARALLEL_HASH>
 __global__ void
 ethash_search(
-	volatile search_results* g_output,
+	volatile Search_results* g_output,
 	uint64_t start_nonce
 	)
 {
@@ -27,7 +27,7 @@ ethash_search(
         if (compute_hash<_PARALLEL_HASH>(start_nonce + gid, d_target, mix))
 		return;
 	uint32_t index = atomicInc((uint32_t *)&g_output->count, 0xffffffff);
-	if (index >= SEARCH_RESULTS)
+	if (index >= MAX_SEARCH_RESULTS)
 		return;
 	g_output->result[index].gid = gid;
 	g_output->result[index].mix[0] = mix[0].x;
@@ -40,11 +40,11 @@ ethash_search(
 	g_output->result[index].mix[7] = mix[3].y;
 }
 
-void run_ethash_search(
+__host__ void run_ethash_search(
 	uint32_t gridSize,
 	uint32_t blockSize,
 	cudaStream_t stream,
-	volatile search_results* g_output,
+	volatile Search_results* g_output,
 	uint64_t start_nonce,
 	uint32_t parallelHash
 )
@@ -108,7 +108,7 @@ ethash_calculate_dag_item(uint32_t start)
 }
 }
 
-void ethash_generate_dag(
+__host__ void ethash_generate_dag(
 	uint64_t dag_size,
 	uint32_t gridSize,
 	uint32_t blockSize,
@@ -134,7 +134,7 @@ void ethash_generate_dag(
 	CUDA_SAFE_CALL(cudaGetLastError());
 }
 
-void set_constants(
+__host__ void set_constants(
 	hash128_t* _dag,
 	uint32_t _dag_size,
 	hash64_t * _light,
@@ -147,14 +147,14 @@ void set_constants(
 	CUDA_SAFE_CALL(cudaMemcpyToSymbol(d_light_size, &_light_size, sizeof(uint32_t)));
 }
 
-void set_header(
+__host__ void set_header(
 	hash32_t _header
 	)
 {
 	CUDA_SAFE_CALL(cudaMemcpyToSymbol(d_header, &_header, sizeof(hash32_t)));
 }
 
-void set_target(
+__host__ void set_target(
 	uint64_t _target
 	)
 {

@@ -8,29 +8,15 @@
 
 #define BOOST_ASIO_ENABLE_CANCELIO
 
-namespace {
+static const auto DIFF1_TARGET = arith_uint256("0x00000000ffff0000000000000000000000000000000000000000000000000000");
+static constexpr auto DIFF_MULT = 10e4;
 
-void diffToTarget(uint32_t *target, double diff)
+static void diffToTarget(arith_uint256 &target, double diff)
 {
-    uint32_t target2[8];
-    uint64_t m;
-    int k;
-
-    for (k = 6; k > 0 && diff > 1.0; k--)
-        diff /= 4294967296.0;
-    m = (uint64_t)(4294901760.0 / diff);
-    if (m == 0 && k == 6)
-        memset(target2, 0xff, 32);
-    else {
-        memset(target2, 0, 32);
-        target2[k] = (uint32_t)m;
-        target2[k + 1] = (uint32_t)(m >> 32);
-    }
-
-    for (int i = 0; i < 32; i++)
-        ((uint8_t*)target)[i] = ((uint8_t*)target2)[i];
-}
-
+    target = DIFF1_TARGET;
+    uint64_t mdiff = diff * DIFF_MULT;
+    target /= mdiff;
+    target *= DIFF_MULT;
 }
 
 using boost::asio::ip::tcp;
@@ -49,6 +35,7 @@ StratumClient::StratumClient(boost::asio::io_service & io_service,
     , m_response_plea_times(64)
     , m_resolver(io_service)
     , m_endpoints()
+    , m_nextWorkTarget(DIFF1_TARGET)
     , m_submit_hashrate(submitHashrate)
 {
     // Initialize workloop_timer to infinite wait
@@ -159,9 +146,8 @@ void StratumClient::connect()
      * If pool does not set difficulty before first job, then miner can assume difficulty 1 was being set."
      * Those above statement imply we MAY NOT receive difficulty thus at each new connection restart from 1
      */
-    m_nextWorkTarget = arith_uint256("0xffff000000000000000000000000000000000000000000000000000000000000");
-    m_extraNonce = "";
-    m_extraNonceHexSize = 0;
+    m_nextWorkTarget = DIFF1_TARGET;
+    m_extraNonce1 = "f000000f";
 
     // Initializes socket and eventually secure stream
     if (!m_socket)
@@ -318,9 +304,6 @@ void StratumClient::start_connect()
             cnote << ("Trying " + toString(m_endpoint) + " ...");
 
         clear_response_pleas();
-//        m_conntimer.expires_from_now(boost::posix_time::seconds(m_responsetimeout));
-//        m_conntimer.async_wait(m_io_strand.wrap(boost::bind(
-//                        &StratumClient::check_connect_timeout, this, boost::asio::placeholders::error)));
 
         m_connecting.store(true, std::memory_order::memory_order_relaxed);
         enqueue_response_plea();
@@ -609,12 +592,8 @@ std::string StratumClient::processError(Json::Value& responseObject)
 
 void StratumClient::processExtranonce(std::string& enonce)
 {
-    m_extraNonceHexSize = enonce.length();
-
     cnote << "Extranonce set to: " + enonce;
-
-    enonce.append(16 - m_extraNonceHexSize, '0');
-    m_extraNonce = enonce;
+    m_extraNonce1 = enonce;
 }
 
 void StratumClient::processResponse(Json::Value& responseObject)
@@ -683,20 +662,7 @@ void StratumClient::processResponse(Json::Value& responseObject)
 
                 switch (m_conn->StratumMode()) {
                     case StratumClient::ENERGISTRATUM:
-                        // In case of success we also need to verify third parameter of "result" array
-                        // member is exactly "ereumStratum/1.0.0". Otherwise try with another mode
-                        if (jResult.isArray() && jResult[0].isArray() && jResult[0].size() == 3 &&
-                                jResult[0].get((Json::Value::ArrayIndex)2, "").asString() == "EnergiStratum/2.0.0") {
-                                // ENERGISTRATUM is confirmed
-                                cnote << "Stratum mode detected : ENERGISTRATUM";
-                                m_conn->SetStratumMode(2, true);
-                            } else {
-                                // Disconnect and Proceed with next step of autodetection NRGPROXY
-                                // compatible
-                                m_io_service.post(
-                                        m_io_strand.wrap(boost::bind(&StratumClient::disconnect, this)));
-                                return;
-                            }
+                        m_conn->SetStratumMode(2, true);
                         break;
                     case StratumClient::NRGPROXY:
                         m_conn->SetStratumMode(1, true);
@@ -741,7 +707,6 @@ void StratumClient::processResponse(Json::Value& responseObject)
                     return;
                 } else {
                     cnote << "Logged in to nrg-proxy server";
-
                     if (!jResult.empty() && jResult.isArray()) {
                         std::string enonce = jResult.get((Json::Value::ArrayIndex)1, "").asString();
                         processExtranonce(enonce);
@@ -777,12 +742,6 @@ void StratumClient::processResponse(Json::Value& responseObject)
                         std::string enonce = jResult.get((Json::Value::ArrayIndex)1, "").asString();
                         processExtranonce(enonce);
                     }
-                    // Notify we're ready for extra nonce subscribtion on the fly
-                    // reply to this message should not perform any logic
-                    jReq["id"] = unsigned(2);
-                    jReq["method"] = "mining.extranonce.subscribe";
-                    jReq["params"] = Json::Value(Json::arrayValue);
-                    sendSocketData(jReq);
                     // Eventually request authorization
                     jReq["id"] = unsigned(3);
                     jReq["method"] = "mining.authorize";
@@ -910,16 +869,14 @@ void StratumClient::processResponse(Json::Value& responseObject)
                 if (!jPrm.get((Json::Value::ArrayIndex)2, "").asString().empty() &&
                     !jPrm.get((Json::Value::ArrayIndex)3, "").asString().empty()) {
 
-                    bool resetJob = !jPrm.get((Json::Value::ArrayIndex)8, "").asBool();
+                    bool resetJob = jPrm.get((Json::Value::ArrayIndex)8, "").asBool();
 
-                    auto work = energi::Work(jPrm, m_extraNonce, true);
+                    auto work = energi::Work(jPrm, m_extraNonce1, m_nextWorkTarget);
                     if (resetJob || m_current != work) {
-                        if (resetJob && m_onResetWork) {
+                        if (m_onResetWork) {
                             m_onResetWork();
                         }
                         m_current = work;
-                        m_current.hashTarget = m_nextWorkTarget;
-                        m_current.exSizeBits = m_extraNonceHexSize * 4;
                         m_current_timestamp = std::chrono::steady_clock::now();
                         if (m_onWorkReceived) {
                             m_onWorkReceived(m_current);
@@ -931,8 +888,8 @@ void StratumClient::processResponse(Json::Value& responseObject)
             jPrm = responseObject.get("params", Json::Value::null);
             if (jPrm.isArray()) {
                 double nextWorkDifficulty = std::max(jPrm.get((Json::Value::ArrayIndex)0, 1).asDouble(), 0.0001);
-                cnote << "Difficulty set to: "  << nextWorkDifficulty;
-                diffToTarget((uint32_t*)m_nextWorkTarget.data(), nextWorkDifficulty);
+                diffToTarget(m_nextWorkTarget, nextWorkDifficulty);
+                cnote << "Difficulty set to: "  << nextWorkDifficulty << " = " << m_nextWorkTarget.GetHex();
                 m_current.reset();
             }
         } else if (_method == "mining.set_extranonce") {
@@ -988,6 +945,23 @@ void StratumClient::submitSolution(const Solution& solution)
         return;
     }
 
+    const auto &work = solution.getWork();
+
+    if (m_current != work) {
+        // stale
+        return;
+    }
+
+    if (m_response_pleas_count.load(std::memory_order_relaxed) > PARALLEL_REQUEST_LIMIT) {
+        cwarn << "Reject reason: throttling submitted requests";
+
+        if (m_onSolutionRejected) {
+            m_onSolutionRejected(true, std::chrono::milliseconds(0));
+        }
+
+        return;
+    }
+
     Json::Value jReq;
     jReq["id"] = unsigned(4);
     jReq["method"] = "mining.submit";
@@ -996,14 +970,16 @@ void StratumClient::submitSolution(const Solution& solution)
     jReq["jsonrpc"] = "2.0";
     jReq["params"].append(m_conn->User());
     jReq["params"].append(solution.getJobName());
-    jReq["params"].append(solution.getExtraNonce());
+    jReq["params"].append(solution.getExtraNonce2());
     jReq["params"].append(solution.getTime());
-    jReq["params"].append(std::to_string(solution.getNonce()));
+    jReq["params"].append(solution.getNonce());
     jReq["params"].append(solution.getHashMix().GetHex());
     jReq["params"].append(solution.getBlockTransaction());
+    jReq["params"].append(work.getMerkleRoot().GetHex());
     if (m_worker.length()) {
         jReq["worker"] = m_worker;
     }
+    
     enqueue_response_plea();
     sendSocketData(jReq);
 }
@@ -1012,10 +988,12 @@ void StratumClient::recvSocketData()
 {
     if (m_conn->SecLevel() != SecureLevel::NONE) {
         async_read_until(*m_securesocket, m_recvBuffer, "\n",
-                m_io_strand.wrap(boost::bind(&StratumClient::onRecvSocketDataCompleted, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
+                m_io_strand.wrap(boost::bind(&StratumClient::onRecvSocketDataCompleted, this,
+                        boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
     } else {
         async_read_until(*m_nonsecuresocket, m_recvBuffer, "\n",
-                m_io_strand.wrap(boost::bind(&StratumClient::onRecvSocketDataCompleted, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
+                m_io_strand.wrap(boost::bind(&StratumClient::onRecvSocketDataCompleted, this,
+                        boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)));
     }
 }
 

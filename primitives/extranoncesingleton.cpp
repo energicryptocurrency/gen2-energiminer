@@ -2,6 +2,7 @@
 #include <sstream>
 
 #include "extranoncesingleton.h"
+#include "common/utilstrencodings.h"
 
 ExtraNonceSingleton* ExtraNonceSingleton::s_instance = nullptr;
 
@@ -10,6 +11,7 @@ ExtraNonceSingleton::ExtraNonceSingleton()
     , m_device{}
     , m_engine{m_device()}
 {
+    generateExtraNonce();
 }
 
 void ExtraNonceSingleton::generateExtraNonce()
@@ -24,10 +26,7 @@ uint32_t ExtraNonceSingleton::getExtraNonce() const
 
 std::string ExtraNonceSingleton::toString() const
 {
-    std::stringstream stream;
-    stream << std::setfill ('0') << std::setw(sizeof(m_extraNonce) * 2)
-           << std::hex << m_extraNonce;
-    return stream.str();
+    return HexStrMemory(m_extraNonce);
 }
 
 std::string ExtraNonceSingleton::genAndSendExtraNonce()
@@ -36,12 +35,12 @@ std::string ExtraNonceSingleton::genAndSendExtraNonce()
     return toString();
 }
 
-ExtraNonceSingleton* ExtraNonceSingleton::getInstance()
+ExtraNonceSingleton& ExtraNonceSingleton::getInstance()
 {
     if (nullptr == s_instance) {
         s_instance = new ExtraNonceSingleton();
     }
-    return s_instance;
+    return *s_instance;
 }
 
 void ExtraNonceSingleton::removeInstance()

@@ -88,9 +88,6 @@ public:
 	// default number of CUDA streams
 	static unsigned const c_defaultNumStreams;
 
-protected:
-	void onSetWork() override;
-
 private:
     std::atomic<bool> m_new_work = {false};
 
@@ -105,7 +102,7 @@ private:
     uint32_t m_dag_size = 0;
     uint32_t m_device_num = 0;
 
-    volatile search_results** m_search_buf = nullptr;
+    volatile Search_results** m_search_buf = nullptr;
     cudaStream_t* m_streams = nullptr;
 	uint64_t m_current_target = 0;
 

@@ -17,6 +17,7 @@ using namespace energi;
 class StratumClient : public PoolClient
 {
 public:
+	static constexpr auto PARALLEL_REQUEST_LIMIT = 10;
 
 	typedef enum { STRATUM = 0, NRGPROXY, ENERGISTRATUM } StratumProtocol;
 
@@ -108,10 +109,9 @@ private:
     boost::asio::ip::tcp::resolver m_resolver;
     std::queue<boost::asio::ip::basic_endpoint<boost::asio::ip::tcp>> m_endpoints;
 
-    arith_uint256 m_nextWorkTarget = arith_uint256("0xffff000000000000000000000000000000000000000000000000000000000000");
+    arith_uint256 m_nextWorkTarget;
 
-    std::string m_extraNonce;
-    int m_extraNonceHexSize = 0;
+    std::string m_extraNonce1;
 
     bool m_submit_hashrate;
     std::string m_submit_hashrate_id;
