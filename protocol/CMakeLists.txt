@@ -2,7 +2,6 @@ set(SOURCES
     PoolClient.h
     PoolURI.h PoolURI.cpp
     PoolManager.h PoolManager.cpp
-    getwork/jsonrpc_getwork.h
     getwork/GetworkClient.h
     getwork/GetworkClient.cpp
     stratum/StratumClient.h

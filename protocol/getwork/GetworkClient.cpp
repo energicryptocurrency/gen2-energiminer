@@ -1,9 +1,11 @@
 #include <chrono>
+#include <boost/algorithm/string.hpp>
 #include <boost/exception/diagnostic_information.hpp>
+#include <jsonrpccpp/client/connectors/httpclient.h>
+#include <jsonrpccpp/client.h>
 
 #include "GetworkClient.h"
-
-std::mutex GetworkClient::s_mutex;
+#include <common/Log.h>
 
 using namespace energi;
 
@@ -22,18 +24,17 @@ GetworkClient::~GetworkClient()
 
 void GetworkClient::connect()
 {
-    std::lock_guard<std::mutex> lock(s_mutex);
+    std::lock_guard<std::mutex> lock(m_mutex);
+    
     std::string uri = "http://" + m_conn->User() + ":" + m_conn->Pass() + "@" + m_conn->Host() + ":" + std::to_string(m_conn->Port());
     if (m_conn->Path().length())
         uri += m_conn->Path();
 
-    m_client.reset(new ::JsonrpcGetwork(new jsonrpc::HttpClient(uri), m_coinbase));
+    m_url = uri;
+    m_display_url = boost::replace_first_copy(uri, m_conn->Pass(), "<password>");
 
     m_connected.store(true, std::memory_order_release);
-    // Since we do not have a real connected state with getwork, we just fake it
-    if (m_onConnected) {
-        m_onConnected();
-    }
+
     // No need to worry about starting again.
     // Worker class prevents that
     startWorking();
@@ -41,43 +42,73 @@ void GetworkClient::connect()
 
 void GetworkClient::disconnect()
 {
-    std::lock_guard<std::mutex> lock(s_mutex);
+    std::lock_guard<std::mutex> lock(m_mutex);
     m_connected.store(false, std::memory_order_release);
 
 	// Since we do not have a real connected state with getwork, we just fake it.
 	if (m_onDisconnected) {
 		m_onDisconnected();
 	}
-
-	m_client.reset();
 }
 
 void GetworkClient::submitHashrate(const std::string& rate)
 {
-    //std::lock_guard<std::mutex> lock(s_mutex);
-	// Store the rate in temp var. Will be handled in workLoop
-	//m_currentHashrateToSubmit = rate;
 }
 
 void GetworkClient::submitSolution(const Solution& solution)
 {
-    if (m_onResetWork) {
-        m_onResetWork();
-    }
+    do {
+        std::lock_guard<std::mutex> lock(m_mutex);
 
-    std::lock_guard<std::mutex> lock(s_mutex);
+        //---
+        if (!m_have_work) {
+            break;
+        }
+        
+        if (m_onResetWork) {
+            m_onResetWork();
+        }
+        
+        m_have_work = false;
 
-    if (!m_prevWork.isValid()) {
-        return;
-    }
+        //---
+        if (!m_connected.load(std::memory_order_relaxed)) {
+            break;
+        }
 
-    if (m_connected.load(std::memory_order_relaxed)) {
         try {
+            jsonrpc::HttpClient http_client(m_url);
+            jsonrpc::Client client(http_client, jsonrpc::JSONRPC_CLIENT_V1);
+            
+            Json::Value params(Json::arrayValue);
+            auto block = solution.getSubmitBlockData();
+            params.append(block);
+
+
+            //---
             std::chrono::steady_clock::time_point submit_start = std::chrono::steady_clock::now();
-            bool accepted = m_client->submitWork(solution);
+
+            Json::Value result = client.CallMethod("submitblock", params);
+
             std::chrono::milliseconds response_delay_ms =
                 std::chrono::duration_cast<std::chrono::milliseconds>(
                         std::chrono::steady_clock::now() - submit_start);
+            
+            //---
+            auto resultStr = result.toStyledString();
+            resultStr.pop_back(); // includes a newline
+            
+            if (resultStr == "null") {
+                cnote << "Block Accepted";
+            } else if (resultStr == "inconclusive") {
+                cnote << "Block too old";
+            } else {
+                cnote << "Block Rejected:" << resultStr;
+            }
+
+            //---
+            bool accepted = (resultStr == "null");
+
             if (accepted) {
                 if (m_onSolutionAccepted) {
                     m_onSolutionAccepted(false, response_delay_ms);
@@ -91,43 +122,81 @@ void GetworkClient::submitSolution(const Solution& solution)
             cwarn << "Failed to submit solution.";
             cwarn << boost::diagnostic_information(ex);
         }
-    }
+    } while (false);
 
-    m_prevWork.reset();
+    m_cvwait.notify_one();
 }
 
 
 // Handles all getwork communication.
 void GetworkClient::trun()
 {
-    while (!shouldStop()) {
-        if (m_connected.load(std::memory_order_relaxed)) {
-            // Get Work
-            try {
-                std::lock_guard<std::mutex> lock(s_mutex);
-                auto newWork = m_client->getWork();
-                
-                std::atomic_thread_fence(std::memory_order_acquire);
+    jsonrpc::HttpClient http_client(m_url);
+    jsonrpc::Client client(http_client, jsonrpc::JSONRPC_CLIENT_V1);
+    
+    // Since we do not have a real connected state with getwork, we just fake it
+    if (m_onConnected) {
+        m_onConnected();
+    }
+    
+    const auto NOWORK_DIV = 10U;
+    const std::chrono::milliseconds farm_recheck{m_farmRecheckPeriod};
+    const std::chrono::milliseconds nowork_delay{
+        m_farmRecheckPeriod > NOWORK_DIV ? m_farmRecheckPeriod / NOWORK_DIV : m_farmRecheckPeriod
+    };
+    energi::Work current_work;
 
-                // Check if header changes so the new workpackage is really new
-                if (newWork != m_prevWork) {
-                    m_prevWork = newWork;
-                    
-                    if (m_onWorkReceived) {
-                        cnote << "Difficulty set to: " << newWork.hashTarget.GetHex();
-                        m_onWorkReceived(m_prevWork);
-                    }
-                }
-            } catch (jsonrpc::JsonRpcException &e) {
-                cwarn << "Failed getting work! " << e.what();
-                if (m_onResetWork) {
-                    m_onResetWork();
-                }
-            }
-            //TODO submit hashrate part
+    while (!shouldStop()) {
+        if (!m_connected.load(std::memory_order_relaxed)) {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            m_cvwait.wait_for(lock, farm_recheck);
         }
-        // Sleep
-        std::this_thread::sleep_for(std::chrono::milliseconds(m_farmRecheckPeriod));
+
+        try {
+            //---
+            auto params = Json::Value(Json::arrayValue);
+            auto object = Json::Value(Json::objectValue);
+            object["capabilities"] = Json::Value(Json::arrayValue);
+            object["capabilities"].append("coinbasetxn");
+            object["capabilities"].append("coinbasevalue");
+            object["capabilities"].append("longpoll");
+            object["capabilities"].append("workid");
+            params.append(object);
+
+            Json::Value workGBT = client.CallMethod("getblocktemplate", params);
+
+            if (!workGBT.isObject() ) {
+                throw jsonrpc::JsonRpcException(
+                        jsonrpc::Errors::ERROR_CLIENT_INVALID_RESPONSE,
+                        workGBT.toStyledString());
+            }
+
+            //---
+            auto new_work = energi::Work(workGBT, m_coinbase);
+            
+            std::unique_lock<std::mutex> lock(m_mutex);
+
+            if (current_work != new_work) {
+                if (m_onWorkReceived) {
+                    current_work = new_work;
+                    m_have_work = true;
+
+                    cnote << "Difficulty set to: " << new_work.hashTarget.GetHex();
+                    m_onWorkReceived(new_work);
+                }
+            } else if (m_have_work) {
+                m_cvwait.wait_for(lock, farm_recheck);
+            } else {
+                m_cvwait.wait_for(lock, nowork_delay);
+            }
+        } catch (jsonrpc::JsonRpcException ex) {
+            cwarn << "Failed getting work! ";
+            cwarn << boost::diagnostic_information(ex);
+
+            if (m_onResetWork) {
+                m_onResetWork();
+            }
+        }
     }
 
     disconnect();
