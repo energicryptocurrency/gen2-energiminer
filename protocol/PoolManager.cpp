@@ -25,7 +25,7 @@ PoolManager::PoolManager(boost::asio::io_service& io_service,
 	{
         m_connectionAttempt = 0;
         m_activeConnectionHost = m_connections[m_activeConnectionIdx].Host();
-        cnote << "Connected to " << m_connections[m_activeConnectionIdx].Host() << p_client->ActiveEndPoint();
+        cnote << "Connected to " << p_client->ActiveEndPoint();
         // Rough implementation to return to primary pool
         // after specified amount of time
         if (m_activeConnectionIdx != 0 && m_failoverTimeout > 0) {
@@ -48,7 +48,7 @@ PoolManager::PoolManager(boost::asio::io_service& io_service,
 	p_client->onDisconnected([&]()
 	{
         setThreadName("main");
-        cnote << "Disconnected from " + m_activeConnectionHost << p_client->ActiveEndPoint();
+        cnote << "Disconnected from " << p_client->ActiveEndPoint();
         // Do not stop mining here
         // Workloop will determine if we're trying a fast reconnect to same pool
         // or if we're switching to failover(s)
@@ -154,7 +154,7 @@ void PoolManager::trun()
                     // Invoke connections
                     p_client->setConnection(m_connections[m_activeConnectionIdx]);
                     m_farm.set_pool_addresses(m_connections[m_activeConnectionIdx].Host(), m_connections[m_activeConnectionIdx].Port());
-                    cnote << "Selected pool" << (m_connections[m_activeConnectionIdx].Host() + ":" + toString(m_connections[m_activeConnectionIdx].Port()));
+                    cnote << "Selected pool " << (m_connections[m_activeConnectionIdx].Host() + ":" + toString(m_connections[m_activeConnectionIdx].Port()));
                     p_client->connect();
 
                 } else {
