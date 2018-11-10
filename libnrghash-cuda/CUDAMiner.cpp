@@ -430,7 +430,6 @@ void CUDAMiner::search(
     uint64_t startN,
     Work& work)
 {
-    const uint16_t kReportingInterval = 4;  // Must be a power of 2 passes
     set_header(*reinterpret_cast<hash32_t const *>(header));
     if (m_current_target != target) {
         set_target(target);
@@ -462,11 +461,8 @@ void CUDAMiner::search(
             // Wait for stream batch to complete and immediately
             // store number of processed hashes
             CUDA_SAFE_CALL(cudaStreamSynchronize(stream));
-            // stretch cuda passes to miniize the effects of
-            // OS latency variability
-            m_searchPasses++;
-            if ((m_searchPasses & (kReportingInterval - 1)) == 0)
-                updateHashRate(batch_size * kReportingInterval);
+
+            updateHashRate(batch_size);
 
             // See if we got solutions in this batch
             auto found_count = std::min((unsigned)buffer->count, MAX_SEARCH_RESULTS);

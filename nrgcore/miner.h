@@ -82,9 +82,18 @@ public:
 	void update_temperature(unsigned temperature);
 	bool is_mining_paused() const;
 
-    float RetrieveHashRate()
+    uint64_t RetrieveHashRateDiff()
     {
-        return m_hashRate.load(std::memory_order_relaxed);
+        auto new_rate = m_hashRateCount.load(std::memory_order_acquire);
+        auto last = m_hashRateLast;
+        m_hashRateLast = new_rate;
+        auto diff = new_rate - last;
+        
+        if (diff > std::numeric_limits<uint32_t>::max()) {
+            diff -= std::numeric_limits<uint64_t>::max();
+        }
+        
+        return diff;
     }
 
     void set_mining_paused(MinigPauseReason pause_reason);
@@ -147,8 +156,8 @@ private:
 	std::mutex work_mutex;
     std::condition_variable work_cond;
 
-    std::chrono::steady_clock::time_point m_hashTime = std::chrono::steady_clock::now();
-    std::atomic<float> m_hashRate = {0.0};
+    std::atomic<std::uint64_t> m_hashRateCount{0};
+    uint64_t m_hashRateLast{0};
 };
 
 using MinerPtr = std::shared_ptr<energi::Miner>;

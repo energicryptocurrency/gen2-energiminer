@@ -26,16 +26,10 @@ uint8_t* Miner::s_dagInHostMemory = nullptr;
 
 bool Miner::s_noeval = false;
 
-void Miner::updateHashRate(uint64_t _n)
+void Miner::updateHashRate(uint64_t n)
 {
-    using namespace std::chrono;
-    steady_clock::time_point t = steady_clock::now();
-    auto us = duration_cast<microseconds>(t - m_hashTime).count();
-    m_hashTime = t;
-    float hr = 0.0;
-    if (us)
-        hr = (float(_n) * 1.0e6f) / us;
-    m_hashRate.store(hr, std::memory_order_relaxed);
+    auto prev = m_hashRateCount.load(std::memory_order_relaxed);
+    m_hashRateCount.store(prev + n, std::memory_order_release);
 }
 
 bool Miner::LoadNrgHashDAG(uint64_t blockHeight)

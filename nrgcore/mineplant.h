@@ -140,6 +140,8 @@ private:
     void collectData(const boost::system::error_code& ec);
 
 private:
+    std::chrono::steady_clock::time_point m_lastHashRate;
+    
 	mutable std::mutex                  x_minerWork;
 	Miners                              m_miners;
 	Work                                m_work;

@@ -70,6 +70,8 @@ MinePlant::MinePlant(boost::asio::io_service& io_service, bool hwmon, bool pwron
     // Start data collector timer
     // It should work for the whole lifetime of Farm
     // regardless it's mining state
+    m_lastHashRate = std::chrono::steady_clock::now();
+    
     m_collectTimer.expires_from_now(boost::posix_time::milliseconds(m_collectInterval));
     m_collectTimer.async_wait(m_io_strand.wrap(
                 boost::bind(&MinePlant::collectData, this, boost::asio::placeholders::error)));
@@ -100,6 +102,9 @@ bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
     if (isMining()) {
         return true;
     }
+    
+    m_lastHashRate = std::chrono::steady_clock::now();
+
     //m_started = true;
     for ( auto &minerEngine : vMinerEngine) {
         unsigned count = 0;
@@ -121,8 +126,12 @@ bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
         }
         for ( unsigned i = 0; i < count; ++i ) {
             m_miners.push_back(createMiner(minerEngine, i, *this));
-            m_miners.back()->startWorking();
-            m_miners.back()->setWork(m_work);
+            
+            auto &miner = m_miners.back();
+            
+            miner->RetrieveHashRateDiff();
+            miner->setWork(m_work);
+            miner->startWorking();
         }
     }
     m_isMining.store(true, std::memory_order_relaxed);
@@ -149,7 +158,10 @@ void MinePlant::setWork(const Work& work)
         for (auto& miner : m_miners) {
             miner->startWorking();
         }
+    } else {
+        m_lastHashRate = std::chrono::steady_clock::now();
     }
+    
     cnote << "New Work assigned Height: "
           << work.nHeight
           << " PrevHash: "
@@ -158,6 +170,7 @@ void MinePlant::setWork(const Work& work)
 
     // Propagate to all miners
     for (auto &miner: m_miners) {
+        miner->RetrieveHashRateDiff();
         miner->setWork(work);
     }
 }
@@ -182,21 +195,40 @@ void MinePlant::collectData(const boost::system::error_code& ec)
         return;
 
     WorkingProgress progress;
+    
+    using namespace std::chrono;
+    const auto time_now = steady_clock::now();
+    const auto time_diff = time_now - m_lastHashRate;
+    m_lastHashRate = time_now;
+    const auto time_diff_us = duration_cast<microseconds>(time_diff).count();
+    
+    const auto alpha = 0.05;
 
-    // Process miners
+    // Process miner hashrate
     for (auto const& miner : m_miners) {
         // Collect and reset hashrates
         if (!miner->is_mining_paused()) {
-            auto hr = miner->RetrieveHashRate();
+            auto hrd = miner->RetrieveHashRateDiff();
+            auto hr = double(hrd) * 1e6 / time_diff_us;
+            auto prev_hr = m_progress.minersHashRates[miner->name()];
+            
+            if (prev_hr > 1 && hr > 1) {
+                // Smooth: https://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average
+                hr = (alpha * prev_hr) + ((1.0 - alpha) * hr);
+            }
+            
             progress.hashRate += hr;
-            progress.minersHashRates.insert(std::make_pair<std::string, float>(miner->name(), std::move(hr)));
+            progress.minersHashRates.insert(std::make_pair<std::string, float>(miner->name(), hr));
             progress.miningIsPaused.insert(std::make_pair<std::string, bool>(miner->name(), false));
         } else {
             progress.minersHashRates.insert(std::make_pair<std::string, float>(miner->name(), 0.0));
             progress.miningIsPaused.insert(std::make_pair<std::string, bool>(miner->name(), true));
         }
-
-        if (m_hwmon) {
+    }
+    
+    // Process miner hashrate
+    if (m_hwmon) {
+        for (auto const& miner : m_miners) {
             HwMonitorInfo hwInfo = miner->hwmonInfo();
             HwMonitor hw;
             unsigned int tempC = 0, fanpcnt = 0, powerW = 0;
