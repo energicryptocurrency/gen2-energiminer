@@ -23,7 +23,8 @@ namespace energi
     {}
 
   protected:
-    void trun();
+    void trun() override;
+    void kick_miner() override {}
   };
 
 } /* namespace energi */

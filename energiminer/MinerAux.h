@@ -56,7 +56,7 @@
 #include <boost/bind.hpp>
 
 #ifdef NRGHASHCL
-#include "libegihash-cl/OpenCLMiner.h"
+#include "libnrghash-cl/CLMiner.h"
 #endif
 
 #ifdef NRGHASHCUDA
@@ -168,8 +168,9 @@ private:
     std::vector<unsigned> m_openclDevices = std::vector<unsigned>(MAX_MINERS, -1);
     unsigned m_openclThreadsPerHash = 8;
 
-    int m_globalWorkSizeMultiplier = energi::OpenCLMiner::c_defaultGlobalWorkSizeMultiplier;
-    unsigned m_localWorkSize = energi::OpenCLMiner::c_defaultLocalWorkSize;
+    int m_globalWorkSizeMultiplier = energi::CLMiner::c_defaultGlobalWorkSizeMultiplier;
+    unsigned m_localWorkSize = energi::CLMiner::c_defaultLocalWorkSize;
+    bool m_noBinary = false;
 #endif
 #if NRGHASHCUDA
     unsigned m_cudaDeviceCount = 0;

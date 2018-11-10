@@ -74,3 +74,7 @@ void CpuMiner::trun()
     }
 }
 
+void CpuMiner::kick_miner() {
+    // NOOP
+}
+

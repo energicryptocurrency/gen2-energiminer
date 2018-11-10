@@ -115,7 +115,7 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
         ->group(OpenCLGroup);
 
     app.add_set("--cl-parallel-hash", m_openclThreadsPerHash, {1, 2, 4, 8},
-            "Set the number of threads per hash", true)
+            "Ignored. Backward compatibility", true)
         ->group(OpenCLGroup);
 
     app.add_option("--cl-global-work", m_globalWorkSizeMultiplier,
@@ -127,6 +127,11 @@ void MinerCLI::ParseCommandLine(int argc, char** argv)
             "Set the local work size", true)
         ->group(OpenCLGroup)
         ->check(CLI::Range(32, 99999));
+
+    app.add_flag(
+           "--cl-only", m_noBinary, "Use opencl kernel. Don't attempt to load binary kernel")
+        ->group(OpenCLGroup);
+
 #endif
 #if NRGHASHCUDA
     app.add_option("--cuda-grid-size", m_cudaGridSize,
@@ -378,7 +383,7 @@ void MinerCLI::execute()
 #if NRGHASHCL
         if (m_minerExecutionMode == MinerExecutionMode::kCL ||
                 m_minerExecutionMode == MinerExecutionMode::kMixed)
-            OpenCLMiner::listDevices();
+            CLMiner::listDevices();
 #endif
 #if NRGHASHCUDA
         if (m_minerExecutionMode == MinerExecutionMode::kCUDA ||
@@ -393,11 +398,11 @@ void MinerCLI::execute()
             m_minerExecutionMode == MinerExecutionMode::kMixed) {
 # if NRGHASHCL
         if (m_openclDeviceCount > 0) {
-            OpenCLMiner::setDevices(m_openclDevices, m_openclDeviceCount);
+            CLMiner::setDevices(m_openclDevices, m_openclDeviceCount);
             m_miningThreads = m_openclDeviceCount;
         }
-        OpenCLMiner::setThreadsPerHash(m_openclThreadsPerHash);
-        if (!OpenCLMiner::configureGPU(
+        //CLMiner::setThreadsPerHash(m_openclThreadsPerHash);
+        if (!CLMiner::configureGPU(
                     m_localWorkSize,
                     m_globalWorkSizeMultiplier,
                     m_openclPlatform,
@@ -405,13 +410,14 @@ void MinerCLI::execute()
                     m_dagLoadMode,
                     m_dagCreateDevice,
                     m_noEval,
-                    m_exit))
+                    m_exit,
+                    m_noBinary))
         {
             stop_io_service();
             exit(1);
         }
 
-        OpenCLMiner::setNumInstances(m_miningThreads);
+        CLMiner::setNumInstances(m_miningThreads);
 #else
         cerr << "Selected GPU mining without having compiled with -DHASHCL=1" << endl;
         exit(1);

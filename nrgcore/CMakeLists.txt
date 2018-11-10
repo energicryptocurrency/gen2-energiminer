@@ -14,7 +14,7 @@ add_library(libnrgcore ${SRC_LIST} ${SOURCES} ${HEADERS})
 target_include_directories(libnrgcore PRIVATE ..)
 
 if (HASHCL)
-    target_link_libraries(libnrgcore egihash-cl libnrghash)
+    target_link_libraries(libnrgcore nrghash-cl libnrghash)
 endif()
 if (HASHCUDA)
     target_link_libraries(libnrgcore nrghash-cuda libnrghash)

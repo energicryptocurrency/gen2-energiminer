@@ -140,6 +140,10 @@ void CUDAMiner::trun()
     }
 }
 
+void CUDAMiner::kick_miner() {
+    // NOOP
+}
+
 void CUDAMiner::setNumInstances(unsigned _instances)
 {
     s_numInstances = std::min<unsigned>(_instances, getNumDevices());

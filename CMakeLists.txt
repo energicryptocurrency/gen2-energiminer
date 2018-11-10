@@ -105,7 +105,7 @@ add_subdirectory(nrghash)
 add_subdirectory(nrgcore)
 
 if (HASHCL)
-    add_subdirectory(libegihash-cl)
+    add_subdirectory(libnrghash-cl)
 endif()
 if (HASHCUDA)
     add_subdirectory(libnrghash-cuda)

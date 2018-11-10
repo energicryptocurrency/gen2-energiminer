@@ -117,6 +117,8 @@ protected:
         cnote << "No work received. Waiting...";
         work_cond.wait_for(lock, std::chrono::seconds(1));
     }
+    
+    virtual void kick_miner() = 0;
 
     void updateHashRate(uint64_t _n);
 

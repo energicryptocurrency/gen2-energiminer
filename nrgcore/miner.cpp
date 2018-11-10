@@ -232,6 +232,7 @@ void Miner::setWork(const Work& work)
     }
 
     work_cond.notify_one();
+    kick_miner();
 }
 
 void Miner::resetWork()

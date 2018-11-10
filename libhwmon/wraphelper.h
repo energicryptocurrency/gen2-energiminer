@@ -13,7 +13,7 @@
 #define CL_HPP_CL_1_2_DEFAULT_BUILD true
 #define CL_HPP_TARGET_OPENCL_VERSION 120
 #define CL_HPP_MINIMUM_OPENCL_VERSION 120
-#include "../libegihash-cl/CL/cl2.hpp"
+#include "../libnrghash-cl/CL/cl2.hpp"
 #pragma GCC diagnostic pop
 
 #ifndef CL_DEVICE_TOPOLOGY_AMD

@@ -8,7 +8,7 @@
 #include "mineplant.h"
 
 #ifdef NRGHASHCL
-#include "libegihash-cl/OpenCLMiner.h"
+#include "libnrghash-cl/CLMiner.h"
 #endif
 
 #ifdef NRGHASHCUDA
@@ -34,7 +34,7 @@ MinerPtr createMiner(EnumMinerEngine minerEngine, int index, const MinePlant &pl
 {
 #if NRGHASHCL
     if (minerEngine == EnumMinerEngine::kCL) {
-        return MinerPtr(new OpenCLMiner(plant, index));
+        return MinerPtr(new CLMiner(plant, index));
     }
 #endif
 #if NRGHASHCUDA
@@ -105,7 +105,7 @@ bool MinePlant::start(const std::vector<EnumMinerEngine> &vMinerEngine)
         unsigned count = 0;
 #if NRGHASHCL
         if (minerEngine == EnumMinerEngine::kCL) {
-            count = OpenCLMiner::instances();
+            count = CLMiner::instances();
         }
 #endif
 #if NRGHASHCUDA

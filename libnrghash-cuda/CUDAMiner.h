@@ -92,6 +92,7 @@ private:
     std::atomic<bool> m_new_work = {false};
 
     void trun() override;
+    void kick_miner() override;
 
     bool init_dag(uint32_t height);
 
