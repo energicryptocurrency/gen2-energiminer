@@ -304,7 +304,7 @@ __kernel void search(
     state[23] = (uint2)(0);
     state[24] = (uint2)(0);
 
-    uint2 mixhash[4];
+    //uint2 mixhash[4];
 
     for (volatile int pass = 0; pass < 2; ++pass) {
         KECCAK_PROCESS(state, select(5, 12, pass != 0), select(8, 1, pass != 0), isolate);
@@ -361,10 +361,12 @@ __kernel void search(
             barrier(CLK_LOCAL_MEM_FENCE);
         }
 
+    #if 0
         mixhash[0] = state[8];
         mixhash[1] = state[9];
         mixhash[2] = state[10];
         mixhash[3] = state[11];
+    #endif
 
         state[12] = as_uint2(0x0000000000000001UL);
         state[13] = (uint2)(0);
@@ -388,6 +390,8 @@ __kernel void search(
         atomic_inc(&g_output->abort);
         uint slot = min(MAX_OUTPUTS - 1u, atomic_inc(&g_output->count));
         g_output->rslt[slot].gid = gid;
+
+    #if 0
         g_output->rslt[slot].mix[0] = mixhash[0].s0;
         g_output->rslt[slot].mix[1] = mixhash[0].s1;
         g_output->rslt[slot].mix[2] = mixhash[1].s0;
@@ -396,6 +400,7 @@ __kernel void search(
         g_output->rslt[slot].mix[5] = mixhash[2].s1;
         g_output->rslt[slot].mix[6] = mixhash[3].s0;
         g_output->rslt[slot].mix[7] = mixhash[3].s1;
+    #endif
     }
 }
 
@@ -423,11 +428,13 @@ static void SHA3_512(uint2 *s, uint isolate)
         s[i] = st[i];
 }
 
-__kernel void GenerateDAG(uint start, __global const uint16 *_Cache, __global uint16 *_DAG, uint light_size, /* uint DAG_SIZE, */ uint isolate)
+__kernel void GenerateDAG(uint start, __global const Node *Cache, __global Node *DAG, uint light_size, /* uint DAG_SIZE, */ uint isolate)
 {
-    __global const Node *Cache = (__global const Node *) _Cache;
-    __global Node *DAG = (__global Node *) _DAG;
     uint NodeIdx = start + get_global_id(0);
+
+    if (NodeIdx >= DAG_GEN_ITEMS) {
+        return;
+    }
 
     Node DAGNode = Cache[NodeIdx % light_size];
 

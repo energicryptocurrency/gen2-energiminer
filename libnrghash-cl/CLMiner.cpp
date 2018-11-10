@@ -283,9 +283,7 @@ void CLMiner::trun()
     uint32_t zerox3[3] = {0, 0, 0};
 
     uint64_t startNonce = 0;
-
-    // The work package currently processed by GPU.
-    Work current;
+    SearchResults results;
 
     try
     {
@@ -300,27 +298,15 @@ void CLMiner::trun()
             
             decltype(&m_queue[0]) curr_queue = nullptr;
 
-            // Read results.
-            volatile SearchResults results;
-#ifdef DEV_BUILD
-            std::chrono::steady_clock::time_point submitStart;
-#endif
-
             if (!m_queue.empty())
             {
                 curr_queue = &m_queue[0];
 
-                // no need to read the abort flag.
-                curr_queue->enqueueReadBuffer(m_searchBuffer[0], CL_TRUE,
-                    c_maxSearchResults * sizeof(results.rslt[0]), 2 * sizeof(results.count),
-                    (void*)&results.count);
-
-                if (results.count)
-                {
-                    curr_queue->enqueueReadBuffer(m_searchBuffer[0], CL_TRUE, 0,
-                        results.count * sizeof(results.rslt[0]), (void*)&results);
-                    // Reset search buffer if any solution found.
-                }
+                // schedule a single command instead of multiple
+                curr_queue->enqueueReadBuffer(
+                    m_searchBuffer[0], CL_TRUE,
+                    0, sizeof(results),
+                    &results);
 
                 // clean the solution count, hash count, and abort flag
                 curr_queue->enqueueWriteBuffer(m_searchBuffer[0], CL_FALSE,
@@ -332,15 +318,15 @@ void CLMiner::trun()
 
 
             if (haveNewWork()) {
-                current = getWork();
+                m_current = getWork();
                 
-                if ( !current.isValid() ) {
+                if ( !m_current.isValid() ) {
                     continue;
                 }
 
                 auto height = m_current.nHeight;
-                auto new_epoch = height / nrghash::constants::EPOCH_LENGTH;
-                auto last_epoch = m_lastHeight / nrghash::constants::EPOCH_LENGTH;
+                uint32_t new_epoch = height / nrghash::constants::EPOCH_LENGTH;
+                uint32_t last_epoch = m_lastHeight / nrghash::constants::EPOCH_LENGTH;
 
                 if (!m_dagLoaded || (new_epoch != last_epoch)) {
                     if (s_dagLoadMode == DAG_LOAD_MODE_SEQUENTIAL)
@@ -354,18 +340,20 @@ void CLMiner::trun()
 
                     m_abortqueue.clear();
                     init(height);
-                    m_abortqueue.push_back(cl::CommandQueue(m_context[0], m_device));
+                    //m_abortqueue.push_back(cl::CommandQueue(m_context[0], m_device));
                     m_dagLoaded = true;
                 }
+
+                m_lastHeight = height;
 
                 assert(!m_queue.empty());
                 curr_queue = &m_queue[0];
 
-                energi::CBlockHeaderTruncatedLE truncatedBlockHeader(current);
+                energi::CBlockHeaderTruncatedLE truncatedBlockHeader(m_current);
                 nrghash::h256_t hash_header(&truncatedBlockHeader, sizeof(truncatedBlockHeader));
 
                 // Upper 64 bits of the boundary.
-                const uint64_t target = *reinterpret_cast<uint64_t const *>((current.hashTarget >> 192).data());
+                const uint64_t target = *reinterpret_cast<uint64_t const *>((m_current.hashTarget >> 192).data());
                 assert(target > 0);
 
                 // Update header constant buffer.
@@ -375,7 +363,7 @@ void CLMiner::trun()
                 curr_queue->enqueueWriteBuffer(m_searchBuffer[0], CL_FALSE,
                     offsetof(SearchResults, count), sizeof(zerox3), zerox3);
 
-                startNonce = m_plant.getStartNonce(current, m_index);
+                startNonce = m_plant.getStartNonce(m_current, m_index);
 
                 m_searchKernel.setArg(0, m_searchBuffer[0]);  // Supply output buffer to kernel.
                 m_searchKernel.setArg(1, m_header[0]);        // Supply header buffer to kernel.
@@ -385,10 +373,9 @@ void CLMiner::trun()
                 m_searchKernel.setArg(6, 0xffffffff);
 
                 results.count = 0;
-                results.hashCount = 0;
             }
 
-            if ( !current.isValid() ) {
+            if ( !m_current.isValid() ) {
                 waitMoreWork();
                 continue;
             }
@@ -403,21 +390,20 @@ void CLMiner::trun()
             // Report results while the kernel is running.
             for (uint32_t i = 0; i < results.count && !haveNewWork(); i++)
             {
-                uint64_t nonce = current.startNonce + results.rslt[i].gid;
+                auto nonce = m_current.startNonce + results.rslt[i].gid;
+                m_current.nNonce = nonce;
 
-                if (nonce != m_lastNonce)
-                {
-                    m_lastNonce = nonce;
+                auto const powHash = GetPOWHash(m_current);
 
-                    current.nNonce = nonce;
-                    auto const powHash = GetPOWHash(current);
-
-                    if (UintToArith256(powHash) <= current.hashTarget) {
-                        cllog << name() << " Submitting block blockhash: " << current.GetHash().ToString() << " height: " << current.nHeight << " nonce: " << nonce;
-                        m_plant.submitProof(current);
-                    } else {
-                        cwarn << name() << " CL Miner proposed invalid solution: " << current.GetHash().ToString() << " nonce: " << nonce;
-                    }
+                if (UintToArith256(powHash) <= m_current.hashTarget) {
+                    cllog << name()
+                        << " Submitting block blockhash: " << m_current.GetHash().ToString()
+                        << " height: " << m_current.nHeight << " nonce: " << nonce;
+                    m_plant.submitProof(m_current);
+                } else {
+                    cwarn << name()
+                        << " CL Miner proposed invalid solution: "
+                        << m_current.GetHash().ToString() << " nonce: " << nonce;
                 }
             }
             
@@ -576,6 +562,9 @@ bool CLMiner::init(int height)
     // get all platforms
     try
     {
+        uint32_t const epoch = height / nrghash::constants::EPOCH_LENGTH;
+        cllog << name() << " Generating DAG for epoch #" << epoch;
+
         std::vector<cl::Platform> platforms = getPlatforms();
         if (platforms.empty())
             return false;
@@ -663,7 +652,7 @@ bool CLMiner::init(int height)
 
         unsigned int computeUnits = m_device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
         // Apparently some 36 CU devices return a bogus 14!!!
-        computeUnits = computeUnits == 14 ? 36 : computeUnits;
+        computeUnits = (computeUnits == 14) ? 36 : computeUnits;
         if ((platformId == OPENCL_PLATFORM_AMD) && (computeUnits != 36))
         {
             m_globalWorkSize = (m_globalWorkSize * computeUnits) / 36;
@@ -676,9 +665,11 @@ bool CLMiner::init(int height)
         
         auto cache = nrghash::cache_t(height);
         uint64_t dagSize = nrghash::dag_t::get_full_size(height);//dag->size();
-        //uint32_t dagSize128 = (unsigned)(dagSize / nrghash::constants::MIX_BYTES);
+        m_dagItems = (unsigned)(dagSize / nrghash::constants::MIX_BYTES);        
+        const int dagGenItems = m_dagItems * 2;  // GPU computes partial 512-bit DAG items.
+
         uint32_t lightSize64 = (unsigned)(cache.data().size()); //dag->get_cache().data().size();
-        uint32_t lightSize = lightSize64 * sizeof(uint32_t);
+        uint32_t lightSize = cache.size();
 
 
         // patch source code
@@ -691,13 +682,12 @@ bool CLMiner::init(int height)
         auto code = std::string(nrghash_cl, nrghash_cl + sizeof(nrghash_cl));
 
         addDefinition(code, "WORKSIZE", m_workgroupSize);
-        //addDefinition(code, "DAG_SIZE", dagSize128);
+        addDefinition(code, "DAG_GEN_ITEMS", dagGenItems);
         //addDefinition(code, "LIGHT_SIZE", lightSize64);
         addDefinition(code, "ACCESSES", nrghash::constants::ACCESSES);
         addDefinition(code, "MAX_OUTPUTS", c_maxSearchResults);
         addDefinition(code, "PLATFORM", platformId);
         addDefinition(code, "COMPUTE", computeCapability);
-        //addDefinition(code, "THREADS_PER_HASH", 8); // going to be set to 8 by the kernel either way , kernel only 
         
         if (platformId == OPENCL_PLATFORM_CLOVER)
         {
@@ -794,12 +784,15 @@ bool CLMiner::init(int height)
         }
 
         // check whether the current dag fits in memory everytime we recreate the DAG
-        cl_ulong result = 0;
-        m_device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &result);
-        if (result < dagSize)
+        cl_ulong global_memory_size = 0;
+        m_device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &global_memory_size);
+        
+        cl_ulong required_memory_size = dagSize + lightSize;
+        
+        if (global_memory_size < required_memory_size)
         {
             cnote << "OpenCL device " << device_name << " has insufficient GPU memory."
-                  << FormattedMemSize(result) << " of memory found, " << FormattedMemSize(dagSize)
+                  << FormattedMemSize(global_memory_size) << " of memory found, " << FormattedMemSize(dagSize)
                   << " of memory required";
             return false;
         }
@@ -811,9 +804,9 @@ bool CLMiner::init(int height)
             m_light.clear();
             m_light.push_back(cl::Buffer(m_context[0], CL_MEM_READ_ONLY, lightSize));
             cllog << "Creating DAG buffer, size: " << FormattedMemSize(dagSize)
-                  << ", free: " << FormattedMemSize(result - lightSize - dagSize);
+                  << ", free: " << FormattedMemSize(global_memory_size - lightSize - dagSize);
             m_dag.clear();
-            m_dag.push_back(cl::Buffer(m_context[0], CL_MEM_READ_ONLY, dagSize));
+            m_dag.push_back(cl::Buffer(m_context[0], CL_MEM_READ_WRITE, dagSize));
             cllog << "Loading kernels";
 
             // If we have a binary kernel to use, let's try it
@@ -847,33 +840,34 @@ bool CLMiner::init(int height)
         ETHCL_LOG("Creating mining buffer");
         m_searchBuffer.clear();
         m_searchBuffer.push_back(
-            cl::Buffer(m_context[0], CL_MEM_WRITE_ONLY, sizeof(SearchResults)));
+            cl::Buffer(m_context[0], CL_MEM_READ_WRITE, sizeof(SearchResults)));
+
+        ETHCL_LOG("Generating DAG...");
 
         m_dagKernel.setArg(1, m_light[0]);
         m_dagKernel.setArg(2, m_dag[0]);
-        m_dagKernel.setArg(3, (uint32_t)(lightSize / 64));
+        m_dagKernel.setArg(3, lightSize64);
         m_dagKernel.setArg(4, ~0u);
 
-        const uint32_t workItems = m_dagItems * 2;  // GPU computes partial 512-bit DAG items.
-
         auto startDAG = std::chrono::steady_clock::now();
-        uint32_t start;
-        const uint32_t chunk = 10000 * m_workgroupSize;
-        for (start = 0; start <= workItems - chunk; start += chunk)
+        int start;
+        const int chunk = 10000 * m_workgroupSize;
+        for (start = 0; start <= dagGenItems - chunk && !shouldStop(); start += chunk)
         {
             m_dagKernel.setArg(0, start);
             m_queue[0].enqueueNDRangeKernel(m_dagKernel, cl::NullRange, chunk, m_workgroupSize);
             m_queue[0].finish();
         }
-        if (start < workItems)
+        if (start < dagGenItems && !shouldStop())
         {
-            uint32_t groupsLeft = workItems - start;
+            uint32_t groupsLeft = dagGenItems - start;
             groupsLeft = (groupsLeft + m_workgroupSize - 1) / m_workgroupSize;
             m_dagKernel.setArg(0, start);
             m_queue[0].enqueueNDRangeKernel(
                 m_dagKernel, cl::NullRange, groupsLeft * m_workgroupSize, m_workgroupSize);
             m_queue[0].finish();
         }
+
         auto endDAG = std::chrono::steady_clock::now();
 
         auto dagTime = std::chrono::duration_cast<std::chrono::milliseconds>(endDAG - startDAG);
