@@ -209,7 +209,7 @@ void MinePlant::collectData(const boost::system::error_code& ec)
         // Collect and reset hashrates
         if (!miner->is_mining_paused()) {
             auto hrd = miner->RetrieveHashRateDiff();
-            auto hr = double(hrd) * 1e6 / time_diff_us;
+            float hr = float(hrd) * 1e6 / time_diff_us;
             auto prev_hr = m_progress.minersHashRates[miner->name()];
             
             if (prev_hr > 1 && hr > 1) {
@@ -218,7 +218,7 @@ void MinePlant::collectData(const boost::system::error_code& ec)
             }
             
             progress.hashRate += hr;
-            progress.minersHashRates.insert(std::make_pair<std::string, float>(miner->name(), hr));
+            progress.minersHashRates.insert(std::make_pair<std::string, float>(miner->name(), std::move(hr)));
             progress.miningIsPaused.insert(std::make_pair<std::string, bool>(miner->name(), false));
         } else {
             progress.minersHashRates.insert(std::make_pair<std::string, float>(miner->name(), 0.0));
