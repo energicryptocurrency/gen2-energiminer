@@ -284,6 +284,7 @@ void CLMiner::trun()
     uint32_t zerox3[3] = {0, 0, 0};
 
     uint64_t startNonce = 0;
+    auto activestartNonce= startNonce;
     SearchResults results;
 
     try
@@ -391,7 +392,7 @@ void CLMiner::trun()
             // Report results while the kernel is running.
             for (uint32_t i = 0; i < results.count && !haveNewWork(); i++)
             {
-                auto nonce = m_current.startNonce + results.rslt[i].gid;
+                auto nonce = activestartNonce + results.rslt[i].gid;
                 m_current.nNonce = nonce;
 
                 auto const powHash = GetPOWHash(m_current);
@@ -412,6 +413,7 @@ void CLMiner::trun()
             const auto hash_done = m_globalWorkSize;
 
             // Increase start nonce for following kernel execution.
+            activestartNonce = startNonce;
             startNonce += hash_done;
 
             // Report hash count
@@ -744,14 +746,14 @@ bool CLMiner::init(int height)
 
             /* Open kernels/nrghash_{devicename}_lws{local_work_size}.bin */
             std::transform(device_name.begin(), device_name.end(), device_name.begin(), ::tolower);
+            std::replace(device_name.begin(), device_name.end(), ' ', '_');
             fname_strm << boost::dll::program_location().parent_path().string()
 #if defined(_WIN32)
                        << "\\kernels\\nrghash_"
 #else
                        << "/kernels/nrghash_"
 #endif
-                       << device_name.replace(' ', '_')
-                       << "_lws" << m_workgroupSize << ".bin";
+                       << device_name << "_lws" << m_workgroupSize << ".bin";
             cllog << "Loading binary kernel " << fname_strm.str();
             try
             {
