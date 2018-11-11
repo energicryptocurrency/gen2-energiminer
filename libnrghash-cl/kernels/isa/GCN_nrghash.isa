@@ -27,6 +27,20 @@
     .ifdef DAGGEN
         .include "GCN3_nrghash_GenerateDAG.isa"
     .endif
+.elseifgpu fiji
+    .driver_version 200406
+    .include "GCN_nrghash_globaldata.isa"
+    .include "GCN3_nrghash_search.isa"
+    .ifdef DAGGEN
+        .include "GCN3_nrghash_GenerateDAG.isa"
+    .endif
+.elseifgpu gfx900
+    .driver_version 257000
+    .include "GCN_nrghash_globaldata.isa"
+    .include "GCN5_nrghash_search.isa"
+    .ifdef DAGGEN
+        .include "GCN5_nrghash_GenerateDAG.isa"
+    .endif
 .elseifgpu gfx901
     .driver_version 257000
     .include "GCN_nrghash_globaldata.isa"

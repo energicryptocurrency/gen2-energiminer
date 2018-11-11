@@ -5,7 +5,7 @@ ASFLAGS=-I$(SDIR)
 AS=clrxasm
 
 .PHONY: all
-all: ellesmere tonga baffin gfx901
+all: ellesmere tonga baffin fiji gfx900 gfx901
 	@echo "Built nrghash kernel for all architectures."
 
 .PHONY: clean
@@ -19,16 +19,24 @@ clean:
 
 .PHONY: ellesmere
 ellesmere: ellesmere_lws64.bin ellesmere_lws128.bin ellesmere_lws192.bin ellesmere_lws256.bin
-		@echo "Built Ellesmere kernels..."
+	@echo "Built Ellesmere kernels..."
 
 .PHONY: tonga
 tonga: tonga_lws64.bin tonga_lws128.bin tonga_lws192.bin tonga_lws256.bin
-		@echo "Built Tonga kernels..."
+	@echo "Built Tonga kernels..."
 
 .PHONY: baffin
 baffin: baffin_lws64.bin baffin_lws128.bin baffin_lws192.bin baffin_lws256.bin
-		@echo "Built Baffin kernels..."
+	@echo "Built Baffin kernels..."
+
+.PHONY: fiji
+fiji: fiji_lws64.bin fiji_lws128.bin fiji_lws192.bin fiji_lws256.bin
+	@echo "Built Fiji kernels..."
+
+.PHONY: gfx900
+gfx900: gfx900_lws64.bin gfx900_lws128.bin gfx900_lws192.bin gfx900_lws256.bin
+	@echo "Built gfx900 kernels..."
 
 .PHONY: gfx901
 gfx901: gfx901_lws64.bin gfx901_lws128.bin gfx901_lws192.bin gfx901_lws256.bin
-		@echo "Built gfx901 kernels..."
+	@echo "Built gfx901 kernels..."
