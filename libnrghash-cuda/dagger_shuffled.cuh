@@ -5,8 +5,8 @@
 template <uint32_t _PARALLEL_HASH>
 __device__ __forceinline__ bool compute_hash(
 	uint64_t nonce,
-	uint64_t target,
-	uint2 *mix_hash
+	uint64_t target/*,
+	uint2 *mix_hash*/
 	)
 {
 	// sha3_512(header .. nonce)
@@ -88,12 +88,12 @@ __device__ __forceinline__ bool compute_hash(
 	// keccak_256(keccak_512(header..nonce) .. mix);
 	if (cuda_swab64(keccak_f1600_final(state)) > target)
 		return true;
-
+#if 0
 	mix_hash[0] = state[8];
 	mix_hash[1] = state[9];
 	mix_hash[2] = state[10];
 	mix_hash[3] = state[11];
-
+#endif
 	return false;
 }
 

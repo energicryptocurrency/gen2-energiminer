@@ -23,13 +23,17 @@ ethash_search(
 	)
 {
 	uint32_t const gid = blockIdx.x * blockDim.x + threadIdx.x;
-	uint2 mix[4];
-        if (compute_hash<_PARALLEL_HASH>(start_nonce + gid, d_target, mix))
+	//uint2 mix[4];
+    
+	if (compute_hash<_PARALLEL_HASH>(start_nonce + gid, d_target/*, mix*/))
 		return;
+
 	uint32_t index = atomicInc((uint32_t *)&g_output->count, 0xffffffff);
 	if (index >= MAX_SEARCH_RESULTS)
 		return;
 	g_output->result[index].gid = gid;
+    
+#if 0
 	g_output->result[index].mix[0] = mix[0].x;
 	g_output->result[index].mix[1] = mix[0].y;
 	g_output->result[index].mix[2] = mix[1].x;
@@ -38,6 +42,7 @@ ethash_search(
 	g_output->result[index].mix[5] = mix[2].y;
 	g_output->result[index].mix[6] = mix[3].x;
 	g_output->result[index].mix[7] = mix[3].y;
+#endif
 }
 
 __host__ void run_ethash_search(
@@ -108,6 +113,7 @@ ethash_calculate_dag_item(uint32_t start)
 }
 }
 
+#if 0
 __host__ void ethash_generate_dag(
 	uint64_t dag_size,
 	uint32_t gridSize,
@@ -133,6 +139,7 @@ __host__ void ethash_generate_dag(
 	}
 	CUDA_SAFE_CALL(cudaGetLastError());
 }
+#endif
 
 __host__ void ethash_generate_dag_part(
 	uint64_t start,

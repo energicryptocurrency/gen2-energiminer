@@ -1,9 +1,12 @@
 find_package(CUDA REQUIRED)
 
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};--ptxas-options=-v;-use_fast_math;-lineinfo)
+list(APPEND CUDA_NVCC_FLAGS "--ptxas-options=-v,-warn-lmem-usage")
+list(APPEND CUDA_NVCC_FLAGS "--generate-line-info")
+list(APPEND CUDA_NVCC_FLAGS "--use_fast_math")
+list(APPEND CUDA_NVCC_FLAGS "--default-stream=per-thread")
 
 if (NOT MSVC)
-	list(APPEND CUDA_NVCC_FLAGS "--disable-warnings")
+	list(APPEND CUDA_NVCC_FLAGS "-Xcompiler=-Wno-pedantic")
 endif()
 
 list(APPEND CUDA_NVCC_FLAGS_RELEASE -O3)
