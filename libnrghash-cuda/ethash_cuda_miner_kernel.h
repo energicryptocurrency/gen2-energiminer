@@ -16,8 +16,8 @@ struct Search_Result
 {
     // One word for gid and 8 for mix hash
     uint32_t gid;
-    uint32_t mix[8];
-    uint32_t pad[7];  // pad to size power of 2
+    //uint32_t mix[8];
+    //uint32_t pad[7];  // pad to size power of 2
 };
 
 struct Search_results
@@ -75,12 +75,15 @@ void run_ethash_search(
 	uint32_t parallelHash
 	);
 
+#if 0
 void ethash_generate_dag(
 	uint64_t dag_size,
 	uint32_t gridSize,
 	uint32_t blockSize,
 	cudaStream_t stream
 	);
+#endif
+
 void ethash_generate_dag_part(
 	uint64_t start,
 	uint32_t gridSize,
