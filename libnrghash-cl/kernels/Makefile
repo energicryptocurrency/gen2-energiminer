@@ -5,7 +5,7 @@ ASFLAGS=-I$(SDIR)
 AS=clrxasm
 
 .PHONY: all
-all: ellesmere tonga baffin fiji gfx900 gfx901
+all: ellesmere tonga baffin fiji gfx901 # gfx900
 	@echo "Built nrghash kernel for all architectures."
 
 .PHONY: clean
