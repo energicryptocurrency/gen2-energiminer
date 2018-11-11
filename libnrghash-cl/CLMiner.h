@@ -47,7 +47,7 @@ public:
     /// Default value of the local work size. Also known as workgroup size.
     static const unsigned c_defaultLocalWorkSize = 192;
     /// Default value of the global work size as a multiplier of the local work size
-    static const unsigned c_defaultGlobalWorkSizeMultiplier = 4096;
+    static const unsigned c_defaultGlobalWorkSizeMultiplier = 8192;
 
     CLMiner(const Plant& plant, unsigned index);
     ~CLMiner() override;

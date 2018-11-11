@@ -284,7 +284,7 @@ void CLMiner::trun()
     uint32_t zerox3[3] = {0, 0, 0};
 
     uint64_t startNonce = 0;
-    auto activestartNonce= startNonce;
+    auto activeStartNonce = startNonce;
     SearchResults results;
 
     try
@@ -299,25 +299,6 @@ void CLMiner::trun()
             }
             
             decltype(&m_queue[0]) curr_queue = nullptr;
-
-            if (!m_queue.empty())
-            {
-                curr_queue = &m_queue[0];
-
-                // schedule a single command instead of multiple
-                curr_queue->enqueueReadBuffer(
-                    m_searchBuffer[0], CL_TRUE,
-                    0, sizeof(results),
-                    &results);
-
-                // clean the solution count, hash count, and abort flag
-                curr_queue->enqueueWriteBuffer(m_searchBuffer[0], CL_FALSE,
-                    offsetof(SearchResults, count), sizeof(zerox3), zerox3);
-            } else  {
-                results.count = 0;
-                results.hashCount = 0;
-            }
-
 
             if (haveNewWork()) {
                 m_current = getWork();
@@ -375,6 +356,24 @@ void CLMiner::trun()
                 m_searchKernel.setArg(6, 0xffffffff);
 
                 results.count = 0;
+            } else if (!m_queue.empty() && m_current.isValid()) {
+                curr_queue = &m_queue[0];
+
+                // schedule a single command instead of multiple
+                curr_queue->enqueueReadBuffer(
+                    m_searchBuffer[0], CL_TRUE,
+                    0, sizeof(results),
+                    &results);
+                
+                // Report hash count
+                updateHashRate(m_globalWorkSize);
+
+                // clean the solution count, hash count, and abort flag
+                curr_queue->enqueueWriteBuffer(m_searchBuffer[0], CL_FALSE,
+                    offsetof(SearchResults, count), sizeof(zerox3), zerox3);
+            } else  {
+                results.count = 0;
+                results.hashCount = 0;
             }
 
             if ( !m_current.isValid() ) {
@@ -392,7 +391,7 @@ void CLMiner::trun()
             // Report results while the kernel is running.
             for (uint32_t i = 0; i < results.count && !haveNewWork(); i++)
             {
-                auto nonce = activestartNonce + results.rslt[i].gid;
+                auto nonce = activeStartNonce + results.rslt[i].gid;
                 m_current.nNonce = nonce;
 
                 auto const powHash = GetPOWHash(m_current);
@@ -408,16 +407,10 @@ void CLMiner::trun()
                         << m_current.GetHash().ToString() << " nonce: " << nonce;
                 }
             }
-            
-            //const auto hash_done = results.hashCount * m_workgroupSize;
-            const auto hash_done = m_globalWorkSize;
 
             // Increase start nonce for following kernel execution.
-            activestartNonce = startNonce;
-            startNonce += hash_done;
-
-            // Report hash count
-            updateHashRate(hash_done);
+            activeStartNonce = startNonce;
+            startNonce += m_globalWorkSize;
         }
         
         if (!m_queue.empty()) {
