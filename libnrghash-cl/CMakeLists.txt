@@ -13,11 +13,26 @@ add_custom_command(
 	COMMENT "Generating OpenCL Kernel Byte Array"
 	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/kernels/cl/nrghash.cl
 )
-add_custom_target(clbin2h_stable DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/nrghash.h ${CMAKE_CURRENT_SOURCE_DIR}/cl/nrghash.cl)
+add_custom_command(
+	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/old_nrghash.h
+	COMMAND ${CMAKE_COMMAND} ARGS
+	-DBIN2H_SOURCE_FILE="${CMAKE_CURRENT_SOURCE_DIR}/kernels/cl/old_nrghash.cl"
+	-DBIN2H_VARIABLE_NAME=old_nrghash_cl
+	-DBIN2H_HEADER_FILE="${CMAKE_CURRENT_BINARY_DIR}/old_nrghash.h"
+	-P "${CMAKE_CURRENT_SOURCE_DIR}/bin2h.cmake"
+	COMMENT "Generating Old OpenCL Kernel Byte Array"
+	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/kernels/cl/old_nrghash.cl
+)
+
+add_custom_target(clbin2h_stable
+    DEPENDS
+        ${CMAKE_CURRENT_BINARY_DIR}/nrghash.h ${CMAKE_CURRENT_SOURCE_DIR}/cl/nrghash.cl
+        ${CMAKE_CURRENT_BINARY_DIR}/old_nrghash.h ${CMAKE_CURRENT_SOURCE_DIR}/cl/old_nrghash.cl)
 
 set(SOURCES
 	CLMiner.h CLMiner.cpp
 	${CMAKE_CURRENT_BINARY_DIR}/nrghash.h
+	${CMAKE_CURRENT_BINARY_DIR}/old_nrghash.h
 )
 
 if(APPLE)

@@ -9,6 +9,7 @@
 
 #include "CLMiner.h"
 #include "nrghash.h"
+#include "old_nrghash.h"
 
 namespace energi
 {
@@ -407,7 +408,8 @@ void CLMiner::trun()
                 }
             }
             
-            const auto hash_done = results.hashCount * m_workgroupSize;
+            //const auto hash_done = results.hashCount * m_workgroupSize;
+            const auto hash_done = m_globalWorkSize;
 
             // Increase start nonce for following kernel execution.
             startNonce += hash_done;
@@ -423,6 +425,7 @@ void CLMiner::trun()
     catch (cl::Error const& _e)
     {
         cwarn << CLErrorHelper("OpenCL Error", _e);
+        m_abortqueue.clear();
         
         if (s_exit)
             exit(1);
@@ -679,11 +682,20 @@ bool CLMiner::init(int height)
         // TODO: Just use C++ raw string literal.
 
         cllog << "OpenCL kernel";
-        auto code = std::string(nrghash_cl, nrghash_cl + sizeof(nrghash_cl));
+        std::string code;
+        bool use_new_cl = (platformId == OPENCL_PLATFORM_AMD);
+        
+        if (use_new_cl) {
+            code = std::string(nrghash_cl, nrghash_cl + sizeof(nrghash_cl));
+        } else {
+            code = std::string(old_nrghash_cl, old_nrghash_cl + sizeof(old_nrghash_cl));
+        }
 
+        addDefinition(code, "GROUP_SIZE", m_workgroupSize);
         addDefinition(code, "WORKSIZE", m_workgroupSize);
         addDefinition(code, "DAG_GEN_ITEMS", dagGenItems);
-        //addDefinition(code, "LIGHT_SIZE", lightSize64);
+        addDefinition(code, "DAG_SIZE", m_dagItems);
+        addDefinition(code, "LIGHT_SIZE", lightSize64);
         addDefinition(code, "ACCESSES", nrghash::constants::ACCESSES);
         addDefinition(code, "MAX_OUTPUTS", c_maxSearchResults);
         addDefinition(code, "PLATFORM", platformId);
@@ -738,7 +750,8 @@ bool CLMiner::init(int height)
 #else
                        << "/kernels/nrghash_"
 #endif
-                       << device_name << "_lws" << m_workgroupSize << ".bin";
+                       << device_name.replace(' ', '_')
+                       << "_lws" << m_workgroupSize << ".bin";
             cllog << "Loading binary kernel " << fname_strm.str();
             try
             {
