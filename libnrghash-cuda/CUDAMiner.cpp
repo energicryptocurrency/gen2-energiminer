@@ -324,15 +324,16 @@ bool CUDAMiner::cuda_init(
         nrghash::cache_t cache = nrghash::cache_t(height);
         uint64_t dagSize = nrghash::dag_t::get_full_size(height);
         const auto lightNumItems = (unsigned)(cache.data().size());
+        const auto lightSize = cache.size();
         const auto dagNumItems = (unsigned)(dagSize / nrghash::constants::MIX_BYTES);
         // create buffer for dag
         std::vector<uint32_t> vData;
+        vData.reserve(lightSize / sizeof(uint32_t));
         for (auto &d : cache.data()) {
             for ( auto &dv : d) {
                 vData.push_back(dv.hword);
             }
         }
-        const auto lightSize = sizeof(uint32_t) * vData.size();
 
         CUDA_SAFE_CALL(cudaSetDevice(m_device_num));
         cudalog << "Set Device to current";
@@ -387,7 +388,28 @@ bool CUDAMiner::cuda_init(
                         << FormattedMemSize(device_props.totalGlobalMem - dagSize - lightSize) << " left)";
                     auto startDAG = std::chrono::steady_clock::now();
 
-                    ethash_generate_dag(dagSize, s_gridSize, s_blockSize, m_streams[0]);
+                    // Moved here from CUDA code
+                    {
+                        const uint32_t work = (uint32_t)(dagSize / sizeof(hash64_t));
+                        const uint32_t batch = s_gridSize * s_blockSize;
+
+                        uint32_t base;
+                        
+                        for (base = 0; base <= work - batch && !shouldStop(); base += batch)
+                        {
+                            ethash_generate_dag_part(base, s_gridSize, s_blockSize, m_streams[0]);
+                        }
+                        
+                        if (base < work && !shouldStop())
+                        {
+                            uint32_t lastGrid = work - base;
+                            lastGrid = (lastGrid + s_blockSize - 1) / s_blockSize;
+                            ethash_generate_dag_part(base, lastGrid, s_blockSize, m_streams[0]);
+                        }
+                        
+                        CUDA_SAFE_CALL(cudaGetLastError());
+                    }
+
                     cudalog << "Generated DAG for GPU #" << m_device_num << " in: "
                             << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - startDAG).count()
                             << " ms.";
@@ -438,9 +460,11 @@ void CUDAMiner::search(
 
     // choose the starting nonce
     uint64_t current_nonce = startN;
+    
+    const auto stream_grid_size = s_gridSize / s_numStreams;
 
     // Nonces processed in one pass by a single stream
-    const uint32_t batch_size = s_gridSize * s_blockSize;
+    const uint32_t batch_size = stream_grid_size * s_blockSize;
     // Nonces processed in one pass by all streams
     const uint32_t streams_batch_size = batch_size * s_numStreams;
 
@@ -450,7 +474,7 @@ void CUDAMiner::search(
         cudaStream_t stream = m_streams[current_index];
         auto buffer = m_search_buf[current_index];
         buffer->count = 0;
-        run_ethash_search(s_gridSize, s_blockSize, stream, buffer, current_nonce, m_parallelHash);
+        run_ethash_search(stream_grid_size, s_blockSize, stream, buffer, current_nonce, m_parallelHash);
     }
 
     // process stream batches until we get new work.
@@ -470,7 +494,7 @@ void CUDAMiner::search(
             buffer->count = 0;
 
             // restart ASAP
-            run_ethash_search(s_gridSize, s_blockSize, stream, buffer, current_nonce, m_parallelHash);
+            run_ethash_search(stream_grid_size, s_blockSize, stream, buffer, current_nonce, m_parallelHash);
             
             if (found_count) {
                 uint64_t nonce_base = current_nonce - streams_batch_size;

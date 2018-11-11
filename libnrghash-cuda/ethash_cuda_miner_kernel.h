@@ -77,8 +77,14 @@ void run_ethash_search(
 
 void ethash_generate_dag(
 	uint64_t dag_size,
-	uint32_t blocks,
-	uint32_t threads,
+	uint32_t gridSize,
+	uint32_t blockSize,
+	cudaStream_t stream
+	);
+void ethash_generate_dag_part(
+	uint64_t start,
+	uint32_t gridSize,
+	uint32_t blockSize,
 	cudaStream_t stream
 	);
 

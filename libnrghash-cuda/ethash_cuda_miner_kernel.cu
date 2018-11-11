@@ -134,6 +134,17 @@ __host__ void ethash_generate_dag(
 	CUDA_SAFE_CALL(cudaGetLastError());
 }
 
+__host__ void ethash_generate_dag_part(
+	uint64_t start,
+	uint32_t gridSize,
+	uint32_t blockSize,
+	cudaStream_t stream
+	)
+{
+    ethash_calculate_dag_item <<<gridSize, blockSize, 0, stream>>>(start);
+    CUDA_SAFE_CALL(cudaStreamSynchronize(stream));
+}
+
 __host__ void set_constants(
 	hash128_t* _dag,
 	uint32_t _dag_size,
