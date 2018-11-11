@@ -286,6 +286,11 @@ void CLMiner::trun()
     uint64_t startNonce = 0;
     auto activeStartNonce = startNonce;
     SearchResults results;
+    
+    constexpr auto BUFFER_COUNT = 2U;
+    uint64_t bufferNonce[BUFFER_COUNT] = {0};
+    uint32_t activeBuffer = 0;
+    uint32_t batchSize = 0;
 
     try
     {
@@ -345,10 +350,11 @@ void CLMiner::trun()
                 // zero the result count
                 curr_queue->enqueueWriteBuffer(m_searchBuffer[0], CL_FALSE,
                     offsetof(SearchResults, count), sizeof(zerox3), zerox3);
+                curr_queue->enqueueWriteBuffer(m_searchBuffer[1], CL_FALSE,
+                    offsetof(SearchResults, count), sizeof(zerox3), zerox3);
 
                 startNonce = m_plant.getStartNonce(m_current, m_index);
 
-                m_searchKernel.setArg(0, m_searchBuffer[0]);  // Supply output buffer to kernel.
                 m_searchKernel.setArg(1, m_header[0]);        // Supply header buffer to kernel.
                 m_searchKernel.setArg(2, m_dag[0]);           // Supply DAG buffer to kernel.
                 m_searchKernel.setArg(3, m_dagItems);
@@ -356,21 +362,37 @@ void CLMiner::trun()
                 m_searchKernel.setArg(6, 0xffffffff);
 
                 results.count = 0;
+                
+                // Start first of two scheduled kernels
+                //---
+                batchSize = m_globalWorkSize / BUFFER_COUNT;
+
+                activeBuffer = 0;
+                bufferNonce[activeBuffer] = startNonce;
+                startNonce += batchSize;
+                
+                m_searchKernel.setArg(0, m_searchBuffer[activeBuffer]);  // Supply output buffer to kernel.
+                m_searchKernel.setArg(4, bufferNonce[activeBuffer]);
+                curr_queue->enqueueNDRangeKernel(
+                    m_searchKernel, cl::NullRange, batchSize, m_workgroupSize);
             } else if (!m_queue.empty() && m_current.isValid()) {
                 curr_queue = &m_queue[0];
 
                 // schedule a single command instead of multiple
                 curr_queue->enqueueReadBuffer(
-                    m_searchBuffer[0], CL_TRUE,
+                    m_searchBuffer[activeBuffer], CL_TRUE,
                     0, sizeof(results),
                     &results);
                 
                 // Report hash count
-                updateHashRate(m_globalWorkSize);
+                updateHashRate(batchSize);
 
                 // clean the solution count, hash count, and abort flag
-                curr_queue->enqueueWriteBuffer(m_searchBuffer[0], CL_FALSE,
+                curr_queue->enqueueWriteBuffer(m_searchBuffer[activeBuffer], CL_FALSE,
                     offsetof(SearchResults, count), sizeof(zerox3), zerox3);
+                
+                activeStartNonce = bufferNonce[activeBuffer];
+                activeBuffer = (activeBuffer + 1) % BUFFER_COUNT;;
             } else  {
                 results.count = 0;
                 results.hashCount = 0;
@@ -382,10 +404,14 @@ void CLMiner::trun()
             }
 
             if (curr_queue != nullptr) {
-                // Run the kernel.
-                m_searchKernel.setArg(4, startNonce);
+                auto nextBuffer = (activeBuffer + 1) % BUFFER_COUNT;
+                bufferNonce[nextBuffer] = startNonce;
+                startNonce += batchSize;
+                
+                m_searchKernel.setArg(0, m_searchBuffer[nextBuffer]);  // Supply output buffer to kernel.
+                m_searchKernel.setArg(4, bufferNonce[nextBuffer]);
                 curr_queue->enqueueNDRangeKernel(
-                    m_searchKernel, cl::NullRange, m_globalWorkSize, m_workgroupSize);
+                    m_searchKernel, cl::NullRange, batchSize, m_workgroupSize);
             }
 
             // Report results while the kernel is running.
@@ -407,10 +433,6 @@ void CLMiner::trun()
                         << m_current.GetHash().ToString() << " nonce: " << nonce;
                 }
             }
-
-            // Increase start nonce for following kernel execution.
-            activeStartNonce = startNonce;
-            startNonce += m_globalWorkSize;
         }
         
         if (!m_queue.empty()) {
@@ -848,6 +870,8 @@ bool CLMiner::init(int height)
         // create mining buffers
         ETHCL_LOG("Creating mining buffer");
         m_searchBuffer.clear();
+        m_searchBuffer.push_back(
+            cl::Buffer(m_context[0], CL_MEM_READ_WRITE, sizeof(SearchResults)));
         m_searchBuffer.push_back(
             cl::Buffer(m_context[0], CL_MEM_READ_WRITE, sizeof(SearchResults)));
 
