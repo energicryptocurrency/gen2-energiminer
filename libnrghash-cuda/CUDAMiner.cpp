@@ -240,7 +240,7 @@ void CUDAMiner::setParallelHash(unsigned _parallelHash)
 }
 
 unsigned const CUDAMiner::c_defaultBlockSize = 128;
-unsigned const CUDAMiner::c_defaultGridSize = 8192; // * CL_DEFAULT_LOCAL_WORK_SIZE
+unsigned const CUDAMiner::c_defaultGridSize = 4096;
 unsigned const CUDAMiner::c_defaultNumStreams = 2;
 
 bool CUDAMiner::cuda_configureGPU(
@@ -378,7 +378,7 @@ bool CUDAMiner::cuda_init(
             cudalog << "Generating mining buffers";
             for (unsigned i = 0; i != s_numStreams; ++i) {
                 CUDA_SAFE_CALL(cudaMallocHost(&m_search_buf[i], sizeof(Search_results)));
-                CUDA_SAFE_CALL(cudaStreamCreateWithFlags(&m_streams[i], cudaStreamNonBlocking));
+                CUDA_SAFE_CALL(cudaStreamCreateWithFlags(&m_streams[i], cudaStreamDefault));
             }
             m_current_target = 0;
             if (!hostDAG) {

@@ -712,6 +712,7 @@ bool CLMiner::init(int height)
 
         // create buffer for dag
         std::vector<uint32_t> vData;
+        vData.reserve(lightSize / sizeof(uint32_t));
         for (auto &d : cache.data()) {
             for ( auto &dv : d) {
                 vData.push_back(dv.hword);
