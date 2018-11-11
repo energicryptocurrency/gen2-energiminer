@@ -1,13 +1,23 @@
 # Set necessary compile and link flags
 
+include(EthCheckCXXFlags)
+
 # C++11 check and activation
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
 
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-unknown-pragmas -Wextra -Wno-error=parentheses -pedantic -Wno-unused-parameter")
 
+    eth_add_cxx_compiler_flag_if_supported(-ffunction-sections)
+    eth_add_cxx_compiler_flag_if_supported(-fdata-sections)
+    eth_add_cxx_linker_flag_if_supported(-Wl,--gc-sections)
+
 elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
 
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-unknown-pragmas -Wextra -Wno-unused-parameter")
+
+    eth_add_cxx_compiler_flag_if_supported(-ffunction-sections)
+    eth_add_cxx_compiler_flag_if_supported(-fdata-sections)
+    eth_add_cxx_linker_flag_if_supported(-Wl,--gc-sections)
 
 	if ("${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -fcolor-diagnostics -Qunused-arguments")
@@ -15,10 +25,10 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 
-	# declare Windows XP requirement
+	# declare Windows Vista requirement
 	# undefine windows.h MAX & MIN macros because they conflict with std::min & std::max functions
 	# disable unsafe CRT Library functions warnings
-	add_definitions(/D_WIN32_WINNT=0x0501 /DNOMINMAX /D_CRT_SECURE_NO_WARNINGS)
+	add_definitions(/D_WIN32_WINNT=0x0600 /DNOMINMAX /D_CRT_SECURE_NO_WARNINGS)
 
 	# enable parallel compilation
 	# specify Exception Handling Model
@@ -26,9 +36,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 	# disable unknown pragma warnings (C4068)
 	# disable conversion from 'size_t' to 'type', possible loss of data (C4267)
 	# disable C++ exception specification ignored except to indicate a function is not __declspec(nothrow) (C4290)
-	# disable decorated name length exceeded, name was truncated (C4503)
-    # disable conversion from 'type1' to 'type2', possible loss of data
-	add_compile_options(/MP /EHsc /GL /wd4068 /wd4267 /wd4290 /wd4503 /wd4244)
+	add_compile_options(/MP /EHsc /GL /wd4068 /wd4267 /wd4290)
 
 	# enable LTCG for faster builds
 	set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} /LTCG")
