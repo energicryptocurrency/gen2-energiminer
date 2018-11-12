@@ -240,7 +240,7 @@ void CUDAMiner::setParallelHash(unsigned _parallelHash)
 }
 
 unsigned const CUDAMiner::c_defaultBlockSize = 128;
-unsigned const CUDAMiner::c_defaultGridSize = 4096;
+unsigned const CUDAMiner::c_defaultGridSize = 16384;
 unsigned const CUDAMiner::c_defaultNumStreams = 2;
 
 bool CUDAMiner::cuda_configureGPU(
