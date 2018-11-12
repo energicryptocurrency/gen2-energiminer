@@ -273,7 +273,7 @@ struct SearchResults
     } rslt[c_maxSearchResults];
     uint32_t count;
     uint32_t hashCount;
-    uint32_t abort;
+    uint32_t abort_disabled;
 };
 
 void CLMiner::trun()
@@ -365,7 +365,7 @@ void CLMiner::trun()
                 
                 // Start first of two scheduled kernels
                 //---
-                batchSize = m_globalWorkSize / BUFFER_COUNT;
+                batchSize = m_globalWorkSize;
 
                 activeBuffer = 0;
                 bufferNonce[activeBuffer] = startNonce;
@@ -412,6 +412,7 @@ void CLMiner::trun()
                 m_searchKernel.setArg(4, bufferNonce[nextBuffer]);
                 curr_queue->enqueueNDRangeKernel(
                     m_searchKernel, cl::NullRange, batchSize, m_workgroupSize);
+                curr_queue->flush();
             }
 
             // Report results while the kernel is running.
@@ -452,12 +453,13 @@ void CLMiner::trun()
 void CLMiner::kick_miner()
 {
     // TODO: here is clear race condition on epoch change!
-
+#if 0
     // Memory for abort Cannot be static because crashes on macOS.
     const uint32_t one = 1;
     if (m_abortqueue.size())
         m_abortqueue[0].enqueueWriteBuffer(
             m_searchBuffer[0], CL_TRUE, offsetof(SearchResults, abort), sizeof(one), &one);
+#endif
 }
 
 unsigned CLMiner::getNumDevices()
@@ -670,19 +672,6 @@ bool CLMiner::init(int height)
         m_workgroupSize = s_workgroupSize;
         m_globalWorkSize = s_initialGlobalWorkSize;
 
-        unsigned int computeUnits = m_device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
-        // Apparently some 36 CU devices return a bogus 14!!!
-        computeUnits = (computeUnits == 14) ? 36 : computeUnits;
-        if ((platformId == OPENCL_PLATFORM_AMD) && (computeUnits != 36))
-        {
-            m_globalWorkSize = (m_globalWorkSize * computeUnits) / 36;
-            // make sure that global work size is evenly divisible by the local workgroup size
-            if (m_globalWorkSize % m_workgroupSize != 0)
-                m_globalWorkSize = ((m_globalWorkSize / m_workgroupSize) + 1) * m_workgroupSize;
-            cnote << "Adjusting CL work multiplier for " << computeUnits << " CUs."
-                  << "Adjusted work multiplier: " << m_globalWorkSize / m_workgroupSize;
-        }
-        
         auto cache = nrghash::cache_t(height);
         uint64_t dagSize = nrghash::dag_t::get_full_size(height);//dag->size();
         m_dagItems = (unsigned)(dagSize / nrghash::constants::MIX_BYTES);        

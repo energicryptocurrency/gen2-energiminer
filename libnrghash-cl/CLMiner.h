@@ -89,6 +89,7 @@ private:
     unsigned m_globalWorkSize = 0;
     unsigned m_workgroupSize = 0;
     unsigned m_dagItems = 0;
+    bool m_sleepBeforeWait{false};
 
     static std::mutex       m_device_mutex;
 

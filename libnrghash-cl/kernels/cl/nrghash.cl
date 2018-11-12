@@ -245,7 +245,7 @@ struct SearchResults {
     } rslt[MAX_OUTPUTS];
     uint count;
     uint hashCount;
-    uint abort;
+    uint abort_disabled;
 };
 
 __attribute__((reqd_work_group_size(WORKSIZE, 1, 1)))
@@ -259,8 +259,10 @@ __kernel void search(
     uint isolate
 )
 {
+#if 0
     if (g_output->abort)
         return;
+#endif
 
     __global hash128_t const* g_dag = (__global hash128_t const*) _g_dag;
 

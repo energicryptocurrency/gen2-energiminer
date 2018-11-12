@@ -820,13 +820,13 @@
         s_and_saveexec_b64 s[46:47], vcc
 
         /* got solution, set the abort flag */
-        s_waitcnt       lgkmcnt(0)
+        /*s_waitcnt       lgkmcnt(0)
         s_add_u32       scalar_double_temp0[0], output[0], 0x3c8
         s_addc_u32      scalar_double_temp0[1], output[1], 0
         v_mov_b32       temp0, 1
         v_mov_b32       mix_double_temp0[0], scalar_double_temp0[0]
         v_mov_b32       mix_double_temp0[1], scalar_double_temp0[1]
-        flat_atomic_add temp0, mix_double_temp0, temp0 glc
+        flat_atomic_add temp0, mix_double_temp0, temp0 glc*/
 
         /* increment the solution count */
         v_sub_u32       mix_double_temp0[0], vcc, mix_double_temp0[0], 8

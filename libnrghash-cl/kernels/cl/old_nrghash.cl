@@ -293,7 +293,7 @@ struct SearchResults {
     } rslt[MAX_OUTPUTS];
     uint count;
     uint hashCount;
-    uint abort;
+    uint abort_disabled;
 };
 
 #if PLATFORM != OPENCL_PLATFORM_NVIDIA // use maxrregs on nv
