@@ -1,4 +1,28 @@
 
+=== (next) ===
+
+Major changes:
+
+* NEW: low level optimized AMD kernels with 10-15% increase in hashrate.
+  - Devices: ellesmere, tonga, baffin, fiji, gfx901
+  - Disabled due to problems in tests: gfx900 (VEGA 56)
+* NEW: DAG generation cancellation support for fast exit.
+* CHANGED: redesign of hashrate calculation - more accurate and performing.
+  - Minor fluctuation is natural!
+* CHANGED: adjusted for smaller work size, but constant load of pipeline.
+  - Should be more responsible for blocks found and new work assigned.
+  - Should be better handle multiple GPUs.
+* CHANGED: ported OpenCL code from the latest ethminer.
+
+
+Minor changes:
+
+* FIXED: some log messages.
+* FIXED: removed unused hashmix results which led to local memory use.
+* FIXED: false invalid blocks in OpenCL during job change.
+
+
+
 === 2.1.0 (2018-11-09) ===
 
 Major changes:
