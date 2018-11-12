@@ -389,7 +389,7 @@ __kernel void search(
         atomic_inc(&g_output->hashCount);
 
     if (as_ulong(as_uchar8(state[0]).s76543210) < target) {
-        atomic_inc(&g_output->abort);
+        //atomic_inc(&g_output->abort);
         uint slot = min(MAX_OUTPUTS - 1u, atomic_inc(&g_output->count));
         g_output->rslt[slot].gid = gid;
 
